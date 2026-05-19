@@ -1,0 +1,726 @@
+﻿@model IEnumerable<HardwareManagementSystem.Models.Item>
+
+@{
+    ViewData["Title"] = "Inventory";
+
+    var categories = ViewBag.Categories as List<HardwareManagementSystem.Models.Category>;
+    var units = ViewBag.Units as List<HardwareManagementSystem.Models.Unit>;
+    var suppliers = ViewBag.Suppliers as List<HardwareManagementSystem.Models.Supplier>;
+
+    var totalItems = Model.Count();
+    var activeItems = Model.Count(i => i.Status == "Active");
+    var lowStockItems = Model.Count(i => i.CurrentStock > 0 && i.CurrentStock <= i.ReorderLevel);
+    var outOfStockItems = Model.Count(i => i.CurrentStock <= 0);
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="kpi-label">Total Items</div>
+            <div class="kpi-value">@totalItems</div>
+            <div class="kpi-trend">Inventory records</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="kpi-label">Active Items</div>
+            <div class="kpi-value">@activeItems</div>
+            <div class="kpi-trend">Available for POS</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="kpi-label">Low Stock</div>
+            <div class="kpi-value">@lowStockItems</div>
+            <div class="kpi-trend text-warning">Needs restocking</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-x-circle"></i>
+            </div>
+            <div class="kpi-label">Out of Stock</div>
+            <div class="kpi-value">@outOfStockItems</div>
+            <div class="kpi-trend text-danger">Critical inventory</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Inventory Management</h2>
+            <div class="hb-section-subtitle">
+                Manage hardware and construction supply items
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary">
+                <i class="bi bi-download me-1"></i>
+                Export
+            </button>
+
+            <button class="btn btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addItemModal">
+                <i class="bi bi-plus-circle me-1"></i>
+                Add Item
+            </button>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-lg-4">
+                <label class="form-label fw-semibold">Search Item</label>
+
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+
+                    <input type="text"
+                           id="inventorySearchInput"
+                           class="form-control border-start-0"
+                           placeholder="Search item name, code, category, supplier..." />
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Category</label>
+
+                <select id="inventoryCategoryFilter" class="form-select">
+                    <option value="all">All Categories</option>
+                    @if (categories != null)
+                    {
+                        foreach (var category in categories)
+                        {
+                            <option value="@category.CategoryName.ToLower()">@category.CategoryName</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Stock Status</label>
+
+                <select id="inventoryStockFilter" class="form-select">
+                    <option value="all">All Status</option>
+                    <option value="in-stock">In Stock</option>
+                    <option value="low-stock">Low Stock</option>
+                    <option value="out-of-stock">Out of Stock</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="button">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+
+        </div>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Item Code</th>
+                        <th>Item Name</th>
+                        <th>Category</th>
+                        <th>Unit</th>
+                        <th>Stock</th>
+                        <th>Cost</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th width="140">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var item in Model)
+                        {
+                            var stockStatus = item.Status == "Inactive"
+                            ? "inactive"
+                            : item.CurrentStock <= 0
+                            ? "out-of-stock"
+                            : item.CurrentStock <= item.ReorderLevel
+                            ? "low-stock"
+                            : "in-stock";
+
+                            <tr class="inventory-row"
+                                data-category="@(item.Category?.CategoryName.ToLower() ?? "")"
+                                data-stock="@stockStatus">
+
+                                <td>@item.ItemCode</td>
+
+                                <td>
+                                    <strong>@item.ItemName</strong>
+                                    <div class="text-muted small">
+                                        @(item.Description ?? "No description")
+                                    </div>
+                                </td>
+
+                                <td>@(item.Category?.CategoryName ?? "N/A")</td>
+
+                                <td>@(item.Unit?.ShortName ?? "N/A")</td>
+
+                                <td>
+                                    <strong>@item.CurrentStock.ToString("0.###")</strong>
+                                    <span class="text-muted small">
+                                        @(item.Unit?.ShortName ?? "")
+                                    </span>
+                                    <div class="text-muted small">
+                                        Reorder: @item.ReorderLevel.ToString("0.###")
+                                    </div>
+                                </td>
+
+                                <td>₱@item.CostPrice.ToString("N2")</td>
+
+                                <td>₱@item.SellingPrice.ToString("N2")</td>
+
+                                <td>
+                                    @if (item.Status == "Inactive")
+                                    {
+                                        <span class="badge badge-soft-warning">Inactive</span>
+                                    }
+                                    else if (item.CurrentStock <= 0)
+                                    {
+                                        <span class="badge badge-soft-danger">Out of Stock</span>
+                                    }
+                                    else if (item.CurrentStock <= item.ReorderLevel)
+                                    {
+                                        <span class="badge badge-soft-warning">Low Stock</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-success">In Stock</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <div class="d-flex gap-1">
+
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editItemModal"
+                                                data-id="@item.Id"
+                                                data-code="@item.ItemCode"
+                                                data-name="@item.ItemName"
+                                                data-categoryid="@item.CategoryId"
+                                                data-unitid="@item.UnitId"
+                                                data-supplierid="@item.SupplierId"
+                                                data-stock="@item.CurrentStock"
+                                                data-reorder="@item.ReorderLevel"
+                                                data-cost="@item.CostPrice"
+                                                data-price="@item.SellingPrice"
+                                                data-status="@item.Status"
+                                                data-description="@item.Description">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+
+                                        <form asp-controller="Inventory"
+                                              asp-action="Deactivate"
+                                              method="post"
+                                              class="confirm-deactivate d-inline">
+
+                                            @Html.AntiForgeryToken()
+
+                                            <input type="hidden"
+                                                   name="id"
+                                                   value="@item.Id" />
+
+                                            <button type="submit"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    @(item.Status == "Active" ? "" : "disabled")>
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No inventory items found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="modal fade" id="addItemModal" tabindex="-1" aria-labelledby="addItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="addItemModalLabel">Add Inventory Item</h5>
+                    <div class="text-muted small">
+                        Create a new hardware or construction supply item
+                    </div>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <form asp-controller="Inventory"
+                  asp-action="Create"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Item Code</label>
+                            <input type="text"
+                                   name="itemCode"
+                                   class="form-control"
+                                   placeholder="ITM-0001"
+                                   required />
+                        </div>
+
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Item Name</label>
+                            <input type="text"
+                                   name="itemName"
+                                   class="form-control"
+                                   placeholder="Example: Portland Cement"
+                                   required />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Category</label>
+                            <select name="categoryId" class="form-select" required>
+                                <option value="">Select Category</option>
+                                @if (categories != null)
+                                {
+                                    foreach (var category in categories)
+                                    {
+                                        <option value="@category.Id">@category.CategoryName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Unit</label>
+                            <select name="unitId" class="form-select" required>
+                                <option value="">Select Unit</option>
+                                @if (units != null)
+                                {
+                                    foreach (var unit in units)
+                                    {
+                                        <option value="@unit.Id">@unit.UnitName (@unit.ShortName)</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Supplier</label>
+                            <select name="supplierId" class="form-select">
+                                <option value="">No Supplier</option>
+                                @if (suppliers != null)
+                                {
+                                    foreach (var supplier in suppliers)
+                                    {
+                                        <option value="@supplier.Id">@supplier.SupplierName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Current Stock</label>
+                            <input type="number"
+                                   step="0.001"
+                                   name="currentStock"
+                                   class="form-control"
+                                   value="0"
+                                   required />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Reorder Level</label>
+                            <input type="number"
+                                   step="0.001"
+                                   name="reorderLevel"
+                                   class="form-control"
+                                   value="0"
+                                   required />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Cost Price</label>
+                            <input type="number"
+                                   step="0.01"
+                                   name="costPrice"
+                                   class="form-control"
+                                   value="0"
+                                   required />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Selling Price</label>
+                            <input type="number"
+                                   step="0.01"
+                                   name="sellingPrice"
+                                   class="form-control"
+                                   value="0"
+                                   required />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Description</label>
+                            <textarea name="description"
+                                      class="form-control"
+                                      rows="3"
+                                      placeholder="Optional item description..."></textarea>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Save Item
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editItemModal" tabindex="-1" aria-labelledby="editItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="editItemModalLabel">Edit Inventory Item</h5>
+                    <div class="text-muted small">
+                        Update item information, prices, and stock values
+                    </div>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <form asp-controller="Inventory"
+                  asp-action="Edit"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <input type="hidden"
+                       id="editItemId"
+                       name="id" />
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Item Code</label>
+                            <input type="text"
+                                   id="editItemCode"
+                                   name="itemCode"
+                                   class="form-control"
+                                   required />
+                        </div>
+
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Item Name</label>
+                            <input type="text"
+                                   id="editItemName"
+                                   name="itemName"
+                                   class="form-control"
+                                   required />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Category</label>
+                            <select id="editItemCategoryId"
+                                    name="categoryId"
+                                    class="form-select"
+                                    required>
+                                <option value="">Select Category</option>
+                                @if (categories != null)
+                                {
+                                    foreach (var category in categories)
+                                    {
+                                        <option value="@category.Id">@category.CategoryName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Unit</label>
+                            <select id="editItemUnitId"
+                                    name="unitId"
+                                    class="form-select"
+                                    required>
+                                <option value="">Select Unit</option>
+                                @if (units != null)
+                                {
+                                    foreach (var unit in units)
+                                    {
+                                        <option value="@unit.Id">@unit.UnitName (@unit.ShortName)</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Supplier</label>
+                            <select id="editItemSupplierId"
+                                    name="supplierId"
+                                    class="form-select">
+                                <option value="">No Supplier</option>
+                                @if (suppliers != null)
+                                {
+                                    foreach (var supplier in suppliers)
+                                    {
+                                        <option value="@supplier.Id">@supplier.SupplierName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Current Stock</label>
+                            <input type="number"
+                                   step="0.001"
+                                   id="editItemCurrentStock"
+                                   name="currentStock"
+                                   class="form-control"
+                                   required />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Reorder Level</label>
+                            <input type="number"
+                                   step="0.001"
+                                   id="editItemReorderLevel"
+                                   name="reorderLevel"
+                                   class="form-control"
+                                   required />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Cost Price</label>
+                            <input type="number"
+                                   step="0.01"
+                                   id="editItemCostPrice"
+                                   name="costPrice"
+                                   class="form-control"
+                                   required />
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Selling Price</label>
+                            <input type="number"
+                                   step="0.01"
+                                   id="editItemSellingPrice"
+                                   name="sellingPrice"
+                                   class="form-control"
+                                   required />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Status</label>
+                            <select id="editItemStatus"
+                                    name="status"
+                                    class="form-select">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Description</label>
+                            <textarea id="editItemDescription"
+                                      name="description"
+                                      class="form-control"
+                                      rows="3"></textarea>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Update Item
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.confirm-submit').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Save changes?',
+                    text: 'Please confirm before saving this record.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, save it',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        document.querySelectorAll('.confirm-deactivate').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Deactivate this item?',
+                    text: 'This item will no longer be available for POS transactions.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, deactivate',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        const editItemModal = document.getElementById('editItemModal');
+
+        if (editItemModal) {
+            editItemModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+
+                document.getElementById('editItemId').value = button.getAttribute('data-id');
+                document.getElementById('editItemCode').value = button.getAttribute('data-code');
+                document.getElementById('editItemName').value = button.getAttribute('data-name');
+                document.getElementById('editItemCategoryId').value = button.getAttribute('data-categoryid');
+                document.getElementById('editItemUnitId').value = button.getAttribute('data-unitid');
+                document.getElementById('editItemSupplierId').value = button.getAttribute('data-supplierid') || '';
+                document.getElementById('editItemCurrentStock').value = button.getAttribute('data-stock');
+                document.getElementById('editItemReorderLevel').value = button.getAttribute('data-reorder');
+                document.getElementById('editItemCostPrice').value = button.getAttribute('data-cost');
+                document.getElementById('editItemSellingPrice').value = button.getAttribute('data-price');
+                document.getElementById('editItemStatus').value = button.getAttribute('data-status') || 'Active';
+                document.getElementById('editItemDescription').value = button.getAttribute('data-description') || '';
+            });
+        }
+
+        const inventorySearchInput = document.getElementById('inventorySearchInput');
+        const inventoryCategoryFilter = document.getElementById('inventoryCategoryFilter');
+        const inventoryStockFilter = document.getElementById('inventoryStockFilter');
+        const inventoryRows = document.querySelectorAll('.inventory-row');
+
+        function filterInventory() {
+            const searchValue = inventorySearchInput.value.toLowerCase();
+            const categoryValue = inventoryCategoryFilter.value.toLowerCase();
+            const stockValue = inventoryStockFilter.value.toLowerCase();
+
+            inventoryRows.forEach(row => {
+                const rowText = row.innerText.toLowerCase();
+                const rowCategory = row.getAttribute('data-category');
+                const rowStock = row.getAttribute('data-stock');
+
+                const matchesSearch = rowText.includes(searchValue);
+                const matchesCategory = categoryValue === 'all' || rowCategory === categoryValue;
+                const matchesStock = stockValue === 'all' || rowStock === stockValue;
+
+                row.style.display = matchesSearch && matchesCategory && matchesStock ? '' : 'none';
+            });
+        }
+
+        inventorySearchInput.addEventListener('input', filterInventory);
+        inventoryCategoryFilter.addEventListener('change', filterInventory);
+        inventoryStockFilter.addEventListener('change', filterInventory);
+    </script>
+}

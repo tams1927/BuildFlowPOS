@@ -1,0 +1,282 @@
+@using HardwareManagementSystem.Models
+
+@{
+    ViewData["Title"] = "New Sales Return";
+
+    var sales = ViewBag.Sales as List<SalesHeader>;
+    var selectedSale = ViewBag.SelectedSale as SalesHeader;
+    var returnedQtys = ViewBag.ReturnedQtys as Dictionary<int, decimal> ?? new Dictionary<int, decimal>();
+}
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">New Sales Return</h2>
+            <div class="hb-section-subtitle">Process returned items and refund customers</div>
+        </div>
+        <a asp-controller="SalesReturn" asp-action="Index" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get" asp-controller="SalesReturn" asp-action="Create" class="mb-4">
+            <div class="row g-3">
+                <div class="col-lg-10">
+                    <label class="form-label fw-semibold">Select Original Completed Sale</label>
+                    <select name="saleId" class="form-select" required>
+                        <option value="">— Select Receipt —</option>
+                        @if (sales != null)
+                        {
+                            @foreach (var sale in sales)
+                            {
+                                var isSelected = selectedSale?.Id == sale.Id;
+                                <option value="@sale.Id" selected="@(isSelected ? "selected" : null)">
+                                    @sale.SalesNumber — &#x20B1;@sale.TotalAmount.ToString("N2") — @sale.SalesDate.ToString("MMM dd, yyyy")
+                                </option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-lg-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-1"></i>Load
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        @if (selectedSale != null)
+        {
+            <div class="alert alert-info d-flex gap-3 mb-4">
+                <i class="bi bi-receipt fs-4"></i>
+                <div>
+                    <strong>Receipt:</strong> @selectedSale.SalesNumber &nbsp;|&nbsp;
+                    <strong>Customer:</strong> @(selectedSale.Customer?.CustomerName ?? "Walk-in Customer") &nbsp;|&nbsp;
+                    <strong>Date:</strong> @selectedSale.SalesDate.ToString("MMM dd, yyyy hh:mm tt") &nbsp;|&nbsp;
+                    <strong>Total:</strong> &#x20B1;@selectedSale.TotalAmount.ToString("N2")
+                </div>
+            </div>
+
+            <form asp-controller="SalesReturn"
+                  asp-action="Create"
+                  method="post"
+                  id="returnForm"
+                  novalidate>
+
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="salesHeaderId" value="@selectedSale.Id" />
+
+                <div class="row g-3">
+
+                    <div class="col-lg-12">
+                        <label class="form-label fw-semibold">Select Item to Return</label>
+                        <select name="salesDetailId"
+                                id="salesDetailSelect"
+                                class="form-select"
+                                required>
+                            <option value="">— Select Item —</option>
+                            @foreach (var detail in selectedSale.SalesDetails)
+                            {
+                                var alreadyReturned = returnedQtys.GetValueOrDefault(detail.Id, 0m);
+                                var remaining = detail.Quantity - alreadyReturned;
+                                var isFullyReturned = remaining <= 0;
+
+                                <option value="@detail.Id"
+                                        data-price="@detail.UnitPrice"
+                                        data-soldqty="@detail.Quantity"
+                                        data-maxqty="@remaining"
+                                        disabled="@isFullyReturned">
+                                    @detail.Item?.ItemName
+                                    — Sold: @detail.Quantity.ToString("0.###")
+                                    — Returned: @alreadyReturned.ToString("0.###")
+                                    — Remaining: @remaining.ToString("0.###")
+                                    — @detail.UnitPrice.ToString("N2")/unit
+                                    @(isFullyReturned ? "(Fully Returned)" : "")
+                                </option>
+                            }
+                        </select>
+                        <div class="text-muted small mt-1" id="remainingQtyInfo"></div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <label class="form-label fw-semibold">Return Quantity</label>
+                        <input type="number"
+                               step="0.001"
+                               min="0.001"
+                               name="quantityReturned"
+                               id="quantityReturned"
+                               class="form-control"
+                               placeholder="0"
+                               required />
+                        <div class="text-muted small mt-1" id="maxQtyHint"></div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <label class="form-label fw-semibold">Refund Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">&#x20B1;</span>
+                            <input type="text"
+                                   id="refundAmountDisplay"
+                                   class="form-control"
+                                   readonly
+                                   placeholder="0.00" />
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4 d-flex align-items-end">
+                        <div class="form-check pb-2">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   name="restoreToInventory"
+                                   id="restoreToInventory"
+                                   value="true"
+                                   checked />
+                            <label class="form-check-label fw-semibold" for="restoreToInventory">
+                                Restore stock to inventory
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Return Reason <span class="text-danger">*</span></label>
+                        <textarea name="reason"
+                                  class="form-control"
+                                  rows="3"
+                                  placeholder="Example: Defective item, wrong item delivered, customer changed mind..."
+                                  required></textarea>
+                    </div>
+
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a asp-controller="SalesReturn"
+                       asp-action="Create"
+                       asp-route-saleId="@selectedSale.Id"
+                       class="btn btn-outline-primary">
+                        Reset
+                    </a>
+                    <button type="button"
+                            class="btn btn-danger"
+                            id="processReturnBtn">
+                        <i class="bi bi-arrow-return-left me-1"></i>
+                        Process Return
+                    </button>
+                </div>
+
+            </form>
+        }
+
+    </div>
+
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        const itemSelect = document.getElementById('salesDetailSelect');
+        const quantityInput = document.getElementById('quantityReturned');
+        const refundDisplay = document.getElementById('refundAmountDisplay');
+        const maxQtyHint = document.getElementById('maxQtyHint');
+        const remainingQtyInfo = document.getElementById('remainingQtyInfo');
+        const processBtn = document.getElementById('processReturnBtn');
+        const returnForm = document.getElementById('returnForm');
+
+        function getSelected() {
+            if (!itemSelect) return null;
+            const opt = itemSelect.options[itemSelect.selectedIndex];
+            if (!opt || !opt.value) return null;
+            return {
+                price: parseFloat(opt.dataset.price || 0),
+                maxQty: parseFloat(opt.dataset.maxqty || 0),
+                soldQty: parseFloat(opt.dataset.soldqty || 0)
+            };
+        }
+
+        function updateRefund() {
+            const sel = getSelected();
+            if (!sel || !quantityInput) {
+                if (refundDisplay) refundDisplay.value = '';
+                return;
+            }
+            const qty = parseFloat(quantityInput.value || 0);
+            const refund = isNaN(qty) || qty <= 0 ? 0 : sel.price * qty;
+            if (refundDisplay) refundDisplay.value = refund.toFixed(2);
+        }
+
+        function updateHints() {
+            const sel = getSelected();
+            if (!sel) {
+                if (maxQtyHint) maxQtyHint.textContent = '';
+                if (remainingQtyInfo) remainingQtyInfo.textContent = '';
+                return;
+            }
+            if (maxQtyHint) maxQtyHint.textContent = `Max returnable: ${sel.maxQty.toFixed(3)}`;
+            if (remainingQtyInfo) {
+                remainingQtyInfo.textContent = `Sold: ${sel.soldQty.toFixed(3)} | Remaining returnable: ${sel.maxQty.toFixed(3)}`;
+            }
+            if (quantityInput) quantityInput.max = sel.maxQty;
+        }
+
+        itemSelect?.addEventListener('change', function () {
+            updateHints();
+            updateRefund();
+            if (quantityInput) quantityInput.value = '';
+        });
+
+        quantityInput?.addEventListener('input', function () {
+            const sel = getSelected();
+            if (sel && parseFloat(this.value) > sel.maxQty) {
+                this.value = sel.maxQty;
+            }
+            if (parseFloat(this.value) < 0) this.value = 0;
+            updateRefund();
+        });
+
+        processBtn?.addEventListener('click', function () {
+            const sel = getSelected();
+            const qty = parseFloat(quantityInput?.value || 0);
+            const reason = document.querySelector('textarea[name="reason"]')?.value?.trim();
+
+            if (!sel) {
+                Swal.fire({ icon: 'warning', title: 'No item selected', text: 'Please select an item to return.', confirmButtonColor: '#1e40af' });
+                return;
+            }
+            if (!qty || qty <= 0) {
+                Swal.fire({ icon: 'warning', title: 'Invalid quantity', text: 'Return quantity must be greater than zero.', confirmButtonColor: '#1e40af' });
+                return;
+            }
+            if (qty > sel.maxQty) {
+                Swal.fire({ icon: 'warning', title: 'Quantity exceeded', text: `Return quantity cannot exceed ${sel.maxQty.toFixed(3)}.`, confirmButtonColor: '#1e40af' });
+                return;
+            }
+            if (!reason) {
+                Swal.fire({ icon: 'warning', title: 'Reason required', text: 'Please provide a return reason.', confirmButtonColor: '#1e40af' });
+                return;
+            }
+
+            const refund = (sel.price * qty).toFixed(2);
+
+            Swal.fire({
+                title: 'Process this return?',
+                html: `Refund amount: <strong>&#x20B1;${refund}</strong><br>Stock will ${document.getElementById('restoreToInventory')?.checked ? 'be restored' : 'NOT be restored'} to inventory.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, process return',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#475569'
+            }).then(result => {
+                if (result.isConfirmed) returnForm.submit();
+            });
+        });
+
+        updateHints();
+    });
+</script>
+}
+

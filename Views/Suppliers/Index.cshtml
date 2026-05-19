@@ -1,0 +1,516 @@
+﻿@model IEnumerable<HardwareManagementSystem.Models.Supplier>
+
+@{
+    ViewData["Title"] = "Suppliers";
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-building"></i>
+            </div>
+            <div class="kpi-label">Total Suppliers</div>
+            <div class="kpi-value">@Model.Count()</div>
+            <div class="kpi-trend">Registered supply vendors</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="kpi-label">Active Suppliers</div>
+            <div class="kpi-value">@Model.Count(s => s.IsActive)</div>
+            <div class="kpi-trend">Available for stock-in</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-pause-circle"></i>
+            </div>
+            <div class="kpi-label">Inactive Suppliers</div>
+            <div class="kpi-value">@Model.Count(s => !s.IsActive)</div>
+            <div class="kpi-trend text-warning">Currently disabled</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-truck"></i>
+            </div>
+            <div class="kpi-label">Stock-In Ready</div>
+            <div class="kpi-value">@Model.Count(s => s.IsActive)</div>
+            <div class="kpi-trend">Can be used for receiving</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Supplier Management</h2>
+            <div class="hb-section-subtitle">
+                Manage construction supply vendors and deliveries
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary">
+                <i class="bi bi-download me-1"></i>
+                Export
+            </button>
+
+            <button class="btn btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addSupplierModal">
+                <i class="bi bi-plus-circle me-1"></i>
+                Add Supplier
+            </button>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+            <div class="col-lg-5">
+                <label class="form-label fw-semibold">Search Supplier</label>
+
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+
+                    <input type="text"
+                           id="supplierSearchInput"
+                           class="form-control border-start-0"
+                           placeholder="Supplier name, contact person, or number..." />
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Status</label>
+
+                <select id="supplierStatusFilter" class="form-select">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Supplier</th>
+                        <th>Contact Person</th>
+                        <th>Contact No.</th>
+                        <th>Email</th>
+                        <th>Address</th>
+                        <th>Status</th>
+                        <th width="140">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var supplier in Model)
+                        {
+                            <tr class="supplier-row" data-status="@(supplier.IsActive ? "active" : "inactive")">
+                                <td>
+                                    <strong>@supplier.SupplierName</strong>
+                                    <div class="text-muted small">
+                                        SUP-@supplier.Id.ToString("0000")
+                                    </div>
+                                </td>
+
+                                <td>@(supplier.ContactPerson ?? "N/A")</td>
+                                <td>@(supplier.ContactNumber ?? "N/A")</td>
+                                <td>@(supplier.Email ?? "N/A")</td>
+                                <td>@(supplier.Address ?? "N/A")</td>
+
+                                <td>
+                                    @if (supplier.IsActive)
+                                    {
+                                        <span class="badge badge-soft-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">Inactive</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <div class="d-flex gap-1">
+
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editSupplierModal"
+                                                data-id="@supplier.Id"
+                                                data-name="@supplier.SupplierName"
+                                                data-contactperson="@supplier.ContactPerson"
+                                                data-contactnumber="@supplier.ContactNumber"
+                                                data-email="@supplier.Email"
+                                                data-address="@supplier.Address"
+                                                data-remarks="@supplier.Remarks"
+                                                data-active="@supplier.IsActive.ToString().ToLower()">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+
+                                        <form asp-controller="Suppliers"
+                                              asp-action="Deactivate"
+                                              method="post"
+                                              class="confirm-deactivate d-inline">
+
+                                            @Html.AntiForgeryToken()
+
+                                            <input type="hidden"
+                                                   name="id"
+                                                   value="@supplier.Id" />
+
+                                            <button type="submit"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    @(supplier.IsActive ? "" : "disabled")>
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No suppliers found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="addSupplierModal" tabindex="-1" aria-labelledby="addSupplierModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="addSupplierModalLabel">Add Supplier</h5>
+                    <div class="text-muted small">Create a new supplier record</div>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <form asp-controller="Suppliers"
+                  asp-action="Create"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Supplier Name</label>
+                            <input type="text"
+                                   name="supplierName"
+                                   class="form-control"
+                                   placeholder="Example: ABC Hardware Supply"
+                                   required />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contact Person</label>
+                            <input type="text"
+                                   name="contactPerson"
+                                   class="form-control"
+                                   placeholder="Example: Juan Santos" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contact Number</label>
+                            <input type="text"
+                                   name="contactNumber"
+                                   class="form-control"
+                                   placeholder="Example: 0917-222-3344" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email"
+                                   name="email"
+                                   class="form-control"
+                                   placeholder="supplier@email.com" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Address</label>
+                            <textarea name="address"
+                                      class="form-control"
+                                      rows="2"
+                                      placeholder="Supplier address..."></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Remarks</label>
+                            <textarea name="remarks"
+                                      class="form-control"
+                                      rows="2"
+                                      placeholder="Optional remarks..."></textarea>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Save Supplier
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editSupplierModal" tabindex="-1" aria-labelledby="editSupplierModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="editSupplierModalLabel">Edit Supplier</h5>
+                    <div class="text-muted small">Update supplier information</div>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <form asp-controller="Suppliers"
+                  asp-action="Edit"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <input type="hidden"
+                       id="editSupplierId"
+                       name="id" />
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Supplier Name</label>
+                            <input type="text"
+                                   id="editSupplierName"
+                                   name="supplierName"
+                                   class="form-control"
+                                   required />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contact Person</label>
+                            <input type="text"
+                                   id="editSupplierContactPerson"
+                                   name="contactPerson"
+                                   class="form-control" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contact Number</label>
+                            <input type="text"
+                                   id="editSupplierContactNumber"
+                                   name="contactNumber"
+                                   class="form-control" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email"
+                                   id="editSupplierEmail"
+                                   name="email"
+                                   class="form-control" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Address</label>
+                            <textarea id="editSupplierAddress"
+                                      name="address"
+                                      class="form-control"
+                                      rows="2"></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Remarks</label>
+                            <textarea id="editSupplierRemarks"
+                                      name="remarks"
+                                      class="form-control"
+                                      rows="2"></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       id="editSupplierActive"
+                                       name="isActive"
+                                       value="true" />
+
+                                <label class="form-check-label">
+                                    Active Supplier
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Update Supplier
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.confirm-submit').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Save changes?',
+                    text: 'Please confirm before saving this record.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, save it',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        document.querySelectorAll('.confirm-deactivate').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Deactivate this supplier?',
+                    text: 'This supplier will no longer be available for stock-in selection.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, deactivate',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        const editSupplierModal = document.getElementById('editSupplierModal');
+
+        if (editSupplierModal) {
+            editSupplierModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+
+                document.getElementById('editSupplierId').value = button.getAttribute('data-id');
+                document.getElementById('editSupplierName').value = button.getAttribute('data-name');
+                document.getElementById('editSupplierContactPerson').value = button.getAttribute('data-contactperson') || '';
+                document.getElementById('editSupplierContactNumber').value = button.getAttribute('data-contactnumber') || '';
+                document.getElementById('editSupplierEmail').value = button.getAttribute('data-email') || '';
+                document.getElementById('editSupplierAddress').value = button.getAttribute('data-address') || '';
+                document.getElementById('editSupplierRemarks').value = button.getAttribute('data-remarks') || '';
+                document.getElementById('editSupplierActive').checked = button.getAttribute('data-active') === 'true';
+            });
+        }
+
+        const supplierSearchInput = document.getElementById('supplierSearchInput');
+        const supplierStatusFilter = document.getElementById('supplierStatusFilter');
+        const supplierRows = document.querySelectorAll('.supplier-row');
+
+        function filterSuppliers() {
+            const searchValue = supplierSearchInput.value.toLowerCase();
+            const statusValue = supplierStatusFilter.value.toLowerCase();
+
+            supplierRows.forEach(row => {
+                const rowText = row.innerText.toLowerCase();
+                const rowStatus = row.getAttribute('data-status');
+
+                const matchesSearch = rowText.includes(searchValue);
+                const matchesStatus = statusValue === 'all' || rowStatus === statusValue;
+
+                row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+            });
+        }
+
+        supplierSearchInput.addEventListener('input', filterSuppliers);
+        supplierStatusFilter.addEventListener('change', filterSuppliers);
+    </script>
+
+
+}

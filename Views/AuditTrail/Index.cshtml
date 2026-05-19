@@ -1,0 +1,270 @@
+﻿@model IEnumerable<HardwareManagementSystem.Models.AuditTrail>
+
+@{
+    ViewData["Title"] = "Audit Trail";
+
+    var logs = Model ?? Enumerable.Empty<HardwareManagementSystem.Models.AuditTrail>();
+
+    var totalLogs = logs.Count();
+    var posLogs = logs.Count(l => l.ModuleName == "POS");
+    var discountLogs = logs.Count(l => l.ActionName == "DISCOUNT APPLIED");
+    var userLogs = logs.Count(l => l.ModuleName == "Users");
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div class="kpi-label">Total Logs</div>
+            <div class="kpi-value">@totalLogs</div>
+            <div class="kpi-trend">Recent system activity</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cart-check"></i>
+            </div>
+            <div class="kpi-label">POS Logs</div>
+            <div class="kpi-value">@posLogs</div>
+            <div class="kpi-trend">Sales activities</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-percent"></i>
+            </div>
+            <div class="kpi-label">Discount Logs</div>
+            <div class="kpi-value">@discountLogs</div>
+            <div class="kpi-trend">Discount monitoring</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-person-gear"></i>
+            </div>
+            <div class="kpi-label">User Logs</div>
+            <div class="kpi-value">@userLogs</div>
+            <div class="kpi-trend">Account activities</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Audit Trail</h2>
+            <div class="hb-section-subtitle">
+                Track important system actions, cashier activities, discounts, and administrative changes
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-lg-4">
+                <label class="form-label fw-semibold">Search Logs</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text"
+                           id="auditSearchInput"
+                           class="form-control border-start-0"
+                           placeholder="Search user, module, action, description..." />
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Module</label>
+                <select id="auditModuleFilter" class="form-select">
+                    <option value="all">All Modules</option>
+                    <option value="pos">POS</option>
+                    <option value="inventory">Inventory</option>
+                    <option value="stockin">StockIn</option>
+                    <option value="users">Users</option>
+                    <option value="settings">Settings</option>
+                    <option value="rolepermissions">RolePermissions</option>
+                </select>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Action</label>
+                <select id="auditActionFilter" class="form-select">
+                    <option value="all">All Actions</option>
+                    <option value="sale created">Sale Created</option>
+                    <option value="discount applied">Discount Applied</option>
+                    <option value="created">Created</option>
+                    <option value="updated">Updated</option>
+                    <option value="deactivated">Deactivated</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="button">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+
+        </div>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Date/Time</th>
+                        <th>User</th>
+                        <th>Module</th>
+                        <th>Action</th>
+                        <th>Description</th>
+                        <th>Reference</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (logs.Any())
+                    {
+                        foreach (var log in logs)
+                        {
+                            <tr class="audit-row"
+                                data-module="@log.ModuleName.ToLower()"
+                                data-action="@log.ActionName.ToLower()">
+
+                                <td>
+                                    @log.CreatedAt.ToString("MMM dd, yyyy")
+                                    <div class="text-muted small">
+                                        @log.CreatedAt.ToString("hh:mm tt")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <strong>@(log.UserName ?? "Unknown")</strong>
+                                    <div class="text-muted small">
+                                        @(log.UserId ?? "No ID")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="badge badge-soft-primary">
+                                        @log.ModuleName
+                                    </span>
+                                </td>
+
+                                <td>
+                                    @if (log.ActionName.Contains("DISCOUNT"))
+                                    {
+                                        <span class="badge badge-soft-warning">
+                                            @log.ActionName
+                                        </span>
+                                    }
+                                    else if (log.ActionName.Contains("SALE"))
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            @log.ActionName
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-primary">
+                                            @log.ActionName
+                                        </span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @log.Description
+                                </td>
+
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(log.ReferenceType))
+                                    {
+                                        <div>
+                                            <strong>@log.ReferenceType</strong>
+                                        </div>
+                                        <div class="text-muted small">
+                                            @log.ReferenceId
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">N/A</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @(log.IpAddress ?? "N/A")
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No audit logs found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        const auditSearchInput = document.getElementById('auditSearchInput');
+        const auditModuleFilter = document.getElementById('auditModuleFilter');
+        const auditActionFilter = document.getElementById('auditActionFilter');
+        const auditRows = document.querySelectorAll('.audit-row');
+
+        function filterAuditLogs() {
+            const searchValue = auditSearchInput.value.toLowerCase();
+            const moduleValue = auditModuleFilter.value.toLowerCase();
+            const actionValue = auditActionFilter.value.toLowerCase();
+
+            auditRows.forEach(row => {
+                const rowText = row.innerText.toLowerCase();
+                const rowModule = row.getAttribute('data-module') || '';
+                const rowAction = row.getAttribute('data-action') || '';
+
+                const matchesSearch = rowText.includes(searchValue);
+                const matchesModule = moduleValue === 'all' || rowModule === moduleValue;
+                const matchesAction = actionValue === 'all' || rowAction.includes(actionValue);
+
+                row.style.display =
+                    matchesSearch && matchesModule && matchesAction
+                        ? ''
+                        : 'none';
+            });
+        }
+
+        auditSearchInput.addEventListener('input', filterAuditLogs);
+        auditModuleFilter.addEventListener('change', filterAuditLogs);
+        auditActionFilter.addEventListener('change', filterAuditLogs);
+    </script>
+}

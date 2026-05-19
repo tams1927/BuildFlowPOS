@@ -1,0 +1,728 @@
+﻿@model IEnumerable<HardwareManagementSystem.Controllers.UserListVm>
+
+@using Microsoft.AspNetCore.Identity
+
+@{
+    ViewData["Title"] = "Users";
+
+    var roles = ViewBag.Roles as List<IdentityRole> ?? new();
+
+    var users = Model ?? Enumerable.Empty<HardwareManagementSystem.Controllers.UserListVm>();
+
+    var totalUsers = users.Count();
+    var activeUsers = users.Count(u => u.IsActive);
+    var inactiveUsers = users.Count(u => !u.IsActive);
+    var adminUsers = users.Count(u => u.Role == "Admin");
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-people"></i>
+            </div>
+
+            <div class="kpi-label">
+                Total Users
+            </div>
+
+            <div class="kpi-value">
+                @totalUsers
+            </div>
+
+            <div class="kpi-trend">
+                Registered system accounts
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-person-check"></i>
+            </div>
+
+            <div class="kpi-label">
+                Active Users
+            </div>
+
+            <div class="kpi-value">
+                @activeUsers
+            </div>
+
+            <div class="kpi-trend">
+                Enabled login accounts
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-person-x"></i>
+            </div>
+
+            <div class="kpi-label">
+                Inactive Users
+            </div>
+
+            <div class="kpi-value">
+                @inactiveUsers
+            </div>
+
+            <div class="kpi-trend">
+                Disabled login accounts
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-shield-lock"></i>
+            </div>
+
+            <div class="kpi-label">
+                Admin Users
+            </div>
+
+            <div class="kpi-value">
+                @adminUsers
+            </div>
+
+            <div class="kpi-trend">
+                Full access administrators
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">
+                Users Management
+            </h2>
+
+            <div class="hb-section-subtitle">
+                Manage system accounts and access roles
+            </div>
+        </div>
+
+        <button class="btn btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#createUserModal">
+
+            <i class="bi bi-plus-circle me-1"></i>
+            Add User
+
+        </button>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-lg-4">
+
+                <label class="form-label">
+                    Search User
+                </label>
+
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+
+                    <input type="text"
+                           id="usersSearchInput"
+                           class="form-control"
+                           placeholder="Search name, username, email..." />
+                </div>
+
+            </div>
+
+            <div class="col-lg-3">
+
+                <label class="form-label">
+                    Role
+                </label>
+
+                <select class="form-select"
+                        id="usersRoleFilter">
+
+                    <option value="all">All Roles</option>
+
+                    @foreach (var role in roles)
+                    {
+                        <option value="@role.Name?.ToLower()">
+                            @role.Name
+                        </option>
+                    }
+
+                </select>
+
+            </div>
+
+            <div class="col-lg-3">
+
+                <label class="form-label">
+                    Status
+                </label>
+
+                <select class="form-select"
+                        id="usersStatusFilter">
+
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Full Name</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th width="150">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (users.Any())
+                    {
+                        foreach (var user in users)
+                        {
+                            <tr class="user-row"
+                                data-role="@user.Role.ToLower()"
+                                data-status="@(user.IsActive ? "active" : "inactive")">
+
+                                <td>
+                                    <strong>@user.FullName</strong>
+                                </td>
+
+                                <td>
+                                    @user.UserName
+                                </td>
+
+                                <td>
+                                    @user.Email
+                                </td>
+
+                                <td>
+
+                                    @if (user.Role == "Admin")
+                                    {
+                                        <span class="badge badge-soft-primary">
+                                            Admin
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            @user.Role
+                                        </span>
+                                    }
+
+                                </td>
+
+                                <td>
+
+                                    @if (user.IsActive)
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            Active
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-danger">
+                                            Inactive
+                                        </span>
+                                    }
+
+                                </td>
+
+                                <td>
+
+                                    <div class="d-flex gap-2">
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary edit-user-btn"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editUserModal"
+                                                data-id="@user.Id"
+                                                data-fullname="@user.FullName"
+                                                data-email="@user.Email"
+                                                data-role="@user.Role"
+                                                data-active="@user.IsActive">
+
+                                            <i class="bi bi-pencil"></i>
+
+                                        </button>
+
+                                        @if (user.IsActive)
+                                        {
+                                            <form asp-controller="Users"
+                                                  asp-action="Deactivate"
+                                                  method="post"
+                                                  class="confirm-deactivate-user d-inline">
+
+                                                @Html.AntiForgeryToken()
+
+                                                <input type="hidden"
+                                                       name="id"
+                                                       value="@user.Id" />
+
+                                                <button type="submit"
+                                                        class="btn btn-sm btn-outline-danger">
+
+                                                    <i class="bi bi-person-x"></i>
+
+                                                </button>
+
+                                            </form>
+                                        }
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+
+                                    No users found.
+
+                                </div>
+
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- CREATE USER MODAL -->
+
+<div class="modal fade"
+     id="createUserModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <form asp-controller="Users"
+                  asp-action="Create"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+
+                    <div>
+                        <h5 class="modal-title">
+                            Add User
+                        </h5>
+
+                        <div class="text-muted small">
+                            Create new system account
+                        </div>
+                    </div>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"></button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Full Name
+                            </label>
+
+                            <input type="text"
+                                   name="fullName"
+                                   class="form-control"
+                                   required />
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Username
+                            </label>
+
+                            <input type="text"
+                                   name="userName"
+                                   class="form-control"
+                                   required />
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Email
+                            </label>
+
+                            <input type="email"
+                                   name="email"
+                                   class="form-control" />
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Password
+                            </label>
+
+                            <input type="password"
+                                   name="password"
+                                   class="form-control"
+                                   required />
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Role
+                            </label>
+
+                            <select name="role"
+                                    class="form-select"
+                                    required>
+
+                                <option value="">
+                                    Select Role
+                                </option>
+
+                                @foreach (var role in roles)
+                                {
+                                    <option value="@role.Name">
+                                        @role.Name
+                                    </option>
+                                }
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-light"
+                            data-bs-dismiss="modal">
+
+                        Close
+
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+
+                        <i class="bi bi-check-circle me-1"></i>
+                        Save User
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- EDIT USER MODAL -->
+
+<div class="modal fade"
+     id="editUserModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <form asp-controller="Users"
+                  asp-action="Edit"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <input type="hidden"
+                       id="editUserId"
+                       name="id" />
+
+                <div class="modal-header">
+
+                    <div>
+                        <h5 class="modal-title">
+                            Edit User
+                        </h5>
+
+                        <div class="text-muted small">
+                            Update user information
+                        </div>
+                    </div>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"></button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Full Name
+                            </label>
+
+                            <input type="text"
+                                   id="editFullName"
+                                   name="fullName"
+                                   class="form-control"
+                                   required />
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Email
+                            </label>
+
+                            <input type="email"
+                                   id="editEmail"
+                                   name="email"
+                                   class="form-control" />
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">
+                                Role
+                            </label>
+
+                            <select id="editRole"
+                                    name="role"
+                                    class="form-select"
+                                    required>
+
+                                @foreach (var role in roles)
+                                {
+                                    <option value="@role.Name">
+                                        @role.Name
+                                    </option>
+                                }
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label d-block">
+                                Status
+                            </label>
+
+                            <div class="form-check form-switch mt-2">
+
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       id="editIsActive"
+                                       name="isActive"
+                                       value="true" />
+
+                                <label class="form-check-label"
+                                       for="editIsActive">
+
+                                    Active User
+
+                                </label>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-light"
+                            data-bs-dismiss="modal">
+
+                        Close
+
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+
+                        <i class="bi bi-check-circle me-1"></i>
+                        Update User
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+
+    <script>
+
+        const usersSearchInput = document.getElementById('usersSearchInput');
+        const usersRoleFilter = document.getElementById('usersRoleFilter');
+        const usersStatusFilter = document.getElementById('usersStatusFilter');
+        const userRows = document.querySelectorAll('.user-row');
+
+        function filterUsers() {
+
+            const searchValue = usersSearchInput.value.toLowerCase();
+            const roleValue = usersRoleFilter.value.toLowerCase();
+            const statusValue = usersStatusFilter.value.toLowerCase();
+
+            userRows.forEach(row => {
+
+                const rowText = row.innerText.toLowerCase();
+                const rowRole = row.getAttribute('data-role');
+                const rowStatus = row.getAttribute('data-status');
+
+                row.style.display =
+                    rowText.includes(searchValue) &&
+                    (roleValue === 'all' || rowRole === roleValue) &&
+                    (statusValue === 'all' || rowStatus === statusValue)
+                        ? ''
+                        : 'none';
+
+            });
+        }
+
+        usersSearchInput.addEventListener('input', filterUsers);
+        usersRoleFilter.addEventListener('change', filterUsers);
+        usersStatusFilter.addEventListener('change', filterUsers);
+
+        document.querySelectorAll('.edit-user-btn').forEach(button => {
+
+            button.addEventListener('click', function () {
+
+                document.getElementById('editUserId').value = this.dataset.id;
+                document.getElementById('editFullName').value = this.dataset.fullname;
+                document.getElementById('editEmail').value = this.dataset.email;
+                document.getElementById('editRole').value = this.dataset.role;
+
+                const isActive = this.dataset.active === 'True';
+
+                document.getElementById('editIsActive').checked = isActive;
+
+            });
+
+        });
+
+                document.querySelectorAll('.confirm-submit').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Save user?',
+                    text: 'Please confirm before saving this user record.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, save it',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        document.querySelectorAll('.confirm-deactivate-user').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Deactivate this user?',
+                    text: 'This user will no longer be able to use the system.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, deactivate',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+    </script>
+
+}

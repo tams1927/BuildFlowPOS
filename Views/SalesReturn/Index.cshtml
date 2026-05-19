@@ -1,0 +1,134 @@
+﻿@model IEnumerable<HardwareManagementSystem.Models.SalesReturnHeader>
+
+
+@{
+    ViewData["Title"] = "Sales Return";
+
+    var returns = Model ?? Enumerable.Empty<HardwareManagementSystem.Models.SalesReturnHeader>();
+
+    var todayReturns = returns.Count(r => r.ReturnDate.Date == DateTime.Today);
+    var totalReturns = returns.Count();
+    var totalRefund = returns.Sum(r => r.RefundAmount);
+    var todayRefund = returns.Where(r => r.ReturnDate.Date == DateTime.Today).Sum(r => r.RefundAmount);
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-arrow-return-left"></i></div>
+            <div class="kpi-label">Total Returns</div>
+            <div class="kpi-value">@totalReturns</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-calendar-check"></i></div>
+            <div class="kpi-label">Today's Returns</div>
+            <div class="kpi-value">@todayReturns</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
+            <div class="kpi-label">Total Refund</div>
+            <div class="kpi-value">₱@totalRefund.ToString("N2")</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-wallet2"></i></div>
+            <div class="kpi-label">Today's Refund</div>
+            <div class="kpi-value">₱@todayRefund.ToString("N2")</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Sales Returns</h2>
+            <div class="hb-section-subtitle">Customer item return and refund history</div>
+        </div>
+        <a asp-controller="SalesReturn" asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>
+            New Return
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Return #</th>
+                        <th>Receipt #</th>
+                        <th>Items Returned</th>
+                        <th>Refund Amount</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                        <th>Processed By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (returns.Any())
+                    {
+                        foreach (var ret in returns)
+                        {
+                            <tr>
+                                <td><strong>@ret.ReturnNumber</strong></td>
+                                <td>@(ret.SalesHeader?.SalesNumber ?? "-")</td>
+                                <td>
+                                    @foreach (var detail in ret.SalesReturnDetails)
+                                    {
+                                        <div class="small">
+                                            <strong>@(detail.Item?.ItemName ?? "N/A")</strong>
+                                            <span class="text-muted">
+                                                × @detail.QuantityReturned.ToString("0.###")
+                                                @(detail.Item?.Unit?.ShortName ?? "")
+                                            </span>
+                                            @if (detail.RestoreToInventory)
+                                            {
+                                                <span class="badge badge-soft-success ms-1">Restocked</span>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                                <td><strong>₱@ret.RefundAmount.ToString("N2")</strong></td>
+                                <td>
+                                    <span class="text-muted small">
+                                        @(ret.Reason?.Length > 50 ? ret.Reason[..50] + "…" : ret.Reason ?? "-")
+                                    </span>
+                                </td>
+                                <td>
+                                    @ret.ReturnDate.ToString("MMM dd, yyyy")
+                                    <div class="text-muted small">@ret.ReturnDate.ToString("hh:mm tt")</div>
+                                </td>
+                                <td>@(ret.CreatedBy ?? "-")</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No sales returns found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>

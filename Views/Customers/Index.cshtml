@@ -1,0 +1,525 @@
+﻿@model IEnumerable<HardwareManagementSystem.Models.Customer>
+
+@{
+    ViewData["Title"] = "Customers";
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="kpi-label">Total Customers</div>
+            <div class="kpi-value">@Model.Count()</div>
+            <div class="kpi-trend">Registered customer records</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-person-badge"></i>
+            </div>
+            <div class="kpi-label">Contractors</div>
+            <div class="kpi-value">@Model.Count(c => c.CustomerType == "Contractor")</div>
+            <div class="kpi-trend">Frequent business buyers</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="kpi-label">Active Customers</div>
+            <div class="kpi-value">@Model.Count(c => c.IsActive)</div>
+            <div class="kpi-trend">Available in POS selection</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-pause-circle"></i>
+            </div>
+            <div class="kpi-label">Inactive Customers</div>
+            <div class="kpi-value">@Model.Count(c => !c.IsActive)</div>
+            <div class="kpi-trend text-warning">Currently disabled</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Customer Management</h2>
+            <div class="hb-section-subtitle">
+                Manage walk-in, contractor, and company customers
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary">
+                <i class="bi bi-download me-1"></i>
+                Export
+            </button>
+
+            <button class="btn btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addCustomerModal">
+                <i class="bi bi-plus-circle me-1"></i>
+                Add Customer
+            </button>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+            <div class="col-lg-4">
+                <label class="form-label fw-semibold">Search Customer</label>
+
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+
+                    <input type="text"
+                           id="customerSearchInput"
+                           class="form-control border-start-0"
+                           placeholder="Customer name, contact, or address..." />
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Customer Type</label>
+
+                <select id="customerTypeFilter" class="form-select">
+                    <option value="all">All Types</option>
+                    <option value="walk-in">Walk-in</option>
+                    <option value="contractor">Contractor</option>
+                    <option value="company">Company</option>
+                </select>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Status</label>
+
+                <select id="customerStatusFilter" class="form-select">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="button">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Type</th>
+                        <th>Contact</th>
+                        <th>Email</th>
+                        <th>Address</th>
+                        <th>Status</th>
+                        <th width="140">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var customer in Model)
+                        {
+                            <tr class="customer-row"
+                                data-type="@customer.CustomerType.ToLower()"
+                                data-status="@(customer.IsActive ? "active" : "inactive")">
+
+                                <td>
+                                    <strong>@customer.CustomerName</strong>
+                                    <div class="text-muted small">
+                                        CUS-@customer.Id.ToString("0000")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="badge badge-soft-primary">
+                                        @customer.CustomerType
+                                    </span>
+                                </td>
+
+                                <td>@(customer.ContactNumber ?? "N/A")</td>
+                                <td>@(customer.Email ?? "N/A")</td>
+                                <td>@(customer.Address ?? "N/A")</td>
+
+                                <td>
+                                    @if (customer.IsActive)
+                                    {
+                                        <span class="badge badge-soft-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">Inactive</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <div class="d-flex gap-1">
+
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editCustomerModal"
+                                                data-id="@customer.Id"
+                                                data-name="@customer.CustomerName"
+                                                data-contactnumber="@customer.ContactNumber"
+                                                data-email="@customer.Email"
+                                                data-address="@customer.Address"
+                                                data-type="@customer.CustomerType"
+                                                data-active="@customer.IsActive.ToString().ToLower()">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+
+                                        <form asp-controller="Customers"
+                                              asp-action="Deactivate"
+                                              method="post"
+                                              class="confirm-deactivate d-inline">
+
+                                            @Html.AntiForgeryToken()
+
+                                            <input type="hidden"
+                                                   name="id"
+                                                   value="@customer.Id" />
+
+                                            <button type="submit"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    @(customer.IsActive ? "" : "disabled")>
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No customers found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="addCustomerModal" tabindex="-1" aria-labelledby="addCustomerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="addCustomerModalLabel">Add Customer</h5>
+                    <div class="text-muted small">Create a new customer record</div>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <form asp-controller="Customers"
+                  asp-action="Create"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Customer Name</label>
+                            <input type="text"
+                                   name="customerName"
+                                   class="form-control"
+                                   placeholder="Example: Ramos Construction"
+                                   required />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Customer Type</label>
+                            <select name="customerType"
+                                    class="form-select">
+                                <option value="Walk-in">Walk-in</option>
+                                <option value="Contractor">Contractor</option>
+                                <option value="Company">Company</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contact Number</label>
+                            <input type="text"
+                                   name="contactNumber"
+                                   class="form-control"
+                                   placeholder="Example: 0917-123-4567" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email"
+                                   name="email"
+                                   class="form-control"
+                                   placeholder="customer@email.com" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Address</label>
+                            <textarea name="address"
+                                      class="form-control"
+                                      rows="3"
+                                      placeholder="Customer address..."></textarea>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Save Customer
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editCustomerModal" tabindex="-1" aria-labelledby="editCustomerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="editCustomerModalLabel">Edit Customer</h5>
+                    <div class="text-muted small">Update customer information</div>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <form asp-controller="Customers"
+                  asp-action="Edit"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <input type="hidden"
+                       id="editCustomerId"
+                       name="id" />
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Customer Name</label>
+                            <input type="text"
+                                   id="editCustomerName"
+                                   name="customerName"
+                                   class="form-control"
+                                   required />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Customer Type</label>
+                            <select id="editCustomerType"
+                                    name="customerType"
+                                    class="form-select">
+                                <option value="Walk-in">Walk-in</option>
+                                <option value="Contractor">Contractor</option>
+                                <option value="Company">Company</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contact Number</label>
+                            <input type="text"
+                                   id="editCustomerContactNumber"
+                                   name="contactNumber"
+                                   class="form-control" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email"
+                                   id="editCustomerEmail"
+                                   name="email"
+                                   class="form-control" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Address</label>
+                            <textarea id="editCustomerAddress"
+                                      name="address"
+                                      class="form-control"
+                                      rows="3"></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       id="editCustomerActive"
+                                       name="isActive"
+                                       value="true" />
+
+                                <label class="form-check-label">
+                                    Active Customer
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Update Customer
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.confirm-submit').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Save changes?',
+                    text: 'Please confirm before saving this record.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, save it',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        document.querySelectorAll('.confirm-deactivate').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Deactivate this customer?',
+                    text: 'This customer will no longer be available for POS selection.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, deactivate',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        const editCustomerModal = document.getElementById('editCustomerModal');
+
+        if (editCustomerModal) {
+            editCustomerModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+
+                document.getElementById('editCustomerId').value = button.getAttribute('data-id');
+                document.getElementById('editCustomerName').value = button.getAttribute('data-name');
+                document.getElementById('editCustomerContactNumber').value = button.getAttribute('data-contactnumber') || '';
+                document.getElementById('editCustomerEmail').value = button.getAttribute('data-email') || '';
+                document.getElementById('editCustomerAddress').value = button.getAttribute('data-address') || '';
+                document.getElementById('editCustomerType').value = button.getAttribute('data-type') || 'Walk-in';
+                document.getElementById('editCustomerActive').checked = button.getAttribute('data-active') === 'true';
+            });
+        }
+
+        const customerSearchInput = document.getElementById('customerSearchInput');
+        const customerTypeFilter = document.getElementById('customerTypeFilter');
+        const customerStatusFilter = document.getElementById('customerStatusFilter');
+        const customerRows = document.querySelectorAll('.customer-row');
+
+        function filterCustomers() {
+            const searchValue = customerSearchInput.value.toLowerCase();
+            const typeValue = customerTypeFilter.value.toLowerCase();
+            const statusValue = customerStatusFilter.value.toLowerCase();
+
+            customerRows.forEach(row => {
+                const rowText = row.innerText.toLowerCase();
+                const rowType = row.getAttribute('data-type');
+                const rowStatus = row.getAttribute('data-status');
+
+                const matchesSearch = rowText.includes(searchValue);
+                const matchesType = typeValue === 'all' || rowType === typeValue;
+                const matchesStatus = statusValue === 'all' || rowStatus === statusValue;
+
+                row.style.display = matchesSearch && matchesType && matchesStatus ? '' : 'none';
+            });
+        }
+
+        customerSearchInput.addEventListener('input', filterCustomers);
+        customerTypeFilter.addEventListener('change', filterCustomers);
+        customerStatusFilter.addEventListener('change', filterCustomers);
+    </script>
+}

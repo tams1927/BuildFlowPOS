@@ -1,0 +1,204 @@
+﻿@model HardwareManagementSystem.Models.SalesHeader
+
+@{
+    ViewData["Title"] = "Receipt";
+}
+
+<div class="hb-card mx-auto receipt-card">
+
+    <div class="hb-card-body">
+
+        <div class="text-center mb-4">
+            <div class="brand-icon mx-auto mb-3">
+                <i class="bi bi-shop"></i>
+            </div>
+
+            <h3 class="fw-bold mb-1">HardBuild POS</h3>
+
+            <div class="text-muted">
+                Hardware / Construction Supply
+            </div>
+
+            <div class="text-muted small">
+                Quezon City, Philippines
+            </div>
+        </div>
+
+        <hr />
+
+        <div class="row g-2 mb-3">
+
+            <div class="col-6">
+                <div class="text-muted small">Receipt No.</div>
+                <strong>@Model.SalesNumber</strong>
+            </div>
+
+            <div class="col-6 text-end">
+                <div class="text-muted small">Date</div>
+                <strong>@Model.SalesDate.ToString("MMM dd, yyyy hh:mm tt")</strong>
+            </div>
+
+            <div class="col-6">
+                <div class="text-muted small">Customer</div>
+                <strong>@(Model.Customer?.CustomerName ?? "Walk-in Customer")</strong>
+            </div>
+
+            <div class="col-6 text-end">
+                <div class="text-muted small">Cashier</div>
+                <strong>@(Model.CashierName ?? "Unknown")</strong>
+            </div>
+
+        </div>
+
+        <hr />
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-end">Qty</th>
+                        <th class="text-end">Price</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var detail in Model.SalesDetails)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@(detail.Item?.ItemName ?? "N/A")</strong>
+                                <div class="text-muted small">
+                                    @(detail.Item?.ItemCode ?? "")
+                                </div>
+                            </td>
+
+                            <td class="text-end">
+                                @detail.Quantity.ToString("0.###")
+                                @(detail.Item?.Unit?.ShortName ?? "")
+                            </td>
+
+                            <td class="text-end">
+                                ₱@detail.UnitPrice.ToString("N2")
+                            </td>
+
+                            <td class="text-end">
+                                ₱@detail.LineTotal.ToString("N2")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <hr />
+
+        <div class="receipt-totals">
+
+            <div class="d-flex justify-content-between mb-2">
+                <span>Subtotal</span>
+                <strong>₱@Model.SubTotal.ToString("N2")</strong>
+            </div>
+
+            <div class="d-flex justify-content-between mb-2">
+                <span>Discount</span>
+                <strong>₱@Model.DiscountAmount.ToString("N2")</strong>
+            </div>
+
+            <div class="d-flex justify-content-between mb-2">
+                <span>VAT</span>
+                <strong>₱@Model.VatAmount.ToString("N2")</strong>
+            </div>
+
+            <div class="d-flex justify-content-between fs-5 border-top pt-3 mt-3">
+                <strong>Total</strong>
+                <strong class="text-primary">₱@Model.TotalAmount.ToString("N2")</strong>
+            </div>
+
+            <div class="d-flex justify-content-between mt-2">
+                <span>Payment</span>
+                <strong>@Model.PaymentMethod</strong>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ReferenceNumber))
+            {
+                <div class="d-flex justify-content-between mt-2">
+                    <span>Reference #</span>
+                    <strong>@Model.ReferenceNumber</strong>
+                </div>
+            }
+
+            <div class="d-flex justify-content-between mt-2">
+                <span>Amount Received</span>
+                <strong>₱@Model.AmountReceived.ToString("N2")</strong>
+            </div>
+
+            <div class="d-flex justify-content-between mt-2">
+                <span>Change</span>
+                <strong class="text-success">₱@Model.ChangeAmount.ToString("N2")</strong>
+            </div>
+
+        </div>
+
+        <hr />
+
+        <div class="text-center text-muted small mb-4">
+            Thank you for purchasing!
+        </div>
+
+        <div class="d-flex gap-2 no-print">
+
+            <a asp-controller="Sales"
+               asp-action="Index"
+               class="btn btn-outline-primary w-50">
+                <i class="bi bi-arrow-left me-1"></i>
+                Back
+            </a>
+
+            <button onclick="window.print()"
+                    class="btn btn-primary w-50">
+                <i class="bi bi-printer me-1"></i>
+                Print
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<style>
+    .receipt-card {
+        max-width: 760px;
+    }
+
+    @@media print {
+        body {
+            background: #ffffff !important;
+        }
+
+        .app-sidebar,
+        .app-topbar,
+        .no-print {
+            display: none !important;
+        }
+
+        .app-main,
+        .app-content {
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+        }
+
+        .receipt-card {
+            box-shadow: none !important;
+            border: none !important;
+            max-width: 100% !important;
+        }
+    }
+</style>

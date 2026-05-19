@@ -1,0 +1,875 @@
+﻿@model IEnumerable<HardwareManagementSystem.Models.Item>
+
+@{
+    ViewData["Title"] = "POS";
+
+    var customers = ViewBag.Customers as List<HardwareManagementSystem.Models.Customer>;
+}
+
+<div class="row g-4">
+
+    <div class="col-xl-8">
+
+        <div class="hb-card mb-4">
+
+            <div class="hb-card-header">
+
+                <div>
+                    <h2 class="hb-section-title">
+                        Point of Sale
+                    </h2>
+
+                    <div class="hb-section-subtitle">
+                        Hardware & construction supply checkout
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="hb-card-body">
+
+                <div class="row g-3 mb-4">
+
+                    <div class="col-md-6">
+
+                        <label class="form-label fw-semibold">
+                            Customer
+                        </label>
+
+                        <select id="customerSelect"
+                                class="form-select">
+
+                            <option value="">
+                                Walk-in Customer
+                            </option>
+
+                            @if (customers != null)
+                            {
+                                foreach (var customer in customers)
+                                {
+                                    <option value="@customer.Id">
+                                        @customer.CustomerName
+                                    </option>
+                                }
+                            }
+
+                        </select>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <label class="form-label fw-semibold">
+                            Search Item
+                        </label>
+
+                        <div class="input-group">
+
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="bi bi-search"></i>
+                            </span>
+
+                            <input type="text"
+                                   id="itemSearchInput"
+                                   class="form-control border-start-0"
+                                   placeholder="Search item..." />
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="table-responsive">
+
+                    <table class="table align-middle">
+
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Category</th>
+                                <th>Stock</th>
+                                <th>Price</th>
+                                <th width="100">Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="inventoryTableBody">
+
+                            @foreach (var item in Model)
+                            {
+                                <tr class="inventory-item-row">
+
+                                    <td>
+                                        <strong>
+                                            @item.ItemName
+                                        </strong>
+
+                                        <div class="text-muted small">
+                                            @item.ItemCode
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        @(item.Category?.CategoryName ?? "N/A")
+                                    </td>
+
+                                    <td>
+
+                                        <strong>
+                                            @item.CurrentStock.ToString("0.###")
+                                        </strong>
+
+                                        <span class="text-muted small">
+                                            @(item.Unit?.ShortName ?? "")
+                                        </span>
+
+                                    </td>
+
+                                    <td>
+                                        ₱@item.SellingPrice.ToString("N2")
+                                    </td>
+
+                                    <td>
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-primary add-to-cart-btn"
+                                                data-id="@item.Id"
+                                                data-name="@item.ItemName"
+                                                data-unit="@(item.Unit?.ShortName ?? "")"
+                                                data-price="@item.SellingPrice"
+                                                data-stock="@item.CurrentStock">
+
+                                            <i class="bi bi-plus-circle"></i>
+
+                                        </button>
+
+                                    </td>
+
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-4">
+
+        <div class="hb-card">
+
+            <div class="hb-card-header">
+
+                <div>
+                    <h2 class="hb-section-title">
+                        Order Summary
+                    </h2>
+
+                    <div class="hb-section-subtitle">
+                        Checkout transaction
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="hb-card-body">
+
+                <form asp-controller="POS"
+                      asp-action="Checkout"
+                      method="post"
+                      class="confirm-submit">
+
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden"
+                           id="customerIdInput"
+                           name="customerId" />
+
+                    <input type="hidden"
+                           id="cartJsonInput"
+                           name="cartJson" />
+
+                    <div class="table-responsive mb-3">
+
+                        <table class="table align-middle">
+
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th width="90">Qty</th>
+                                    <th width="100">Total</th>
+                                    <th width="50"></th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="cartTableBody">
+
+                                <tr id="emptyCartRow">
+
+                                    <td colspan="4"
+                                        class="text-center text-muted py-4">
+
+                                        No items added.
+
+                                    </td>
+
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                    <hr />
+
+                    <div class="mb-3">
+
+                        <div class="d-flex justify-content-between mb-2">
+
+                            <span>Subtotal</span>
+
+                            <strong id="subTotalDisplay">
+                                ₱0.00
+                            </strong>
+
+                        </div>
+
+                        <div class="mb-3">
+
+                            <label class="form-label fw-semibold">
+                                Discount Type
+                            </label>
+
+                            <select id="discountType"
+                                    name="discountType"
+                                    class="form-select">
+
+                                <option value="None">No Discount</option>
+                                <option value="Percent">Percentage %</option>
+                                <option value="Fixed">Fixed Amount</option>
+
+                            </select>
+
+                        </div>
+
+                        <div class="mb-3">
+
+                            <label class="form-label fw-semibold">
+                                Discount Value
+                            </label>
+
+                            <input type="number"
+                                   step="0.01"
+                                   id="discountValue"
+                                   name="discountValue"
+                                   class="form-control"
+                                   value="0" />
+
+                        </div>
+
+                        <div class="mb-3">
+
+                            <label class="form-label fw-semibold">
+                                Discount Reason
+                            </label>
+
+                            <select id="discountReason"
+                                    name="discountReason"
+                                    class="form-select">
+
+                                <option value="">No Reason</option>
+                                <option value="Contractor Discount">Contractor Discount</option>
+                                <option value="Promo Discount">Promo Discount</option>
+                                <option value="Senior/PWD">Senior/PWD</option>
+                                <option value="Manual Adjustment">Manual Adjustment</option>
+
+                            </select>
+
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+
+                            <span>Discount</span>
+
+                            <strong id="discountDisplay">
+                                ₱0.00
+                            </strong>
+
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+
+                            <span>VAT</span>
+
+                            <strong>
+                                ₱0.00
+                            </strong>
+
+                        </div>
+
+                        <hr />
+
+                        <div class="d-flex justify-content-between">
+
+                            <span class="fw-bold fs-5">
+                                Total
+                            </span>
+
+                            <strong class="fs-5 text-primary"
+                                    id="totalDisplay">
+
+                                ₱0.00
+
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <input type="hidden"
+                           id="subTotalInput"
+                           name="subTotal"
+                           value="0" />
+
+                    <input type="hidden"
+                           id="discountAmountInput"
+                           name="discountAmount"
+                           value="0" />
+
+                    <input type="hidden"
+                           name="vatAmount"
+                           value="0" />
+
+                    <input type="hidden"
+                           id="totalAmountInput"
+                           name="totalAmount"
+                           value="0" />
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-semibold">
+                            Payment Method
+                        </label>
+
+                        <select id="paymentMethod"
+                                name="paymentMethod"
+                                class="form-select">
+
+                            <option value="Cash">
+                                Cash
+                            </option>
+
+                            <option value="GCash">
+                                GCash
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="mb-3 d-none"
+                         id="referenceNumberContainer">
+
+                        <label class="form-label fw-semibold">
+                            Reference Number
+                        </label>
+
+                        <input type="text"
+                               name="referenceNumber"
+                               class="form-control"
+                               placeholder="GCash reference #" />
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-semibold">
+                            Amount Received
+                        </label>
+
+                        <input type="number"
+                               step="0.01"
+                               id="amountReceivedInput"
+                               name="amountReceived"
+                               class="form-control"
+                               value="0" />
+
+                    </div>
+
+                    <div class="mb-4">
+
+                        <div class="d-flex justify-content-between align-items-center">
+
+                            <span class="fw-bold">
+                                Change
+                            </span>
+
+                            <span class="fw-bold fs-4 text-success"
+                                  id="changeDisplay">
+
+                                ₱0.00
+
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                    <input type="hidden"
+                           id="changeAmountInput"
+                           name="changeAmount"
+                           value="0" />
+
+                    <button type="submit"
+                            class="btn btn-primary w-100 py-3">
+
+                        <i class="bi bi-check-circle me-2"></i>
+                        Complete Checkout
+
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+
+    <script>
+
+        let cart = [];
+
+        const cartTableBody =
+            document.getElementById('cartTableBody');
+
+        const subTotalDisplay =
+            document.getElementById('subTotalDisplay');
+
+        const totalDisplay =
+            document.getElementById('totalDisplay');
+
+        const subTotalInput =
+            document.getElementById('subTotalInput');
+
+        const totalAmountInput =
+            document.getElementById('totalAmountInput');
+
+        const discountType =
+            document.getElementById('discountType');
+
+        const discountValue =
+            document.getElementById('discountValue');
+
+        const discountReason =
+            document.getElementById('discountReason');
+
+        const discountDisplay =
+            document.getElementById('discountDisplay');
+
+        const discountAmountInput =
+            document.getElementById('discountAmountInput');
+
+        const amountReceivedInput =
+            document.getElementById('amountReceivedInput');
+
+        const changeDisplay =
+            document.getElementById('changeDisplay');
+
+        const changeAmountInput =
+            document.getElementById('changeAmountInput');
+
+        const cartJsonInput =
+            document.getElementById('cartJsonInput');
+
+        const customerSelect =
+            document.getElementById('customerSelect');
+
+        const customerIdInput =
+            document.getElementById('customerIdInput');
+
+        customerSelect.addEventListener('change', function () {
+
+            customerIdInput.value = this.value;
+
+        });
+
+        document.querySelectorAll('.add-to-cart-btn').forEach(button => {
+
+            button.addEventListener('click', function () {
+
+                const itemId =
+                    parseInt(this.getAttribute('data-id'));
+
+                const itemName =
+                    this.getAttribute('data-name');
+
+                const unitName =
+                    this.getAttribute('data-unit');
+
+                const unitPrice =
+                    parseFloat(this.getAttribute('data-price'));
+
+                const stock =
+                    parseFloat(this.getAttribute('data-stock'));
+
+                const existing =
+                    cart.find(c => c.itemId === itemId);
+
+                if (existing) {
+
+                    if (existing.quantity + 1 > stock) {
+
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Insufficient Stock',
+                            text: 'Cannot exceed available stock.'
+                        });
+
+                        return;
+                    }
+
+                    existing.quantity++;
+
+                }
+                else {
+
+                    cart.push({
+                        itemId,
+                        itemName,
+                        unitName,
+                        quantity: 1,
+                        unitPrice,
+                        stock
+                    });
+
+                }
+
+                renderCart();
+
+            });
+
+        });
+
+        function updateDiscountControls() {
+
+            if (discountType.value === 'None') {
+
+                discountValue.value = 0;
+                discountValue.disabled = true;
+
+                discountReason.value = '';
+                discountReason.disabled = true;
+
+            }
+            else {
+
+                discountValue.disabled = false;
+                discountReason.disabled = false;
+
+            }
+
+        }
+
+        function renderCart() {
+
+            cartTableBody.innerHTML = '';
+
+            if (cart.length === 0) {
+
+                cartTableBody.innerHTML = `
+                    <tr id="emptyCartRow">
+                        <td colspan="4"
+                            class="text-center text-muted py-4">
+                            No items added.
+                        </td>
+                    </tr>
+                `;
+
+            }
+
+            let subTotal = 0;
+
+            cart.forEach((item, index) => {
+
+                const lineTotal =
+                    item.quantity * item.unitPrice;
+
+                subTotal += lineTotal;
+
+                cartTableBody.innerHTML += `
+                    <tr>
+
+                        <td>
+                            <strong>${item.itemName}</strong>
+
+                            <div class="text-muted small">
+                                ${item.unitName}
+                            </div>
+                        </td>
+
+                        <td>
+
+                            <input type="number"
+                                   min="1"
+                                   max="${item.stock}"
+                                   value="${item.quantity}"
+                                   class="form-control form-control-sm"
+                                   onchange="updateQuantity(${index}, this.value)" />
+
+                        </td>
+
+                        <td>
+                            ₱${lineTotal.toFixed(2)}
+                        </td>
+
+                        <td>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    onclick="removeCartItem(${index})">
+
+                                <i class="bi bi-x"></i>
+
+                            </button>
+
+                        </td>
+
+                    </tr>
+                `;
+
+            });
+
+            let discountAmount = 0;
+
+            const selectedDiscountType =
+                discountType.value;
+
+            const enteredDiscountValue =
+                parseFloat(discountValue.value || 0);
+
+            if (selectedDiscountType === 'Percent') {
+
+                discountAmount =
+                    subTotal * (enteredDiscountValue / 100);
+
+            }
+
+            if (selectedDiscountType === 'Fixed') {
+
+                discountAmount =
+                    enteredDiscountValue;
+
+            }
+
+            if (discountAmount > subTotal) {
+
+                discountAmount = subTotal;
+
+            }
+
+            const total =
+                subTotal - discountAmount;
+
+            subTotalDisplay.innerText =
+                `₱${subTotal.toFixed(2)}`;
+
+            discountDisplay.innerText =
+                `₱${discountAmount.toFixed(2)}`;
+
+            totalDisplay.innerText =
+                `₱${total.toFixed(2)}`;
+
+            subTotalInput.value =
+                subTotal.toFixed(2);
+
+            discountAmountInput.value =
+                discountAmount.toFixed(2);
+
+            totalAmountInput.value =
+                total.toFixed(2);
+
+            cartJsonInput.value =
+                JSON.stringify(cart);
+
+            calculateChange();
+
+        }
+
+        function updateQuantity(index, value) {
+
+            let qty =
+                parseFloat(value);
+
+            if (isNaN(qty) || qty <= 0) {
+
+                qty = 1;
+
+            }
+
+            if (qty > cart[index].stock) {
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Insufficient Stock',
+                    text: 'Quantity exceeds available stock.'
+                });
+
+                qty = cart[index].stock;
+
+            }
+
+            cart[index].quantity = qty;
+
+            renderCart();
+
+        }
+
+        function removeCartItem(index) {
+
+            cart.splice(index, 1);
+
+            renderCart();
+
+        }
+
+        function calculateChange() {
+
+            const total =
+                parseFloat(totalAmountInput.value || 0);
+
+            const received =
+                parseFloat(amountReceivedInput.value || 0);
+
+            let change =
+                received - total;
+
+            if (change < 0) {
+
+                change = 0;
+
+            }
+
+            changeDisplay.innerText =
+                `₱${change.toFixed(2)}`;
+
+            changeAmountInput.value =
+                change.toFixed(2);
+
+        }
+
+        amountReceivedInput.addEventListener(
+            'input',
+            calculateChange
+        );
+
+        discountType.addEventListener(
+            'change',
+            function () {
+
+                updateDiscountControls();
+                renderCart();
+
+            }
+        );
+
+        discountValue.addEventListener(
+            'input',
+            renderCart
+        );
+
+        document.getElementById('paymentMethod')
+            .addEventListener('change', function () {
+
+                const referenceContainer =
+                    document.getElementById('referenceNumberContainer');
+
+                if (this.value === 'GCash') {
+
+                    referenceContainer.classList.remove('d-none');
+
+                }
+                else {
+
+                    referenceContainer.classList.add('d-none');
+
+                }
+
+            });
+
+        document.getElementById('itemSearchInput')
+            .addEventListener('input', function () {
+
+                const value =
+                    this.value.toLowerCase();
+
+                document.querySelectorAll('.inventory-item-row')
+                    .forEach(row => {
+
+                        row.style.display =
+                            row.innerText.toLowerCase().includes(value)
+                                ? ''
+                                : 'none';
+
+                    });
+
+            });
+
+        document.querySelectorAll('.confirm-submit').forEach(form => {
+
+            form.addEventListener('submit', function (e) {
+
+                e.preventDefault();
+
+                if (cart.length === 0) {
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Empty Cart',
+                        text: 'Please add items before checkout.'
+                    });
+
+                    return;
+
+                }
+
+                Swal.fire({
+                    title: 'Complete transaction?',
+                    text: 'Inventory stock will be deducted.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, complete sale',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+
+                    if (result.isConfirmed) {
+
+                        form.submit();
+
+                    }
+
+                });
+
+            });
+
+        });
+
+        updateDiscountControls();
+
+    </script>
+
+}

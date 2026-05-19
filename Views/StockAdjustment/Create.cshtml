@@ -1,0 +1,224 @@
+﻿@{
+    ViewData["Title"] = "New Stock Adjustment";
+
+    var items = ViewBag.Items as List<HardwareManagementSystem.Models.Item>;
+}
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">New Stock Adjustment</h2>
+            <div class="hb-section-subtitle">
+                Increase or decrease stock manually for recounts, damaged items, losses, or corrections
+            </div>
+        </div>
+
+        <a asp-controller="StockAdjustment"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back
+        </a>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <form asp-controller="StockAdjustment"
+              asp-action="Create"
+              method="post"
+              class="confirm-submit">
+
+            @Html.AntiForgeryToken()
+
+            <div class="row g-3">
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Adjustment Type</label>
+                    <select name="adjustmentType"
+                            id="adjustmentType"
+                            class="form-select"
+                            required>
+                        <option value="Increase">Increase Stock</option>
+                        <option value="Decrease">Decrease Stock</option>
+                    </select>
+                </div>
+
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">Item</label>
+                    <select name="itemId"
+                            id="adjustmentItem"
+                            class="form-select"
+                            required>
+                        <option value="">Select Item</option>
+
+                        @if (items != null)
+                        {
+                            foreach (var item in items)
+                            {
+                                <option value="@item.Id"
+                                        data-stock="@item.CurrentStock"
+                                        data-unit="@(item.Unit?.ShortName ?? "")">
+                                    @item.ItemCode - @item.ItemName
+                                </option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Current Stock</label>
+                    <input type="text"
+                           id="currentStockDisplay"
+                           class="form-control"
+                           readonly />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Quantity</label>
+                    <input type="number"
+                           step="0.001"
+                           min="0.001"
+                           name="quantity"
+                           id="adjustmentQuantity"
+                           class="form-control"
+                           value="1"
+                           required />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Stock After</label>
+                    <input type="text"
+                           id="stockAfterDisplay"
+                           class="form-control"
+                           readonly />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Reason</label>
+                    <select name="reason"
+                            class="form-select"
+                            required>
+                        <option value="">Select Reason</option>
+                        <option value="Initial Stock Correction">Initial Stock Correction</option>
+                        <option value="Physical Count Adjustment">Physical Count Adjustment</option>
+                        <option value="Damaged Item">Damaged Item</option>
+                        <option value="Lost Item">Lost Item</option>
+                        <option value="Return to Supplier">Return to Supplier</option>
+                        <option value="System Correction">System Correction</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="d-flex justify-content-end mt-4">
+
+                <button type="submit"
+                        class="btn btn-primary">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Save Adjustment
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        const adjustmentType = document.getElementById('adjustmentType');
+        const adjustmentItem = document.getElementById('adjustmentItem');
+        const adjustmentQuantity = document.getElementById('adjustmentQuantity');
+        const currentStockDisplay = document.getElementById('currentStockDisplay');
+        const stockAfterDisplay = document.getElementById('stockAfterDisplay');
+
+        function calculateStockAfter() {
+            const selected = adjustmentItem.options[adjustmentItem.selectedIndex];
+
+            const currentStock = parseFloat(selected?.getAttribute('data-stock') || 0);
+            const unit = selected?.getAttribute('data-unit') || '';
+            const qty = parseFloat(adjustmentQuantity.value || 0);
+
+            let stockAfter = currentStock;
+
+            if (adjustmentType.value === 'Increase') {
+                stockAfter = currentStock + qty;
+            }
+
+            if (adjustmentType.value === 'Decrease') {
+                stockAfter = currentStock - qty;
+            }
+
+            if (stockAfter < 0) {
+                stockAfter = 0;
+            }
+
+            currentStockDisplay.value = `${currentStock.toFixed(3)} ${unit}`;
+            stockAfterDisplay.value = `${stockAfter.toFixed(3)} ${unit}`;
+        }
+
+        adjustmentType.addEventListener('change', calculateStockAfter);
+        adjustmentItem.addEventListener('change', calculateStockAfter);
+        adjustmentQuantity.addEventListener('input', calculateStockAfter);
+
+        document.querySelectorAll('.confirm-submit').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const selected = adjustmentItem.options[adjustmentItem.selectedIndex];
+                const currentStock = parseFloat(selected?.getAttribute('data-stock') || 0);
+                const qty = parseFloat(adjustmentQuantity.value || 0);
+
+                if (!adjustmentItem.value) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Select item',
+                        text: 'Please select an item before saving.'
+                    });
+                    return;
+                }
+
+                if (qty <= 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Invalid quantity',
+                        text: 'Quantity must be greater than zero.'
+                    });
+                    return;
+                }
+
+                if (adjustmentType.value === 'Decrease' && qty > currentStock) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Insufficient stock',
+                        text: 'Decrease quantity cannot exceed current stock.'
+                    });
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Save stock adjustment?',
+                    text: 'This will change the item current stock.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, save adjustment',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        calculateStockAfter();
+    </script>
+}

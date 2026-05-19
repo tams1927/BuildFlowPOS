@@ -1,0 +1,789 @@
+﻿@model IEnumerable<HardwareManagementSystem.Models.SalesHeader>
+
+@{
+    ViewData["Title"] = "Sales";
+
+    var salesList = Model ?? Enumerable.Empty<HardwareManagementSystem.Models.SalesHeader>();
+
+    var today = DateTime.Today;
+
+    var todaySales = salesList
+        .Where(s => s.SalesDate.Date == today)
+        .ToList();
+
+    var totalTodaySales = todaySales.Sum(s => s.TotalAmount);
+    var totalTransactions = todaySales.Count;
+
+    var cashPayments = todaySales
+        .Where(s => s.PaymentMethod == "Cash")
+        .Sum(s => s.TotalAmount);
+
+    var digitalPayments = todaySales
+        .Where(s => s.PaymentMethod != "Cash")
+        .Sum(s => s.TotalAmount);
+
+    var setting = ViewBag.SystemSetting as HardwareManagementSystem.Models.SystemSetting;
+
+    var businessName = setting?.BusinessName ?? "HardBuild POS";
+    var businessAddress = setting?.BusinessAddress ?? "Hardware Supply";
+    var contactNumber = setting?.ContactNumber ?? "";
+    var receiptFooter = setting?.ReceiptFooter ?? "Thank you for purchasing!";
+    var currencySymbol = setting?.CurrencySymbol ?? "₱";
+    var paperSize = setting?.ReceiptPaperSize ?? "80mm";
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
+            <div class="kpi-label">Today's Sales</div>
+            <div class="kpi-value">@currencySymbol@totalTodaySales.ToString("N2")</div>
+            <div class="kpi-trend">Real POS transactions</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-receipt"></i></div>
+            <div class="kpi-label">Transactions</div>
+            <div class="kpi-value">@totalTransactions</div>
+            <div class="kpi-trend">Today completed sales</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-wallet2"></i></div>
+            <div class="kpi-label">Cash Payments</div>
+            <div class="kpi-value">@currencySymbol@cashPayments.ToString("N2")</div>
+            <div class="kpi-trend">Cash sales today</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-phone"></i></div>
+            <div class="kpi-label">GCash / Digital</div>
+            <div class="kpi-value">@currencySymbol@digitalPayments.ToString("N2")</div>
+            <div class="kpi-trend">Non-cash sales today</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">Sales Transactions</h2>
+            <div class="hb-section-subtitle">
+                Real completed POS transactions
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" disabled>
+                <i class="bi bi-download me-1"></i>
+                Export
+            </button>
+
+            <a asp-controller="POS"
+               asp-action="Index"
+               class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i>
+                New Sale
+            </a>
+        </div>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-lg-4">
+                <label class="form-label fw-semibold">Search Transaction</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text"
+                           id="salesSearchInput"
+                           class="form-control border-start-0"
+                           placeholder="Receipt no., customer, cashier..." />
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Payment Method</label>
+                <select id="salesPaymentFilter" class="form-select">
+                    <option value="all">All Payments</option>
+                    <option value="cash">Cash</option>
+                    <option value="gcash">GCash</option>
+                </select>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Status</label>
+                <select id="salesStatusFilter" class="form-select">
+                    <option value="all">All Status</option>
+                    <option value="completed">Completed</option>
+                    <option value="voided">Voided</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="button">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+
+        </div>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Receipt No.</th>
+                        <th>Customer</th>
+                        <th>Cashier</th>
+                        <th>Items</th>
+                        <th>Payment</th>
+                        <th>Total</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th width="120">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (salesList.Any())
+                    {
+                        foreach (var sale in salesList)
+                        {
+                            <tr class="sales-row"
+                                data-payment="@sale.PaymentMethod.ToLower()"
+                                data-status="@sale.Status.ToLower()">
+
+                                <td>
+                                    <strong>@sale.SalesNumber</strong>
+
+                                    @if (!string.IsNullOrWhiteSpace(sale.ReferenceNumber))
+                                    {
+                                        <div class="text-muted small">
+                                            Ref: @sale.ReferenceNumber
+                                        </div>
+                                    }
+                                </td>
+
+                                <td>
+                                    @(sale.Customer?.CustomerName ?? "Walk-in Customer")
+                                </td>
+
+                                <td>
+                                    @(sale.CashierName ?? "Unknown")
+                                </td>
+
+                                <td>
+                                    @sale.SalesDetails.Count item(s)
+
+                                    <div class="text-muted small">
+                                        @{
+                                            var firstItem = sale.SalesDetails.FirstOrDefault();
+                                        }
+
+                                        @(firstItem?.Item?.ItemName ?? "No item")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @if (sale.PaymentMethod == "Cash")
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            Cash
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-primary">
+                                            @sale.PaymentMethod
+                                        </span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        @currencySymbol@sale.TotalAmount.ToString("N2")
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    @sale.SalesDate.ToString("MMM dd, yyyy")
+
+                                    <div class="text-muted small">
+                                        @sale.SalesDate.ToString("hh:mm tt")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @if (sale.Status == "Completed")
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            Completed
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">
+                                            @sale.Status
+                                        </span>
+                                    }
+                                </td>
+
+                                <td>
+
+                                    <div class="d-flex gap-1">
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary view-sale-btn"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#saleDetailsModal"
+                                                data-number="@sale.SalesNumber"
+                                                data-customer="@(sale.Customer?.CustomerName ?? "Walk-in Customer")"
+                                                data-date="@sale.SalesDate.ToString("MMM dd, yyyy hh:mm tt")"
+                                                data-payment="@sale.PaymentMethod"
+                                                data-subtotal="@sale.SubTotal.ToString("N2")"
+                                                data-discount="@sale.DiscountAmount.ToString("N2")"
+                                                data-discount-type="@(sale.DiscountType ?? "None")"
+                                                data-discount-value="@sale.DiscountValue.ToString("N2")"
+                                                data-discount-reason="@(sale.DiscountReason ?? "")"
+                                                data-vat="@sale.VatAmount.ToString("N2")"
+                                                data-total="@sale.TotalAmount.ToString("N2")"
+                                                data-received="@sale.AmountReceived.ToString("N2")"
+                                                data-change="@sale.ChangeAmount.ToString("N2")"
+                                                data-items-id="sale-items-@sale.Id">
+
+                                            <i class="bi bi-eye"></i>
+
+                                        </button>
+
+                                        @if (sale.Status != "Voided")
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger void-sale-btn"
+                                                    data-id="@sale.Id"
+                                                    data-number="@sale.SalesNumber"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#voidSaleModal">
+
+                                                <i class="bi bi-x-circle"></i>
+
+                                            </button>
+                                        }
+
+                                    </div>
+
+                                    <script type="application/json"
+                                            id="sale-items-@sale.Id">
+
+                                        @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                                            sale.SalesDetails.Select(d => new
+                                            {
+                                                    item = d.Item != null ? d.Item.ItemName : "N/A",
+                                                    unit = d.Item != null && d.Item.Unit != null ? d.Item.Unit.ShortName : "",
+                                                    qty = d.Quantity.ToString("0.###"),
+                                                    price = d.UnitPrice.ToString("N2"),
+                                                    total = d.LineTotal.ToString("N2")
+                                            })))
+
+                            </script>
+
+                        </td>
+
+                    </tr>
+                                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+
+                                    No sales transactions found.
+
+                                </div>
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="modal fade"
+     id="saleDetailsModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+
+                <div>
+                    <h5 class="modal-title fw-bold">
+                        Sale Details
+                    </h5>
+
+                    <div class="text-muted small">
+                        Receipt details
+                    </div>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div id="receiptPrintArea"
+                     data-paper-size="@paperSize">
+
+                    <div class="text-center mb-4 receipt-business-header">
+
+                        <h4 class="fw-bold mb-1">
+                            @businessName
+                        </h4>
+
+                        <div class="text-muted small">
+                            @businessAddress
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(contactNumber))
+                        {
+                            <div class="text-muted small">
+                                @contactNumber
+                            </div>
+                        }
+
+                        <div class="text-muted small mt-2">
+                            SALES RECEIPT
+                        </div>
+
+                    </div>
+
+                    <div class="row g-3 mb-4">
+
+                        <div class="col-md-6">
+                            <div class="text-muted small">Receipt No.</div>
+                            <strong id="detailSalesNumber"></strong>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="text-muted small">Customer</div>
+                            <strong id="detailCustomer"></strong>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="text-muted small">Date</div>
+                            <strong id="detailDate"></strong>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="text-muted small">Payment</div>
+                            <strong id="detailPayment"></strong>
+                        </div>
+
+                    </div>
+
+                    <div class="table-responsive mb-4">
+
+                        <table class="table align-middle">
+
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Qty</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="detailItemsBody"></tbody>
+
+                        </table>
+
+                    </div>
+
+                    <div class="border-top pt-3">
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Subtotal</span>
+                            <strong>@currencySymbol<span id="detailSubtotal"></span></strong>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Discount</span>
+                            <strong>@currencySymbol<span id="detailDiscount"></span></strong>
+                        </div>
+
+                        <div id="discountDetailBlock"
+                             class="small text-muted mb-2 d-none">
+
+                            <div class="d-flex justify-content-between">
+                                <span>Discount Type</span>
+                                <strong id="detailDiscountType"></strong>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <span>Discount Value</span>
+                                <strong id="detailDiscountValue"></strong>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <span>Reason</span>
+                                <strong id="detailDiscountReason"></strong>
+                            </div>
+
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>VAT</span>
+                            <strong>@currencySymbol<span id="detailVat"></span></strong>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2 fs-5">
+                            <strong>Total</strong>
+                            <strong class="text-primary">
+                                @currencySymbol<span id="detailTotal"></span>
+                            </strong>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Amount Received</span>
+                            <strong>@currencySymbol<span id="detailReceived"></span></strong>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <span>Change</span>
+                            <strong class="text-success">
+                                @currencySymbol<span id="detailChange"></span>
+                            </strong>
+                        </div>
+
+                    </div>
+
+                    <hr />
+
+                    <div class="text-center text-muted small receipt-footer-text">
+                        @receiptFooter
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer border-0 pt-0">
+
+                <button class="btn btn-outline-primary"
+                        data-bs-dismiss="modal">
+                    Close
+                </button>
+
+                <button class="btn btn-primary"
+                        type="button"
+                        id="printReceiptBtn">
+                    <i class="bi bi-printer me-1"></i>
+                    Print Receipt
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="modal fade"
+     id="voidSaleModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <form asp-controller="Sales"
+                  asp-action="VoidSale"
+                  method="post"
+                  class="confirm-void-sale">
+
+                @Html.AntiForgeryToken()
+
+                <input type="hidden"
+                       id="voidSaleId"
+                       name="id" />
+
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <h5 class="modal-title fw-bold">
+                            Void Sale
+                        </h5>
+
+                        <div class="text-muted small">
+                            This will restore sold stock back to inventory
+                        </div>
+                    </div>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                    </button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="alert alert-warning">
+                        You are about to void receipt:
+                        <strong id="voidSaleNumber"></strong>
+                    </div>
+
+                    <label class="form-label fw-semibold">
+                        Void Reason
+                    </label>
+
+                    <textarea name="voidReason"
+                              class="form-control"
+                              rows="3"
+                              placeholder="Example: Wrong item, wrong quantity, duplicate transaction..."
+                              required></textarea>
+
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-danger">
+                        <i class="bi bi-x-circle me-1"></i>
+                        Void Sale
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const salesSearchInput = document.getElementById('salesSearchInput');
+            const salesPaymentFilter = document.getElementById('salesPaymentFilter');
+            const salesStatusFilter = document.getElementById('salesStatusFilter');
+            const salesRows = document.querySelectorAll('.sales-row');
+
+            function filterSales() {
+                const searchValue = (salesSearchInput?.value || '').toLowerCase();
+                const paymentValue = (salesPaymentFilter?.value || 'all').toLowerCase();
+                const statusValue = (salesStatusFilter?.value || 'all').toLowerCase();
+
+                salesRows.forEach(row => {
+                    const rowText = row.innerText.toLowerCase();
+                    const rowPayment = row.getAttribute('data-payment') || '';
+                    const rowStatus = row.getAttribute('data-status') || '';
+
+                    row.style.display =
+                        rowText.includes(searchValue) &&
+                        (paymentValue === 'all' || rowPayment === paymentValue) &&
+                        (statusValue === 'all' || rowStatus === statusValue)
+                            ? ''
+                            : 'none';
+                });
+            }
+
+            salesSearchInput?.addEventListener('input', filterSales);
+            salesPaymentFilter?.addEventListener('change', filterSales);
+            salesStatusFilter?.addEventListener('change', filterSales);
+
+            document.querySelectorAll('.view-sale-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    document.getElementById('detailSalesNumber').innerText = this.dataset.number || '';
+                    document.getElementById('detailCustomer').innerText = this.dataset.customer || '';
+                    document.getElementById('detailDate').innerText = this.dataset.date || '';
+                    document.getElementById('detailPayment').innerText = this.dataset.payment || '';
+                    document.getElementById('detailSubtotal').innerText = this.dataset.subtotal || '0.00';
+                    document.getElementById('detailDiscount').innerText = this.dataset.discount || '0.00';
+                    document.getElementById('detailVat').innerText = this.dataset.vat || '0.00';
+                    document.getElementById('detailTotal').innerText = this.dataset.total || '0.00';
+                    document.getElementById('detailReceived').innerText = this.dataset.received || '0.00';
+                    document.getElementById('detailChange').innerText = this.dataset.change || '0.00';
+
+                    const discountTypeText = this.dataset.discountType || 'None';
+                    const discountValueText = this.dataset.discountValue || '0.00';
+                    const discountReasonText = this.dataset.discountReason || '';
+
+                    document.getElementById('detailDiscountType').innerText = discountTypeText;
+                    document.getElementById('detailDiscountValue').innerText =
+                        discountTypeText === 'Percent'
+                            ? discountValueText + '%'
+                            : '@currencySymbol' + discountValueText;
+                    document.getElementById('detailDiscountReason').innerText = discountReasonText || '-';
+
+                    const discountBlock = document.getElementById('discountDetailBlock');
+
+                    if (discountTypeText === 'None') {
+                        discountBlock.classList.add('d-none');
+                    } else {
+                        discountBlock.classList.remove('d-none');
+                    }
+
+                    const body = document.getElementById('detailItemsBody');
+                    body.innerHTML = '';
+
+                    const itemsScript = document.getElementById(this.dataset.itemsId);
+                    const items = itemsScript ? JSON.parse(itemsScript.textContent) : [];
+
+                    items.forEach(item => {
+                        body.innerHTML += `
+                            <tr>
+                                <td>${item.item}</td>
+                                <td>${item.qty} ${item.unit}</td>
+                                <td>@currencySymbol${item.price}</td>
+                                <td>@currencySymbol${item.total}</td>
+                            </tr>
+                        `;
+                    });
+                });
+            });
+
+            document.querySelectorAll('.void-sale-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    document.getElementById('voidSaleId').value = this.dataset.id;
+                    document.getElementById('voidSaleNumber').innerText = this.dataset.number;
+                });
+            });
+
+            document.querySelectorAll('.confirm-void-sale').forEach(form => {
+                form.addEventListener('submit', function (e) {
+                    e.preventDefault();
+
+                    Swal.fire({
+                        title: 'Void this sale?',
+                        text: 'This will restore sold item stock back to inventory.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, void sale',
+                        cancelButtonText: 'No, cancel',
+                        confirmButtonColor: '#dc2626',
+                        cancelButtonColor: '#64748b'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            form.submit();
+                        }
+                    });
+                });
+            });
+
+            const printReceiptBtn = document.getElementById('printReceiptBtn');
+
+            if (printReceiptBtn) {
+                printReceiptBtn.addEventListener('click', function () {
+                    window.print();
+                });
+            }
+
+        });
+    </script>
+}
+
+<style>
+
+    @@media print {
+
+        body * {
+            visibility: hidden;
+        }
+
+        #receiptPrintArea,
+        #receiptPrintArea * {
+            visibility: visible;
+        }
+
+        #receiptPrintArea {
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #ffffff;
+            color: #000000;
+            padding: 8px;
+            font-size: 12px;
+        }
+
+            #receiptPrintArea[data-paper-size="58mm"] {
+                width: 58mm;
+                max-width: 58mm;
+            }
+
+            #receiptPrintArea[data-paper-size="80mm"] {
+                width: 80mm;
+                max-width: 80mm;
+            }
+
+            #receiptPrintArea[data-paper-size="A4"] {
+                width: 190mm;
+                max-width: 190mm;
+                padding: 16mm;
+                font-size: 14px;
+            }
+
+            #receiptPrintArea table {
+                width: 100%;
+                font-size: inherit;
+            }
+
+            #receiptPrintArea .table th,
+            #receiptPrintArea .table td {
+                padding: 4px;
+            }
+
+        #saleDetailsModal .modal-header,
+        #saleDetailsModal .modal-footer,
+        .modal-backdrop {
+            display: none !important;
+        }
+
+        @@page {
+            margin: 0;
+        }
+    }
+
+</style>

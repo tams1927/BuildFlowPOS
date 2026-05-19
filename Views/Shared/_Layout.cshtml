@@ -1,0 +1,516 @@
+﻿@inject HardwareManagementSystem.Services.PermissionService PermissionService
+@inject HardwareManagementSystem.Services.NotificationService NotificationService
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - HardwareManagementSystem</title>
+
+    <script type="importmap"></script>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/HardwareManagementSystem.styles.css" asp-append-version="true" />
+</head>
+
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+
+    var canDashboard = await PermissionService.HasPermissionAsync(User, "Dashboard");
+    var canPOS = await PermissionService.HasPermissionAsync(User, "POS");
+    var canSales = await PermissionService.HasPermissionAsync(User, "Sales");
+    var canCustomers = await PermissionService.HasPermissionAsync(User, "Customers");
+    var canInventory = await PermissionService.HasPermissionAsync(User, "Inventory");
+    var canStockIn = await PermissionService.HasPermissionAsync(User, "StockIn");
+    var canSuppliers = await PermissionService.HasPermissionAsync(User, "Suppliers");
+    var canCategories = await PermissionService.HasPermissionAsync(User, "Categories");
+    var canUnits = await PermissionService.HasPermissionAsync(User, "Units");
+    var canReports = await PermissionService.HasPermissionAsync(User, "Reports");
+    var canUsers = await PermissionService.HasPermissionAsync(User, "Users");
+    var canSettings = await PermissionService.HasPermissionAsync(User, "Settings");
+    var canStockAdjustment = await PermissionService.HasPermissionAsync(User, "StockAdjustment");
+    var canSalesReturn = await PermissionService.HasPermissionAsync(User, "SalesReturn");
+
+    List<HardwareManagementSystem.Models.Notification> notifications = new();
+    int unreadCount = 0;
+    string themeCss = "dark-blue";
+
+    if (User.Identity?.IsAuthenticated == true)
+    {
+        notifications = await NotificationService.GetForUserAsync(User, 12);
+        unreadCount = await NotificationService.GetUnreadCountAsync(User);
+
+        var dbContext = Context.RequestServices.GetRequiredService<HardwareManagementSystem.Data.ApplicationDbContext>();
+        var setting = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            dbContext.SystemSettings);
+        themeCss = setting?.ThemeColor ?? "dark-blue";
+    }
+}
+
+<body class="theme-@themeCss">
+
+    <div class="app-shell">
+
+        <aside class="app-sidebar">
+
+            <div class="sidebar-brand">
+
+                <div class="brand-icon">
+                    <i class="bi bi-shop"></i>
+                </div>
+
+                <div>
+                    <div class="brand-title">
+                        HardBuild POS
+                    </div>
+
+                    <div class="brand-subtitle">
+                        Hardware Supply
+                    </div>
+                </div>
+
+            </div>
+
+            <nav class="sidebar-nav">
+
+                @if (canDashboard)
+                {
+                    <a class="sidebar-link @(currentController == "Home" ? "active" : "")"
+                       asp-controller="Home"
+                       asp-action="Index">
+
+                        <i class="bi bi-speedometer2"></i>
+                        <span>Dashboard</span>
+
+                    </a>
+                }
+
+                @if (canPOS)
+                {
+                    <a class="sidebar-link @(currentController == "POS" ? "active" : "")"
+                       asp-controller="POS"
+                       asp-action="Index">
+
+                        <i class="bi bi-cart-check"></i>
+                        <span>POS</span>
+
+                    </a>
+                }
+
+                @if (canSales)
+                {
+                    <a class="sidebar-link @(currentController == "Sales" ? "active" : "")"
+                       asp-controller="Sales"
+                       asp-action="Index">
+
+                        <i class="bi bi-receipt"></i>
+                        <span>Sales</span>
+
+                    </a>
+                }
+                @if (canSalesReturn)
+                {
+                    <a class="sidebar-link @(currentController == "SalesReturn" ? "active" : "")"
+                       asp-controller="SalesReturn"
+                       asp-action="Index">
+                        <i class="bi bi-arrow-return-left"></i>
+                        <span>Sales Return</span>
+                    </a>
+                }
+
+                @if (canInventory)
+                {
+                    <a class="sidebar-link @(currentController == "Inventory" ? "active" : "")"
+                       asp-controller="Inventory"
+                       asp-action="Index">
+
+                        <i class="bi bi-box-seam"></i>
+                        <span>Inventory</span>
+
+                    </a>
+                }
+
+                @if (canStockIn)
+                {
+                    <a class="sidebar-link @(currentController == "StockIn" ? "active" : "")"
+                       asp-controller="StockIn"
+                       asp-action="Index">
+
+                        <i class="bi bi-truck"></i>
+                        <span>Stock In</span>
+
+                    </a>
+                }
+
+                @if (canStockAdjustment)
+                {
+                    <a class="sidebar-link @(currentController == "StockAdjustment" ? "active" : "")"
+                       asp-controller="StockAdjustment"
+                       asp-action="Index">
+                        <i class="bi bi-sliders"></i>
+                        <span>Stock Adjustment</span>
+                    </a>
+                }
+
+                @if (canCustomers)
+                {
+                    <a class="sidebar-link @(currentController == "Customers" ? "active" : "")"
+                       asp-controller="Customers"
+                       asp-action="Index">
+
+                        <i class="bi bi-people"></i>
+                        <span>Customers</span>
+
+                    </a>
+                }
+
+                @if (canSuppliers)
+                {
+                    <a class="sidebar-link @(currentController == "Suppliers" ? "active" : "")"
+                       asp-controller="Suppliers"
+                       asp-action="Index">
+
+                        <i class="bi bi-building"></i>
+                        <span>Suppliers</span>
+
+                    </a>
+                }
+
+                @if (canCategories)
+                {
+                    <a class="sidebar-link @(currentController == "Categories" ? "active" : "")"
+                       asp-controller="Categories"
+                       asp-action="Index">
+
+                        <i class="bi bi-tags"></i>
+                        <span>Categories</span>
+
+                    </a>
+                }
+
+                @if (canUnits)
+                {
+                    <a class="sidebar-link @(currentController == "Units" ? "active" : "")"
+                       asp-controller="Units"
+                       asp-action="Index">
+
+                        <i class="bi bi-rulers"></i>
+                        <span>Units</span>
+
+                    </a>
+                }
+
+                @if (canReports)
+                {
+                    <a class="sidebar-link @(currentController == "AuditTrail" ? "active" : "")"
+                       asp-controller="AuditTrail"
+                       asp-action="Index">
+                        <i class="bi bi-clock-history"></i>
+                        <span>Audit Trail</span>
+                    </a>
+                }
+
+                @if (canReports)
+                {
+                    <a class="sidebar-link @(currentController == "Reports" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="Index">
+
+                        <i class="bi bi-bar-chart-line"></i>
+                        <span>Reports</span>
+
+                    </a>
+                }
+
+                @if (canUsers)
+                {
+                    <a class="sidebar-link @(currentController == "RolePermissions" ? "active" : "")"
+                       asp-controller="RolePermissions"
+                       asp-action="Index">
+                        <i class="bi bi-shield-check"></i>
+                        <span>Permissions</span>
+                    </a>
+                }
+
+                @if (canSettings)
+                {
+                    <a class="sidebar-link @(currentController == "Settings" ? "active" : "")"
+                       asp-controller="Settings"
+                       asp-action="Index">
+
+                        <i class="bi bi-gear"></i>
+                        <span>Settings</span>
+
+                    </a>
+                }
+                
+
+            </nav>
+
+        </aside>
+
+        <main class="app-main">
+
+            <header class="app-topbar">
+
+                <div>
+
+                    <h1 class="page-title">
+                        @ViewData["Title"]
+                    </h1>
+
+                    <div class="page-subtitle">
+                        Hardware and construction supply POS management system
+                    </div>
+
+                </div>
+
+                <div class="topbar-actions">
+
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary btn-sm position-relative"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false">
+                            <i class="bi bi-bell"></i>
+                            @if (unreadCount > 0)
+                            {
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                      style="font-size:0.6rem;">
+                                    @(unreadCount > 99 ? "99+" : unreadCount.ToString())
+                                </span>
+                            }
+                        </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end notification-dropdown shadow"
+                            style="min-width:340px; max-height:420px; overflow-y:auto;">
+
+                            <li class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                                <span class="fw-bold" style="color:var(--hb-text-strong);">Notifications</span>
+                                @if (unreadCount > 0)
+                                {
+                                    <form asp-controller="Notifications"
+                                          asp-action="MarkAllRead"
+                                          method="post"
+                                          class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
+                                        <button type="submit"
+                                                class="btn btn-link btn-sm p-0"
+                                                style="font-size:0.78rem; color:var(--hb-muted);">
+                                            Mark all read
+                                        </button>
+                                    </form>
+                                }
+                            </li>
+
+                            @if (!notifications.Any())
+                            {
+                                <li class="text-center py-4 text-muted small">
+                                    <i class="bi bi-bell-slash d-block fs-3 mb-1"></i>
+                                    No notifications
+                                </li>
+                            }
+                            else
+                            {
+                                foreach (var notif in notifications)
+                                {
+                                    var iconColor = notif.Type switch
+                                    {
+                                        "Warning" => "text-warning",
+                                        "Danger" => "text-danger",
+                                        "Success" => "text-success",
+                                        _ => "text-primary"
+                                    };
+                                    <li>
+                                        <div class="d-flex gap-2 px-3 py-2 @(notif.IsRead ? "" : "notif-unread")"
+                                             style="border-bottom:1px solid var(--hb-border);">
+                                            <div class="@iconColor pt-1" style="font-size:1.1rem;">
+                                                <i class="@(notif.Icon ?? "bi bi-info-circle")"></i>
+                                            </div>
+                                            <div class="flex-grow-1" style="min-width:0;">
+                                                <div class="fw-semibold" style="font-size:0.82rem; color:var(--hb-text-strong);">
+                                                    @notif.Title
+                                                </div>
+                                                <div style="font-size:0.78rem; color:var(--hb-muted); white-space:normal;">
+                                                    @notif.Message
+                                                </div>
+                                                <div style="font-size:0.7rem; color:var(--hb-muted);">
+                                                    @notif.CreatedAt.ToString("MMM dd, hh:mm tt")
+                                                </div>
+                                            </div>
+                                            @if (!notif.IsRead)
+                                            {
+                                                <form asp-controller="Notifications"
+                                                      asp-action="MarkRead"
+                                                      method="post"
+                                                      class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@notif.Id" />
+                                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
+                                                    <button type="submit"
+                                                            class="btn btn-link btn-sm p-0"
+                                                            style="font-size:0.7rem; color:var(--hb-muted);"
+                                                            title="Mark as read">
+                                                        <i class="bi bi-check2"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </li>
+                                }
+                            }
+                        </ul>
+                    </div>
+
+                    <div class="dropdown">
+
+                        <button class="user-chip border-0"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false">
+
+                            <div class="user-avatar">
+                                @(User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "A")
+                            </div>
+
+                            <div>
+
+                                <div class="user-name">
+                                    @User.Identity?.Name
+                                </div>
+
+                                @if (User.IsInRole("Admin"))
+                                {
+                                    <div class="user-role">Administrator</div>
+                                }
+                                else if (User.IsInRole("Cashier"))
+                                {
+                                    <div class="user-role">Cashier</div>
+                                }
+                                else if (User.IsInRole("InventoryStaff"))
+                                {
+                                    <div class="user-role">Inventory Staff</div>
+                                }
+                                else
+                                {
+                                    <div class="user-role">User</div>
+                                }
+
+                            </div>
+
+                        </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+
+                            <li>
+
+                                <form asp-controller="Account"
+                                      asp-action="Logout"
+                                      method="post">
+
+                                    <button type="submit"
+                                            class="dropdown-item text-danger">
+
+                                        <i class="bi bi-box-arrow-right me-2"></i>
+                                        Logout
+
+                                    </button>
+
+                                </form>
+
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+            <section class="app-content">
+                @RenderBody()
+            </section>
+
+        </main>
+
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <script>
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: '@TempData["SuccessMessage"]',
+                showConfirmButton: false,
+                timer: 2500,
+                timerProgressBar: true
+            });
+        </script>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <script>
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'error',
+                title: '@TempData["ErrorMessage"]',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+        </script>
+    }
+
+    @await RenderSectionAsync("Scripts", required: false)
+
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <script>
+            (function () {
+                const badgeEl = document.querySelector('.bi-bell')?.closest('button')?.querySelector('.badge');
+                if (!badgeEl) return;
+                setInterval(async function () {
+                    try {
+                        const res = await fetch('/Notifications/GetUnreadCount');
+                        if (!res.ok) return;
+                        const data = await res.json();
+                        const btn = document.querySelector('.bi-bell')?.closest('button');
+                        if (!btn) return;
+                        let badge = btn.querySelector('.badge');
+                        if (data.count > 0) {
+                            if (!badge) {
+                                badge = document.createElement('span');
+                                badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
+                                badge.style.fontSize = '0.6rem';
+                                btn.appendChild(badge);
+                            }
+                            badge.textContent = data.count > 99 ? '99+' : data.count;
+                        } else {
+                            badge?.remove();
+                        }
+                    } catch { }
+                }, 30000);
+            })();
+        </script>
+    }
+
+</body>
+</html>

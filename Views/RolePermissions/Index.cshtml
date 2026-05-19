@@ -1,0 +1,178 @@
+﻿@model List<HardwareManagementSystem.Models.RolePermission>
+
+@{
+    ViewData["Title"] = "Role Permissions";
+
+    var roles = ViewBag.Roles as List<string> ?? new();
+    var selectedRole = ViewBag.SelectedRole as string ?? "Admin";
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Role Permissions</h2>
+            <div class="hb-section-subtitle">
+                Control module access per user role
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form asp-controller="RolePermissions"
+              asp-action="Index"
+              method="get"
+              class="row g-3 align-items-end">
+
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Select Role</label>
+
+                <select name="roleName"
+                        class="form-select"
+                        onchange="this.form.submit()">
+
+                    @foreach (var role in roles)
+                    {
+                        <option value="@role" selected="@(role == selectedRole)">
+                            @role
+                        </option>
+                    }
+
+                </select>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">@selectedRole Access Matrix</h2>
+            <div class="hb-section-subtitle">
+                Toggle access for each module and action
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form asp-controller="RolePermissions"
+              asp-action="Update"
+              method="post"
+              class="confirm-submit">
+
+            @Html.AntiForgeryToken()
+
+            <div class="table-responsive">
+
+                <table class="table align-middle">
+
+                    <thead>
+                        <tr>
+                            <th>Module</th>
+                            <th>View</th>
+                            <th>Create</th>
+                            <th>Edit</th>
+                            <th>Delete</th>
+                            <th>Print</th>
+                            <th>Export</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @for (int i = 0; i < Model.Count; i++)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@Model[i].ModuleName</strong>
+
+                                    <input type="hidden" asp-for="@Model[i].Id" />
+                                    <input type="hidden" asp-for="@Model[i].RoleName" />
+                                    <input type="hidden" asp-for="@Model[i].ModuleName" />
+                                </td>
+
+                                <td>
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           asp-for="@Model[i].CanView" />
+                                </td>
+
+                                <td>
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           asp-for="@Model[i].CanCreate" />
+                                </td>
+
+                                <td>
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           asp-for="@Model[i].CanEdit" />
+                                </td>
+
+                                <td>
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           asp-for="@Model[i].CanDelete" />
+                                </td>
+
+                                <td>
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           asp-for="@Model[i].CanPrint" />
+                                </td>
+
+                                <td>
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           asp-for="@Model[i].CanExport" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            <div class="d-flex justify-content-end mt-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Save Permissions
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.confirm-submit').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Save role permissions?',
+                    text: 'This will update access for the selected role.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, save changes',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+    </script>
+}

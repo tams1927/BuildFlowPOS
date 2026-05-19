@@ -1,0 +1,333 @@
+﻿@model IEnumerable<HardwareManagementSystem.Controllers.CashierSalesReportVm>
+
+@{
+    ViewData["Title"] = "Reports";
+
+    decimal todaySales = ViewBag.TodaySales ?? 0;
+    decimal monthlySales = ViewBag.MonthlySales ?? 0;
+    decimal inventoryValue = ViewBag.InventoryValue ?? 0;
+    decimal stockInValue = ViewBag.StockInValue ?? 0;
+
+    int lowStockCount = ViewBag.LowStockCount ?? 0;
+    int outOfStockCount = ViewBag.OutOfStockCount ?? 0;
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+
+            <div class="kpi-label">Today's Sales</div>
+
+            <div class="kpi-value">
+                ₱@todaySales.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Completed POS sales today
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+
+            <div class="kpi-label">Monthly Sales</div>
+
+            <div class="kpi-value">
+                ₱@monthlySales.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Current month sales total
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+
+            <div class="kpi-label">Inventory Value</div>
+
+            <div class="kpi-value">
+                ₱@inventoryValue.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Current stock cost valuation
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-truck"></i>
+            </div>
+
+            <div class="kpi-label">Stock-In Value</div>
+
+            <div class="kpi-value">
+                ₱@stockInValue.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                This month's received inventory
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-6">
+        <div class="hb-card h-100">
+            <div class="hb-card-header">
+                <div>
+                    <h2 class="hb-section-title">Inventory Alerts</h2>
+                    <div class="hb-section-subtitle">
+                        Real-time stock monitoring
+                    </div>
+                </div>
+            </div>
+
+            <div class="hb-card-body">
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <div class="kpi-card">
+                            <div class="kpi-icon">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </div>
+
+                            <div class="kpi-label">Low Stock Items</div>
+
+                            <div class="kpi-value">@lowStockCount</div>
+
+                            <div class="kpi-trend text-warning">
+                                Items below reorder level
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="kpi-card">
+                            <div class="kpi-icon">
+                                <i class="bi bi-x-circle"></i>
+                            </div>
+
+                            <div class="kpi-label">Out of Stock</div>
+
+                            <div class="kpi-value">@outOfStockCount</div>
+
+                            <div class="kpi-trend text-danger">
+                                Critical stock issue
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-6">
+        <div class="hb-card h-100">
+            <div class="hb-card-header">
+                <div>
+                    <h2 class="hb-section-title">Available Reports</h2>
+                    <div class="hb-section-subtitle">
+                        Report modules ready for export later
+                    </div>
+                </div>
+            </div>
+
+            <div class="hb-card-body">
+                <div class="row g-2">
+
+                    <div class="col-md-6">
+                        <a asp-controller="Sales"
+                           asp-action="Index"
+                           class="btn btn-outline-primary w-100">
+                            <i class="bi bi-receipt me-1"></i>
+                            Sales Report
+                        </a>
+                    </div>
+
+                    <div class="col-md-6">
+                        <a asp-controller="Inventory"
+                           asp-action="Index"
+                           class="btn btn-outline-primary w-100">
+                            <i class="bi bi-box-seam me-1"></i>
+                            Inventory Report
+                        </a>
+                    </div>
+
+                    <div class="col-md-6">
+                        <a asp-controller="StockIn"
+                           asp-action="Index"
+                           class="btn btn-outline-primary w-100">
+                            <i class="bi bi-truck me-1"></i>
+                            Stock In Report
+                        </a>
+                    </div>
+
+                    <div class="col-md-6">
+                        <button class="btn btn-outline-primary w-100"
+                                type="button">
+                            <i class="bi bi-printer me-1"></i>
+                            Print Summary
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">
+                Cashier Sales Report
+            </h2>
+
+            <div class="hb-section-subtitle">
+                Monthly sales performance by cashier
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary">
+                <i class="bi bi-download me-1"></i>
+                Export
+            </button>
+        </div>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-lg-5">
+                <label class="form-label fw-semibold">
+                    Search Cashier
+                </label>
+
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+
+                    <input type="text"
+                           id="cashierReportSearchInput"
+                           class="form-control border-start-0"
+                           placeholder="Search cashier name..." />
+                </div>
+            </div>
+
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Cashier</th>
+                        <th>Transactions</th>
+                        <th>Cash Sales</th>
+                        <th>GCash / Digital</th>
+                        <th>Total Sales</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var report in Model)
+                        {
+                            <tr class="cashier-report-row">
+                                <td>
+                                    <strong>@report.CashierName</strong>
+                                </td>
+
+                                <td>
+                                    @report.TransactionCount
+                                </td>
+
+                                <td>
+                                    ₱@report.CashSales.ToString("N2")
+                                </td>
+
+                                <td>
+                                    ₱@report.DigitalSales.ToString("N2")
+                                </td>
+
+                                <td>
+                                    <strong class="text-primary">
+                                        ₱@report.TotalSales.ToString("N2")
+                                    </strong>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No cashier sales records found.
+                                </div>
+
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        const cashierReportSearchInput =
+            document.getElementById('cashierReportSearchInput');
+
+        const cashierReportRows =
+            document.querySelectorAll('.cashier-report-row');
+
+        if (cashierReportSearchInput) {
+            cashierReportSearchInput.addEventListener('input', function () {
+                const value = this.value.toLowerCase();
+
+                cashierReportRows.forEach(row => {
+                    row.style.display =
+                        row.innerText.toLowerCase().includes(value)
+                            ? ''
+                            : 'none';
+                });
+            });
+        }
+    </script>
+}

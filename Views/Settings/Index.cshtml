@@ -1,0 +1,357 @@
+﻿@model HardwareManagementSystem.Models.SystemSetting
+
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">System Settings</h2>
+            <div class="hb-section-subtitle">
+                Configure business information, receipt settings, currency, and VAT
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form asp-controller="Settings"
+              asp-action="Update"
+              method="post"
+              id="settingsForm">
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="ThemeColor" id="themeColorInput" />
+
+            <div class="row g-3">
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Business Name</label>
+                    <input asp-for="BusinessName" class="form-control" required />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Contact Number</label>
+                    <input asp-for="ContactNumber" class="form-control" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Email</label>
+                    <input asp-for="Email" class="form-control" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Currency Symbol</label>
+                    <input asp-for="CurrencySymbol" class="form-control" required />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Default VAT %</label>
+                    <input asp-for="DefaultVatPercent"
+                           type="number"
+                           step="0.01"
+                           min="0"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Receipt Paper Size</label>
+                    <select asp-for="ReceiptPaperSize" class="form-select">
+                        <option value="80mm">80mm Thermal</option>
+                        <option value="58mm">58mm Thermal</option>
+                        <option value="A4">A4</option>
+                    </select>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Business Address</label>
+                    <textarea asp-for="BusinessAddress" class="form-control" rows="3"></textarea>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Receipt Footer</label>
+                    <textarea asp-for="ReceiptFooter"
+                              class="form-control"
+                              rows="3"
+                              placeholder="Example: Thank you for purchasing!"></textarea>
+                </div>
+
+            </div>
+
+            <hr class="my-4" />
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold fs-6">Application Theme</label>
+                <div class="text-muted small mb-3">Select a theme. It will apply immediately for all users after saving.</div>
+
+                <div class="row g-3" id="themePickerRow">
+
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="theme-card" data-theme="dark-blue">
+                            <div class="theme-preview" style="background:#0f172a; border:2px solid #334155;">
+                                <div style="width:30%; background:#1e293b; height:100%; border-right:1px solid #334155; display:flex; flex-direction:column; gap:5px; padding:6px;">
+                                    <div style="height:8px; border-radius:4px; background:#1e40af;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#334155;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#334155;"></div>
+                                </div>
+                                <div style="flex:1; padding:8px; display:flex; flex-direction:column; gap:5px;">
+                                    <div style="height:10px; border-radius:4px; background:#1e293b; width:80%;"></div>
+                                    <div style="height:28px; border-radius:6px; background:#1e293b;"></div>
+                                </div>
+                            </div>
+                            <div class="theme-label">
+                                <span class="theme-dot" style="background:#1e40af;"></span>
+                                Dark Blue
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="theme-card" data-theme="emerald">
+                            <div class="theme-preview" style="background:#0b1f18; border:2px solid #1f4d38;">
+                                <div style="width:30%; background:#102820; height:100%; border-right:1px solid #1f4d38; display:flex; flex-direction:column; gap:5px; padding:6px;">
+                                    <div style="height:8px; border-radius:4px; background:#065f46;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#1f4d38;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#1f4d38;"></div>
+                                </div>
+                                <div style="flex:1; padding:8px; display:flex; flex-direction:column; gap:5px;">
+                                    <div style="height:10px; border-radius:4px; background:#102820; width:80%;"></div>
+                                    <div style="height:28px; border-radius:6px; background:#102820;"></div>
+                                </div>
+                            </div>
+                            <div class="theme-label">
+                                <span class="theme-dot" style="background:#065f46;"></span>
+                                Emerald
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="theme-card" data-theme="slate">
+                            <div class="theme-preview" style="background:#0f172a; border:2px solid #334155;">
+                                <div style="width:30%; background:#1e293b; height:100%; border-right:1px solid #334155; display:flex; flex-direction:column; gap:5px; padding:6px;">
+                                    <div style="height:8px; border-radius:4px; background:#475569;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#334155;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#334155;"></div>
+                                </div>
+                                <div style="flex:1; padding:8px; display:flex; flex-direction:column; gap:5px;">
+                                    <div style="height:10px; border-radius:4px; background:#1e293b; width:80%;"></div>
+                                    <div style="height:28px; border-radius:6px; background:#1e293b;"></div>
+                                </div>
+                            </div>
+                            <div class="theme-label">
+                                <span class="theme-dot" style="background:#475569;"></span>
+                                Slate Gray
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="theme-card" data-theme="gold">
+                            <div class="theme-preview" style="background:#1c1507; border:2px solid #4d3b1a;">
+                                <div style="width:30%; background:#271e0a; height:100%; border-right:1px solid #4d3b1a; display:flex; flex-direction:column; gap:5px; padding:6px;">
+                                    <div style="height:8px; border-radius:4px; background:#92400e;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#4d3b1a;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#4d3b1a;"></div>
+                                </div>
+                                <div style="flex:1; padding:8px; display:flex; flex-direction:column; gap:5px;">
+                                    <div style="height:10px; border-radius:4px; background:#271e0a; width:80%;"></div>
+                                    <div style="height:28px; border-radius:6px; background:#271e0a;"></div>
+                                </div>
+                            </div>
+                            <div class="theme-label">
+                                <span class="theme-dot" style="background:#92400e;"></span>
+                                Premium Gold
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="theme-card" data-theme="dark">
+                            <div class="theme-preview" style="background:#09090b; border:2px solid #27272a;">
+                                <div style="width:30%; background:#111113; height:100%; border-right:1px solid #27272a; display:flex; flex-direction:column; gap:5px; padding:6px;">
+                                    <div style="height:8px; border-radius:4px; background:#6366f1;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#27272a;"></div>
+                                    <div style="height:6px; border-radius:4px; background:#27272a;"></div>
+                                </div>
+                                <div style="flex:1; padding:8px; display:flex; flex-direction:column; gap:5px;">
+                                    <div style="height:10px; border-radius:4px; background:#111113; width:80%;"></div>
+                                    <div style="height:28px; border-radius:6px; background:#111113;"></div>
+                                </div>
+                            </div>
+                            <div class="theme-label">
+                                <span class="theme-dot" style="background:#6366f1;"></span>
+                                Dark Mode
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-4">
+                <button type="button" id="saveSettingsBtn" class="btn btn-primary">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Save Settings
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<div class="hb-card mt-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Receipt Preview</h2>
+            <div class="hb-section-subtitle">
+                Preview how business information will appear on receipts
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="mx-auto text-center border rounded-4 p-4 bg-white text-dark"
+             style="max-width:420px;">
+
+            <h4 class="fw-bold mb-1">@Model.BusinessName</h4>
+
+            <div class="text-muted small">
+                @(Model.BusinessAddress ?? "Business address")
+            </div>
+
+            <div class="text-muted small">
+                @(Model.ContactNumber ?? "Contact number")
+            </div>
+
+            <hr />
+
+            <div class="d-flex justify-content-between">
+                <span>Currency</span>
+                <strong>@Model.CurrencySymbol</strong>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <span>VAT</span>
+                <strong>@Model.DefaultVatPercent.ToString("0.##")%</strong>
+            </div>
+
+            <hr />
+
+            <div class="text-muted small">
+                @(Model.ReceiptFooter ?? "Thank you for purchasing!")
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+<style>
+    .theme-card {
+        cursor: pointer;
+        border-radius: 14px;
+        border: 2px solid var(--hb-border);
+        overflow: hidden;
+        transition: all 0.2s ease;
+        background: var(--hb-surface-2);
+    }
+
+        .theme-card:hover {
+            border-color: var(--hb-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .theme-card.selected {
+            border-color: var(--hb-primary);
+            box-shadow: 0 0 0 3px var(--hb-primary-a30);
+        }
+
+    .theme-preview {
+        height: 70px;
+        display: flex;
+        border-radius: 0;
+    }
+
+    .theme-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--hb-text);
+    }
+
+    .theme-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+</style>
+<script>
+    const currentTheme = '@Model.ThemeColor';
+    const themeInput = document.getElementById('themeColorInput');
+    const cards = document.querySelectorAll('.theme-card');
+
+    function selectTheme(value) {
+        themeInput.value = value;
+        cards.forEach(c => {
+            c.classList.toggle('selected', c.dataset.theme === value);
+        });
+    }
+
+    cards.forEach(card => {
+        card.addEventListener('click', function () {
+            selectTheme(this.dataset.theme);
+        });
+    });
+
+    selectTheme(currentTheme || 'dark-blue');
+
+    document.getElementById('saveSettingsBtn').addEventListener('click', function () {
+        const form = document.getElementById('settingsForm');
+        const businessName = form.querySelector('[name="BusinessName"]').value.trim();
+        const currency = form.querySelector('[name="CurrencySymbol"]').value.trim();
+        const vat = parseFloat(form.querySelector('[name="DefaultVatPercent"]').value || 0);
+
+        if (!businessName) {
+            Swal.fire({ icon: 'warning', title: 'Required', text: 'Business name is required.', confirmButtonColor: '#1e40af' });
+            return;
+        }
+        if (!currency) {
+            Swal.fire({ icon: 'warning', title: 'Required', text: 'Currency symbol is required.', confirmButtonColor: '#1e40af' });
+            return;
+        }
+        if (vat < 0) {
+            Swal.fire({ icon: 'warning', title: 'Invalid VAT', text: 'VAT cannot be negative.', confirmButtonColor: '#1e40af' });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Save settings?',
+            text: 'This will update system and receipt settings.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, save settings',
+            cancelButtonText: 'No, cancel',
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#64748b'
+        }).then((result) => {
+        if (result.isConfirmed) form.submit();
+        });
+    });
+</script>
+}

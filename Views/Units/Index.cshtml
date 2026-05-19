@@ -1,0 +1,529 @@
+﻿@model IEnumerable<HardwareManagementSystem.Models.Unit>
+
+@{
+    ViewData["Title"] = "Units";
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-rulers"></i>
+            </div>
+            <div class="kpi-label">Total Units</div>
+            <div class="kpi-value">@Model.Count()</div>
+            <div class="kpi-trend">Measurement types configured</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="kpi-label">Active Units</div>
+            <div class="kpi-value">@Model.Count(u => u.IsActive)</div>
+            <div class="kpi-trend">Available for inventory use</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-calculator"></i>
+            </div>
+            <div class="kpi-label">Decimal Units</div>
+            <div class="kpi-value">@Model.Count(u => u.AllowsDecimal)</div>
+            <div class="kpi-trend">Supports decimal quantities</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-pause-circle"></i>
+            </div>
+            <div class="kpi-label">Inactive Units</div>
+            <div class="kpi-value">@Model.Count(u => !u.IsActive)</div>
+            <div class="kpi-trend text-warning">Currently disabled</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Measurement Units</h2>
+            <div class="hb-section-subtitle">
+                Manage inventory measurement and quantity units
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary">
+                <i class="bi bi-download me-1"></i>
+                Export
+            </button>
+
+            <button class="btn btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addUnitModal">
+                <i class="bi bi-plus-circle me-1"></i>
+                Add Unit
+            </button>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+            <div class="col-lg-5">
+                <label class="form-label fw-semibold">Search Unit</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text"
+                           id="unitSearchInput"
+                           class="form-control border-start-0"
+                           placeholder="Search unit name or abbreviation..." />
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Unit Type</label>
+                <select id="unitTypeFilter" class="form-select">
+                    <option value="all">All Types</option>
+                    <option value="piece">Piece</option>
+                    <option value="weight">Weight</option>
+                    <option value="volume">Volume</option>
+                    <option value="length">Length</option>
+                    <option value="packaging">Packaging</option>
+                    <option value="general">General</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Unit Name</th>
+                        <th>Short Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Decimal</th>
+                        <th>Status</th>
+                        <th width="140">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var unit in Model)
+                        {
+                            <tr class="unit-row" data-type="@(unit.UnitType ?? "general")">
+                                <td>
+                                    <strong>@unit.UnitName</strong>
+                                    <div class="text-muted small">
+                                        UNT-@unit.Id.ToString("0000")
+                                    </div>
+                                </td>
+
+                                <td>@unit.ShortName</td>
+
+                                <td>
+                                    <span class="badge badge-soft-primary">
+                                        @(unit.UnitType ?? "General")
+                                    </span>
+                                </td>
+
+                                <td>@(unit.Description ?? "No description")</td>
+
+                                <td>
+                                    @if (unit.AllowsDecimal)
+                                    {
+                                        <span class="badge badge-soft-success">Allowed</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">Whole No.</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @if (unit.IsActive)
+                                    {
+                                        <span class="badge badge-soft-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">Inactive</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <div class="d-flex gap-1">
+
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editUnitModal"
+                                                data-id="@unit.Id"
+                                                data-name="@unit.UnitName"
+                                                data-shortname="@unit.ShortName"
+                                                data-type="@unit.UnitType"
+                                                data-description="@unit.Description"
+                                                data-decimal="@unit.AllowsDecimal.ToString().ToLower()"
+                                                data-active="@unit.IsActive.ToString().ToLower()">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+
+                                        <form asp-controller="Units"
+                                              asp-action="Deactivate"
+                                              method="post"
+                                              class="confirm-deactivate d-inline">
+
+                                            @Html.AntiForgeryToken()
+
+                                            <input type="hidden"
+                                                   name="id"
+                                                   value="@unit.Id" />
+
+                                            <button type="submit"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    @(unit.IsActive ? "" : "disabled")>
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No units found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="addUnitModal" tabindex="-1" aria-labelledby="addUnitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="addUnitModalLabel">Add Unit</h5>
+                    <div class="text-muted small">Create a new measurement unit</div>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <form asp-controller="Units"
+                  asp-action="Create"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Unit Name</label>
+                        <input type="text"
+                               name="unitName"
+                               class="form-control"
+                               placeholder="Example: Kilogram"
+                               required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Short Name</label>
+                        <input type="text"
+                               name="shortName"
+                               class="form-control"
+                               placeholder="Example: kg"
+                               required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Unit Type</label>
+                        <select name="unitType" class="form-select">
+                            <option value="">Select Type</option>
+                            <option value="Piece">Piece</option>
+                            <option value="Weight">Weight</option>
+                            <option value="Volume">Volume</option>
+                            <option value="Length">Length</option>
+                            <option value="Packaging">Packaging</option>
+                            <option value="General">General</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <textarea name="description"
+                                  class="form-control"
+                                  rows="3"
+                                  placeholder="Optional description..."></textarea>
+                    </div>
+
+                    <div class="form-check form-switch">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="allowsDecimal"
+                               value="true"
+                               checked />
+
+                        <label class="form-check-label">
+                            Allows decimal quantity
+                        </label>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Save Unit
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editUnitModal" tabindex="-1" aria-labelledby="editUnitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="editUnitModalLabel">Edit Unit</h5>
+                    <div class="text-muted small">Update measurement unit information</div>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <form asp-controller="Units"
+                  asp-action="Edit"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <input type="hidden"
+                       id="editUnitId"
+                       name="id" />
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Unit Name</label>
+                        <input type="text"
+                               id="editUnitName"
+                               name="unitName"
+                               class="form-control"
+                               required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Short Name</label>
+                        <input type="text"
+                               id="editUnitShortName"
+                               name="shortName"
+                               class="form-control"
+                               required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Unit Type</label>
+                        <select id="editUnitType"
+                                name="unitType"
+                                class="form-select">
+                            <option value="">Select Type</option>
+                            <option value="Piece">Piece</option>
+                            <option value="Weight">Weight</option>
+                            <option value="Volume">Volume</option>
+                            <option value="Length">Length</option>
+                            <option value="Packaging">Packaging</option>
+                            <option value="General">General</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <textarea id="editUnitDescription"
+                                  name="description"
+                                  class="form-control"
+                                  rows="3"></textarea>
+                    </div>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="editUnitAllowsDecimal"
+                               name="allowsDecimal"
+                               value="true" />
+
+                        <label class="form-check-label">
+                            Allows decimal quantity
+                        </label>
+                    </div>
+
+                    <div class="form-check form-switch">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="editUnitActive"
+                               name="isActive"
+                               value="true" />
+
+                        <label class="form-check-label">
+                            Active Unit
+                        </label>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Update Unit
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.confirm-submit').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Save changes?',
+                    text: 'Please confirm before saving this record.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, save it',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        document.querySelectorAll('.confirm-deactivate').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Deactivate this unit?',
+                    text: 'This unit will no longer be available for new items.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, deactivate',
+                    cancelButtonText: 'No, cancel',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        const editUnitModal = document.getElementById('editUnitModal');
+
+        if (editUnitModal) {
+            editUnitModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+
+                document.getElementById('editUnitId').value = button.getAttribute('data-id');
+                document.getElementById('editUnitName').value = button.getAttribute('data-name');
+                document.getElementById('editUnitShortName').value = button.getAttribute('data-shortname');
+                document.getElementById('editUnitType').value = button.getAttribute('data-type') || '';
+                document.getElementById('editUnitDescription').value = button.getAttribute('data-description') || '';
+                document.getElementById('editUnitAllowsDecimal').checked = button.getAttribute('data-decimal') === 'true';
+                document.getElementById('editUnitActive').checked = button.getAttribute('data-active') === 'true';
+            });
+        }
+
+        const unitSearchInput = document.getElementById('unitSearchInput');
+        const unitTypeFilter = document.getElementById('unitTypeFilter');
+        const unitRows = document.querySelectorAll('.unit-row');
+
+        function filterUnits() {
+            const searchValue = unitSearchInput.value.toLowerCase();
+            const typeValue = unitTypeFilter.value.toLowerCase();
+
+            unitRows.forEach(row => {
+                const rowText = row.innerText.toLowerCase();
+                const rowType = row.getAttribute('data-type');
+
+                const matchesSearch = rowText.includes(searchValue);
+                const matchesType = typeValue === 'all' || rowType === typeValue;
+
+                row.style.display = matchesSearch && matchesType ? '' : 'none';
+            });
+        }
+
+        unitSearchInput.addEventListener('input', filterUnits);
+        unitTypeFilter.addEventListener('change', filterUnits);
+    </script>
+}

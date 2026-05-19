@@ -1,0 +1,230 @@
+﻿@model IEnumerable<HardwareManagementSystem.Models.StockAdjustmentHeader>
+
+@{
+    ViewData["Title"] = "Stock Adjustment";
+
+    var adjustments = Model ?? Enumerable.Empty<HardwareManagementSystem.Models.StockAdjustmentHeader>();
+
+    var totalAdjustments = adjustments.Count();
+    var increaseCount = adjustments.Count(a => a.AdjustmentType == "Increase");
+    var decreaseCount = adjustments.Count(a => a.AdjustmentType == "Decrease");
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-sliders"></i>
+            </div>
+            <div class="kpi-label">Total Adjustments</div>
+            <div class="kpi-value">@totalAdjustments</div>
+            <div class="kpi-trend">Manual stock corrections</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-arrow-up-circle"></i>
+            </div>
+            <div class="kpi-label">Stock Increase</div>
+            <div class="kpi-value">@increaseCount</div>
+            <div class="kpi-trend">Added adjustments</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-12">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-arrow-down-circle"></i>
+            </div>
+            <div class="kpi-label">Stock Decrease</div>
+            <div class="kpi-value">@decreaseCount</div>
+            <div class="kpi-trend">Deducted adjustments</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">Stock Adjustment History</h2>
+            <div class="hb-section-subtitle">
+                Manual stock corrections for damaged, missing, recount, or initial stock fixes
+            </div>
+        </div>
+
+        <a asp-controller="StockAdjustment"
+           asp-action="Create"
+           class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>
+            New Adjustment
+        </a>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-lg-5">
+                <label class="form-label fw-semibold">Search Adjustment</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text"
+                           id="adjustmentSearchInput"
+                           class="form-control border-start-0"
+                           placeholder="Search number, item, reason, user..." />
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Type</label>
+                <select id="adjustmentTypeFilter" class="form-select">
+                    <option value="all">All Types</option>
+                    <option value="increase">Increase</option>
+                    <option value="decrease">Decrease</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="button">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+
+        </div>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Adjustment #</th>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Before</th>
+                        <th>After</th>
+                        <th>Reason</th>
+                        <th>Created By</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (adjustments.Any())
+                    {
+                        foreach (var adjustment in adjustments)
+                        {
+                            var detail = adjustment.StockAdjustmentDetails.FirstOrDefault();
+
+                            <tr class="adjustment-row"
+                                data-type="@adjustment.AdjustmentType.ToLower()">
+
+                                <td>
+                                    <strong>@adjustment.AdjustmentNumber</strong>
+                                </td>
+
+                                <td>
+                                    @adjustment.AdjustmentDate.ToString("MMM dd, yyyy")
+                                    <div class="text-muted small">
+                                        @adjustment.AdjustmentDate.ToString("hh:mm tt")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @if (adjustment.AdjustmentType == "Increase")
+                                    {
+                                        <span class="badge badge-soft-success">Increase</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">Decrease</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <strong>@(detail?.Item?.ItemName ?? "N/A")</strong>
+                                    <div class="text-muted small">
+                                        @(detail?.Item?.ItemCode ?? "")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @detail?.Quantity.ToString("0.###")
+                                </td>
+
+                                <td>
+                                    @detail?.StockBefore.ToString("0.###")
+                                </td>
+
+                                <td>
+                                    <strong>@detail?.StockAfter.ToString("0.###")</strong>
+                                </td>
+
+                                <td>
+                                    @(adjustment.Reason ?? "-")
+                                </td>
+
+                                <td>
+                                    @(adjustment.CreatedBy ?? "Unknown")
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No stock adjustments found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        const adjustmentSearchInput = document.getElementById('adjustmentSearchInput');
+        const adjustmentTypeFilter = document.getElementById('adjustmentTypeFilter');
+        const adjustmentRows = document.querySelectorAll('.adjustment-row');
+
+        function filterAdjustments() {
+            const searchValue = adjustmentSearchInput.value.toLowerCase();
+            const typeValue = adjustmentTypeFilter.value.toLowerCase();
+
+            adjustmentRows.forEach(row => {
+                const rowText = row.innerText.toLowerCase();
+                const rowType = row.getAttribute('data-type') || '';
+
+                const matchesSearch = rowText.includes(searchValue);
+                const matchesType = typeValue === 'all' || rowType === typeValue;
+
+                row.style.display = matchesSearch && matchesType ? '' : 'none';
+            });
+        }
+
+        adjustmentSearchInput.addEventListener('input', filterAdjustments);
+        adjustmentTypeFilter.addEventListener('change', filterAdjustments);
+    </script>
+}

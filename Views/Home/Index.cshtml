@@ -1,0 +1,256 @@
+﻿@{
+    ViewData["Title"] = "Dashboard";
+
+    decimal todaySales = ViewBag.TodaySales ?? 0;
+    decimal monthlySales = ViewBag.MonthlySales ?? 0;
+    decimal inventoryValue = ViewBag.InventoryValue ?? 0;
+
+    int todayTransactions = ViewBag.TodayTransactions ?? 0;
+    int lowStockCount = ViewBag.LowStockCount ?? 0;
+    int outOfStockCount = ViewBag.OutOfStockCount ?? 0;
+    int totalItems = ViewBag.TotalItems ?? 0;
+
+    var recentSales = ViewBag.RecentSales as List<HardwareManagementSystem.Models.SalesHeader>;
+    var lowStockItems = ViewBag.LowStockItems as List<HardwareManagementSystem.Models.Item>;
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="kpi-label">Today's Sales</div>
+            <div class="kpi-value">₱@todaySales.ToString("N2")</div>
+            <div class="kpi-trend">Completed sales today</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+            <div class="kpi-label">Monthly Sales</div>
+            <div class="kpi-value">₱@monthlySales.ToString("N2")</div>
+            <div class="kpi-trend">Current month revenue</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="kpi-label">Transactions</div>
+            <div class="kpi-value">@todayTransactions</div>
+            <div class="kpi-trend">Today completed POS</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="kpi-label">Inventory Value</div>
+            <div class="kpi-value">₱@inventoryValue.ToString("N2")</div>
+            <div class="kpi-trend">Current stock valuation</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-box"></i>
+            </div>
+            <div class="kpi-label">Total Items</div>
+            <div class="kpi-value">@totalItems</div>
+            <div class="kpi-trend">Active inventory records</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="kpi-label">Low Stock</div>
+            <div class="kpi-value">@lowStockCount</div>
+            <div class="kpi-trend text-warning">Needs restocking</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-12">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-x-circle"></i>
+            </div>
+            <div class="kpi-label">Out of Stock</div>
+            <div class="kpi-value">@outOfStockCount</div>
+            <div class="kpi-trend text-danger">Critical inventory</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="row g-3">
+
+    <div class="col-xl-7">
+
+        <div class="hb-card h-100">
+
+            <div class="hb-card-header">
+                <div>
+                    <h2 class="hb-section-title">Recent Sales</h2>
+                    <div class="hb-section-subtitle">
+                        Latest completed POS transactions
+                    </div>
+                </div>
+
+                <a asp-controller="Sales"
+                   asp-action="Index"
+                   class="btn btn-outline-primary btn-sm">
+                    View All
+                </a>
+            </div>
+
+            <div class="hb-card-body">
+
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Receipt</th>
+                                <th>Customer</th>
+                                <th>Cashier</th>
+                                <th>Total</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @if (recentSales != null && recentSales.Any())
+                            {
+                                foreach (var sale in recentSales)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@sale.SalesNumber</strong>
+                                        </td>
+
+                                        <td>
+                                            @(sale.Customer?.CustomerName ?? "Walk-in Customer")
+                                        </td>
+
+                                        <td>
+                                            @(sale.CashierName ?? "Unknown")
+                                        </td>
+
+                                        <td>
+                                            <strong>₱@sale.TotalAmount.ToString("N2")</strong>
+                                        </td>
+
+                                        <td>
+                                            @sale.SalesDate.ToString("MMM dd, yyyy")
+                                            <div class="text-muted small">
+                                                @sale.SalesDate.ToString("hh:mm tt")
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="5" class="text-center py-5">
+                                        <div class="text-muted">
+                                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                            No sales yet.
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-5">
+
+        <div class="hb-card h-100">
+
+            <div class="hb-card-header">
+                <div>
+                    <h2 class="hb-section-title">Inventory Alerts</h2>
+                    <div class="hb-section-subtitle">
+                        Items needing attention
+                    </div>
+                </div>
+
+                <a asp-controller="Inventory"
+                   asp-action="Index"
+                   class="btn btn-outline-primary btn-sm">
+                    View Inventory
+                </a>
+            </div>
+
+            <div class="hb-card-body">
+
+                @if (lowStockItems != null && lowStockItems.Any())
+                {
+                    foreach (var item in lowStockItems)
+                    {
+                        <div class="d-flex justify-content-between align-items-center border-bottom py-3">
+                            <div>
+                                <strong>@item.ItemName</strong>
+                                <div class="text-muted small">
+                                    @item.ItemCode / @(item.Category?.CategoryName ?? "N/A")
+                                </div>
+                            </div>
+
+                            <div class="text-end">
+                                <div>
+                                    <strong>@item.CurrentStock.ToString("0.###")</strong>
+                                    <span class="text-muted small">
+                                        @(item.Unit?.ShortName ?? "")
+                                    </span>
+                                </div>
+
+                                @if (item.CurrentStock <= 0)
+                                {
+                                    <span class="badge badge-soft-danger">Out</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-soft-warning">Low</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-check-circle fs-1 d-block mb-2"></i>
+                        No low stock alerts.
+                    </div>
+                }
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

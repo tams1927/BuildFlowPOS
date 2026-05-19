@@ -1,0 +1,169 @@
+﻿@model HardwareManagementSystem.ViewModels.LoginViewModel
+
+@{
+    ViewData["Title"] = "Login";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Hardware POS</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f1f3d 100%);
+            font-family: "Segoe UI", sans-serif;
+        }
+
+        .login-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 430px;
+            background: #1e293b;
+            border-radius: 22px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid #334155;
+            padding: 36px;
+        }
+
+        .brand-badge {
+            width: 58px;
+            height: 58px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 22px;
+            margin-bottom: 18px;
+            box-shadow: 0 12px 28px rgba(30, 64, 175, 0.5);
+        }
+
+        .login-title {
+            font-size: 26px;
+            font-weight: 800;
+            color: #f1f5f9;
+            margin-bottom: 6px;
+        }
+
+        .login-subtitle {
+            color: #94a3b8;
+            margin-bottom: 28px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .form-control {
+            border-radius: 12px;
+            padding: 12px 14px;
+            border: 1px solid #334155;
+            background: #273549;
+            color: #e2e8f0;
+        }
+
+            .form-control::placeholder {
+                color: #64748b;
+            }
+
+            .form-control:focus {
+                box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+                border-color: #3b82f6;
+                background: #273549;
+                color: #e2e8f0;
+            }
+
+        .btn-login {
+            border-radius: 12px;
+            padding: 12px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            border: none;
+            color: #ffffff;
+            box-shadow: 0 8px 20px rgba(30, 64, 175, 0.4);
+        }
+
+            .btn-login:hover {
+                background: linear-gradient(135deg, #1d3fa3, #2563eb);
+                color: #ffffff;
+            }
+
+        .system-note {
+            margin-top: 22px;
+            font-size: 13px;
+            color: #64748b;
+            text-align: center;
+        }
+
+        .alert {
+            border-radius: 12px;
+            background: rgba(239, 68, 68, 0.12);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="brand-badge">HP</div>
+
+            <div class="login-title">Hardware POS</div>
+            <div class="login-subtitle">
+                Sign in to manage sales, inventory, and reports.
+            </div>
+
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger">
+                    @TempData["Error"]
+                </div>
+            }
+
+            <form asp-controller="Account" asp-action="Login" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label asp-for="Username" class="form-label">Username</label>
+                    <input asp-for="Username" class="form-control" placeholder="Enter username" />
+                    <span asp-validation-for="Username" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="Password" class="form-label">Password</label>
+                    <input asp-for="Password" class="form-control" placeholder="Enter password" />
+                    <span asp-validation-for="Password" class="text-danger small"></span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-login w-100">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="system-note">
+                Hardware / Construction Supply Management System
+            </div>
+        </div>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
