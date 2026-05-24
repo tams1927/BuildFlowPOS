@@ -1,26 +1,13 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.SalesHeader>
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.SalesHeader>
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = "Sales";
 
-    var salesList = Model ?? Enumerable.Empty<HardwareManagementSystem.Models.SalesHeader>();
-
-    var today = DateTime.Today;
-
-    var todaySales = salesList
-        .Where(s => s.SalesDate.Date == today)
-        .ToList();
-
-    var totalTodaySales = todaySales.Sum(s => s.TotalAmount);
-    var totalTransactions = todaySales.Count;
-
-    var cashPayments = todaySales
-        .Where(s => s.PaymentMethod == "Cash")
-        .Sum(s => s.TotalAmount);
-
-    var digitalPayments = todaySales
-        .Where(s => s.PaymentMethod != "Cash")
-        .Sum(s => s.TotalAmount);
+    var totalTodaySales = (decimal)(ViewBag.TodayTotalSales ?? 0m);
+    var totalTransactions = (int)(ViewBag.TodayTransactions ?? 0);
+    var cashPayments = (decimal)(ViewBag.TodayCashPayments ?? 0m);
+    var digitalPayments = (decimal)(ViewBag.TodayDigitalPayments ?? 0m);
 
     var setting = ViewBag.SystemSetting as HardwareManagementSystem.Models.SystemSetting;
 
@@ -30,6 +17,9 @@
     var receiptFooter = setting?.ReceiptFooter ?? "Thank you for purchasing!";
     var currencySymbol = setting?.CurrencySymbol ?? "₱";
     var paperSize = setting?.ReceiptPaperSize ?? "80mm";
+
+    var paymentFilter = ViewBag.PaymentFilter as string;
+    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="row g-3 mb-4">
@@ -101,6 +91,7 @@
 
     <div class="hb-card-body">
 
+        <form method="get" asp-controller="Sales" asp-action="Index">
         <div class="row g-3 mb-4">
 
             <div class="col-lg-4">
@@ -110,38 +101,43 @@
                         <i class="bi bi-search"></i>
                     </span>
                     <input type="text"
-                           id="salesSearchInput"
+                           name="searchTerm"
                            class="form-control border-start-0"
+                           value="@Model.SearchTerm"
                            placeholder="Receipt no., customer, cashier..." />
                 </div>
             </div>
 
             <div class="col-lg-3">
                 <label class="form-label fw-semibold">Payment Method</label>
-                <select id="salesPaymentFilter" class="form-select">
-                    <option value="all">All Payments</option>
-                    <option value="cash">Cash</option>
-                    <option value="gcash">GCash</option>
+                <select name="paymentFilter" class="form-select">
+                    <option value="">All Payments</option>
+                    <option value="Cash" selected="@(paymentFilter == "Cash")">Cash</option>
+                    <option value="GCash" selected="@(paymentFilter == "GCash")">GCash</option>
                 </select>
             </div>
 
             <div class="col-lg-3">
                 <label class="form-label fw-semibold">Status</label>
-                <select id="salesStatusFilter" class="form-select">
-                    <option value="all">All Status</option>
-                    <option value="completed">Completed</option>
-                    <option value="voided">Voided</option>
+                <select name="statusFilter" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="Completed" selected="@(statusFilter == "Completed")">Completed</option>
+                    <option value="Voided" selected="@(statusFilter == "Voided")">Voided</option>
                 </select>
             </div>
 
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
             <div class="col-lg-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100" type="button">
+                <button class="btn btn-primary w-100" type="submit">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
             </div>
 
         </div>
+        </form>
 
         <div class="table-responsive">
 
@@ -163,9 +159,9 @@
 
                 <tbody>
 
-                    @if (salesList.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var sale in salesList)
+                        foreach (var sale in Model.Items)
                         {
                             <tr class="sales-row"
                                 data-payment="@sale.PaymentMethod.ToLower()"
@@ -331,6 +327,8 @@
             </table>
 
         </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Sales", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["paymentFilter"] = paymentFilter, ["statusFilter"] = statusFilter }))
 
     </div>
 

@@ -32,6 +32,14 @@ namespace HardwareManagementSystem.Models
         [StringLength(50)]
         public string? IpAddress { get; set; }
 
+        public string? Browser { get; set; }
+
+        public string? OperatingSystem { get; set; }
+
+        public string? DeviceType { get; set; }
+
+        public string? UserAgent { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }

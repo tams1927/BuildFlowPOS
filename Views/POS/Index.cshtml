@@ -3,9 +3,15 @@
 @{
     ViewData["Title"] = "POS";
 
-    var customers = ViewBag.Customers as List<HardwareManagementSystem.Models.Customer>;
-}
+    var customers =
+        ViewBag.Customers as List<HardwareManagementSystem.Models.Customer>;
 
+    var taxMode =
+        ViewBag.TaxMode?.ToString() ?? "VAT";
+
+    var defaultVatPercent =
+        Convert.ToDecimal(ViewBag.DefaultVatPercent ?? 0);
+}
 <div class="row g-4">
 
     <div class="col-xl-8">
@@ -189,6 +195,10 @@
                     @Html.AntiForgeryToken()
 
                     <input type="hidden"
+                           name="checkoutToken"
+                           value="@Guid.NewGuid().ToString("N")" />
+
+                    <input type="hidden"
                            id="customerIdInput"
                            name="customerId" />
 
@@ -268,6 +278,7 @@
 
                             <input type="number"
                                    step="0.01"
+                                   min="0"
                                    id="discountValue"
                                    name="discountValue"
                                    class="form-control"
@@ -305,15 +316,44 @@
 
                         </div>
 
-                        <div class="d-flex justify-content-between mb-2">
+                        @if (taxMode == "VAT")
+                        {
+                            <div class="d-flex justify-content-between mb-2">
 
-                            <span>VAT</span>
+                                <span>
+                                    VAT (@defaultVatPercent.ToString("0.##")%)
+                                </span>
 
-                            <strong>
-                                ₱0.00
-                            </strong>
+                                <strong id="vatDisplay">
+                                    ₱0.00
+                                </strong>
 
-                        </div>
+                            </div>
+                        }
+                        else if (taxMode == "NONVAT")
+                        {
+                            <div class="d-flex justify-content-between mb-2">
+
+                                <span>Tax Mode</span>
+
+                                <strong class="text-warning">
+                                    NON-VAT
+                                </strong>
+
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="d-flex justify-content-between mb-2">
+
+                                <span>Tax Mode</span>
+
+                                <strong class="text-secondary">
+                                    MANUAL
+                                </strong>
+
+                            </div>
+                        }
 
                         <hr />
 
@@ -345,6 +385,7 @@
                            value="0" />
 
                     <input type="hidden"
+                           id="vatAmountInput"
                            name="vatAmount"
                            value="0" />
 
@@ -371,7 +412,21 @@
                                 GCash
                             </option>
 
+                            <option value="Credit">
+                                Credit / Charge Account
+                            </option>
+
                         </select>
+
+                        <div id="creditCustomerWarning"
+                             class="alert alert-warning d-none mt-2">
+
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+
+                            Credit sales require a registered customer.
+                            Walk-in Customer is not allowed.
+
+                        </div>
 
                     </div>
 
@@ -397,6 +452,7 @@
 
                         <input type="number"
                                step="0.01"
+                               min="0"
                                id="amountReceivedInput"
                                name="amountReceived"
                                class="form-control"
@@ -499,6 +555,18 @@
 
         const customerIdInput =
             document.getElementById('customerIdInput');
+
+        const vatDisplay =
+            document.getElementById('vatDisplay');
+
+        const vatAmountInput =
+            document.getElementById('vatAmountInput');
+
+        const taxMode =
+            '@taxMode';
+
+           const defaultVatPercent =
+        parseFloat('@defaultVatPercent');
 
         customerSelect.addEventListener('change', function () {
 
@@ -680,14 +748,39 @@
 
             }
 
-            const total =
-                subTotal - discountAmount;
+        let vatAmount = 0;
+
+        let totalBeforeVat =
+            subTotal - discountAmount;
+
+        if (taxMode === 'VAT') {
+
+            vatAmount =
+                totalBeforeVat * (defaultVatPercent / 100);
+
+        }
+
+        const total =
+            totalBeforeVat + vatAmount;
 
             subTotalDisplay.innerText =
                 `₱${subTotal.toFixed(2)}`;
 
             discountDisplay.innerText =
                 `₱${discountAmount.toFixed(2)}`;
+                    if (vatDisplay) {
+
+            vatDisplay.innerText =
+                `₱${vatAmount.toFixed(2)}`;
+
+            }
+
+            if (vatAmountInput) {
+
+                vatAmountInput.value =
+                    vatAmount.toFixed(2);
+
+            }
 
             totalDisplay.innerText =
                 `₱${total.toFixed(2)}`;
@@ -790,24 +883,53 @@
             renderCart
         );
 
-        document.getElementById('paymentMethod')
-            .addEventListener('change', function () {
+                document.getElementById('paymentMethod')
+        .addEventListener('change', function () {
 
-                const referenceContainer =
-                    document.getElementById('referenceNumberContainer');
+            const referenceContainer =
+                document.getElementById('referenceNumberContainer');
 
-                if (this.value === 'GCash') {
+            const amountReceivedInput =
+                document.getElementById('amountReceivedInput');
 
-                    referenceContainer.classList.remove('d-none');
+            const creditCustomerWarning =
+                document.getElementById('creditCustomerWarning');
 
-                }
-                else {
+            if (this.value === 'GCash') {
 
-                    referenceContainer.classList.add('d-none');
+                referenceContainer.classList.remove('d-none');
 
-                }
+                amountReceivedInput.disabled = false;
 
-            });
+                creditCustomerWarning.classList.add('d-none');
+
+            }
+            else if (this.value === 'Credit') {
+
+                referenceContainer.classList.add('d-none');
+
+                amountReceivedInput.value = 0;
+
+                amountReceivedInput.disabled = true;
+
+                creditCustomerWarning.classList.remove('d-none');
+
+                calculateChange();
+
+            }
+            else {
+
+                referenceContainer.classList.add('d-none');
+
+                amountReceivedInput.disabled = false;
+
+                creditCustomerWarning.classList.add('d-none');
+
+                calculateChange();
+
+            }
+
+        });
 
         document.getElementById('itemSearchInput')
             .addEventListener('input', function () {
@@ -843,6 +965,48 @@
 
                     return;
 
+                }
+
+                const discVal = parseFloat(discountValue.value || 0);
+                const subTotal = parseFloat(subTotalInput.value || 0);
+                const total = parseFloat(totalAmountInput.value || 0);
+                const received = parseFloat(amountReceivedInput.value || 0);
+                const method = document.getElementById('paymentMethod').value;
+
+                if (discVal < 0) {
+                    Swal.fire({ icon: 'warning', title: 'Invalid Discount', text: 'Discount cannot be negative.', confirmButtonColor: '#1e40af' });
+                    discountValue.focus();
+                    return;
+                }
+                if (discVal > subTotal) {
+                    Swal.fire({ icon: 'warning', title: 'Invalid Discount', text: 'Discount cannot exceed the subtotal.', confirmButtonColor: '#1e40af' });
+                    discountValue.focus();
+                    return;
+                }
+                if (received < 0) {
+                    Swal.fire({ icon: 'warning', title: 'Invalid Amount', text: 'Amount received cannot be negative.', confirmButtonColor: '#1e40af' });
+                    amountReceivedInput.focus();
+                    return;
+                }
+
+                if (method === 'Credit' &&
+                    (!customerSelect.value || customerSelect.value === '')) {
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Customer Required',
+                        text: 'Credit sales cannot use Walk-in Customer.',
+                        confirmButtonColor: '#1e40af'
+                    });
+
+                    customerSelect.focus();
+
+                    return;
+                }
+                if (method === 'Cash' && received < total) {
+                    Swal.fire({ icon: 'warning', title: 'Insufficient Payment', text: 'Amount received is less than the total amount.', confirmButtonColor: '#1e40af' });
+                    amountReceivedInput.focus();
+                    return;
                 }
 
                 Swal.fire({

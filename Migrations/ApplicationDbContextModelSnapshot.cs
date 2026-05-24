@@ -107,6 +107,9 @@ namespace HardwareManagementSystem.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Browser")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -114,6 +117,9 @@ namespace HardwareManagementSystem.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("DeviceType")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("IpAddress")
                         .HasMaxLength(50)
@@ -124,6 +130,9 @@ namespace HardwareManagementSystem.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("OperatingSystem")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ReferenceId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -131,6 +140,9 @@ namespace HardwareManagementSystem.Migrations
                     b.Property<string>("ReferenceType")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("UserAgent")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("UserId")
                         .HasMaxLength(100)
@@ -212,6 +224,123 @@ namespace HardwareManagementSystem.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Customers");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.CustomerLedger", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BalanceBefore")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("CreditAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DebitAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PaymentReferenceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("RunningBalance")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.ToTable("CustomerLedgers");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.Expense", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("ExpenseDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExpenseNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ReferenceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Expenses");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.Item", b =>
@@ -664,15 +793,37 @@ namespace HardwareManagementSystem.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("AmountPaid")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BalanceDue")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateReceived")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("InvoiceNumber")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PaymentReferenceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Remarks")
                         .HasMaxLength(250)
@@ -740,6 +891,56 @@ namespace HardwareManagementSystem.Migrations
                     b.ToTable("Suppliers");
                 });
 
+            modelBuilder.Entity("HardwareManagementSystem.Models.SupplierPayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AmountPaid")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ReferenceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("StockInHeaderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SupplierId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StockInHeaderId");
+
+                    b.HasIndex("SupplierId");
+
+                    b.ToTable("SupplierPayments");
+                });
+
             modelBuilder.Entity("HardwareManagementSystem.Models.SystemSetting", b =>
                 {
                     b.Property<int>("Id")
@@ -781,6 +982,11 @@ namespace HardwareManagementSystem.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TaxMode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("ThemeColor")
                         .IsRequired()
@@ -968,6 +1174,17 @@ namespace HardwareManagementSystem.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("HardwareManagementSystem.Models.CustomerLedger", b =>
+                {
+                    b.HasOne("HardwareManagementSystem.Models.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+                });
+
             modelBuilder.Entity("HardwareManagementSystem.Models.Item", b =>
                 {
                     b.HasOne("HardwareManagementSystem.Models.Category", "Category")
@@ -1104,6 +1321,25 @@ namespace HardwareManagementSystem.Migrations
                         .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.SupplierPayment", b =>
+                {
+                    b.HasOne("HardwareManagementSystem.Models.StockInHeader", "StockInHeader")
+                        .WithMany()
+                        .HasForeignKey("StockInHeaderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("HardwareManagementSystem.Models.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("StockInHeader");
 
                     b.Navigation("Supplier");
                 });

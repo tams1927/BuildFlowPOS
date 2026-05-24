@@ -1,0 +1,412 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.ProfitReportViewModel>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Profitability Report";
+
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today;
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+
+    var totalSales = Model.Items.Sum(x => x.SalesAmount);
+    var totalCost = Model.Items.Sum(x => x.CostAmount);
+    var totalProfit = Model.Items.Sum(x => x.GrossProfit);
+
+    var avgMargin = Model.Items.Any()
+        ? Model.Items.Average(x => x.ProfitMarginPercent)
+        : 0;
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+
+            <div class="kpi-label">
+                Page Sales
+            </div>
+
+            <div class="kpi-value">
+                ₱@totalSales.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Sales from displayed rows
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+
+            <div class="kpi-label">
+                Cost Amount
+            </div>
+
+            <div class="kpi-value">
+                ₱@totalCost.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Total item costs
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+
+            <div class="kpi-label">
+                Gross Profit
+            </div>
+
+            <div class="kpi-value text-success">
+                ₱@totalProfit.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Estimated gross profit
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-percent"></i>
+            </div>
+
+            <div class="kpi-label">
+                Avg Margin
+            </div>
+
+            <div class="kpi-value text-primary">
+                @avgMargin.ToString("N2")%
+            </div>
+
+            <div class="kpi-trend">
+                Average profit margin
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+
+            <h2 class="hb-section-title">
+                Profitability Report
+            </h2>
+
+            <div class="hb-section-subtitle">
+                Sales profitability analysis based on item costs and selling prices
+            </div>
+
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+
+        </a>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="ProfitReport"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-3">
+
+                <label class="form-label fw-semibold">
+                    Date From
+                </label>
+
+                <input type="date"
+                       name="dateFrom"
+                       value="@dateFrom.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+
+            </div>
+
+            <div class="col-lg-3">
+
+                <label class="form-label fw-semibold">
+                    Date To
+                </label>
+
+                <input type="date"
+                       name="dateTo"
+                       value="@dateTo.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+
+            </div>
+
+            <div class="col-lg-4">
+
+                <label class="form-label fw-semibold">
+                    Search
+                </label>
+
+                <input type="text"
+                       name="searchTerm"
+                       value="@Model.SearchTerm"
+                       class="form-control"
+                       placeholder="Receipt #, item code, item name..." />
+
+            </div>
+
+            <input type="hidden"
+                   name="pageSize"
+                   value="@Model.PageSize" />
+
+            <input type="hidden"
+                   name="pageNumber"
+                   value="1" />
+
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="submit"
+                        class="btn btn-primary w-100">
+
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+
+                </button>
+            </div>
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="button"
+                        id="exportProfitPdfBtn"
+                        class="btn btn-danger">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>
+                    Export PDF
+                </button>
+            </div>
+
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Receipt #</th>
+                        <th>Date</th>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Selling</th>
+                        <th>Cost</th>
+                        <th>Sales Amount</th>
+                        <th>Cost Amount</th>
+                        <th>Gross Profit</th>
+                        <th>Margin %</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var row in Model.Items)
+                        {
+                            <tr>
+
+                                <td>
+
+                                    <strong>
+                                        @row.SalesNumber
+                                    </strong>
+
+                                </td>
+
+                                <td>
+
+                                    @row.SalesDate.ToString("MMM dd, yyyy")
+
+                                    <div class="text-muted small">
+                                        @row.SalesDate.ToString("hh:mm tt")
+                                    </div>
+
+                                </td>
+
+                                <td>
+
+                                    <strong>
+                                        @row.ItemName
+                                    </strong>
+
+                                    <div class="text-muted small">
+                                        @row.ItemCode
+                                    </div>
+
+                                </td>
+
+                                <td>
+                                    @row.QuantitySold.ToString("0.###")
+                                </td>
+
+                                <td>
+                                    ₱@row.SellingPrice.ToString("N2")
+                                </td>
+
+                                <td>
+                                    ₱@row.CostPrice.ToString("N2")
+                                </td>
+
+                                <td>
+
+                                    <strong>
+                                        ₱@row.SalesAmount.ToString("N2")
+                                    </strong>
+
+                                </td>
+
+                                <td>
+                                    ₱@row.CostAmount.ToString("N2")
+                                </td>
+
+                                <td>
+
+                                    @if (row.GrossProfit >= 0)
+                                    {
+                                        <span class="text-success fw-bold">
+                                            ₱@row.GrossProfit.ToString("N2")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-danger fw-bold">
+                                            ₱@row.GrossProfit.ToString("N2")
+                                        </span>
+                                    }
+
+                                </td>
+
+                                <td>
+
+                                    @if (row.ProfitMarginPercent >= 30)
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            @row.ProfitMarginPercent.ToString("N2")%
+                                        </span>
+                                    }
+                                    else if (row.ProfitMarginPercent >= 10)
+                                    {
+                                        <span class="badge badge-soft-warning">
+                                            @row.ProfitMarginPercent.ToString("N2")%
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-danger">
+                                            @row.ProfitMarginPercent.ToString("N2")%
+                                        </span>
+                                    }
+
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+
+                            <td colspan="10"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+
+                                    No profitability records found.
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Reports",
+                "ProfitReport",
+                new Dictionary<string, string?>
+                {
+                    ["dateFrom"] = dateFrom.ToString("yyyy-MM-dd"),
+                    ["dateTo"] = dateTo.ToString("yyyy-MM-dd"),
+                    ["searchTerm"] = Model.SearchTerm
+                }))
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        document
+            .getElementById('exportProfitPdfBtn')
+            .addEventListener('click', function () {
+                const dateFrom = document.querySelector('[name="dateFrom"]').value;
+                const dateTo = document.querySelector('[name="dateTo"]').value;
+                const searchTerm = document.querySelector('[name="searchTerm"]')?.value || '';
+
+                const url =
+                    `/Reports/ExportProfitReportPdf` +
+                    `?dateFrom=${encodeURIComponent(dateFrom)}` +
+                    `&dateTo=${encodeURIComponent(dateTo)}` +
+                    `&searchTerm=${encodeURIComponent(searchTerm)}`;
+
+                window.location.href = url;
+            });
+    </script>
+}

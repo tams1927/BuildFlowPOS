@@ -1,0 +1,547 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.Expense>
+
+@using HardwareManagementSystem.ViewModels
+@using HardwareManagementSystem.Models
+
+@{
+    ViewData["Title"] = "Expense Management";
+
+    var categoryFilter = ViewBag.CategoryFilter as string;
+
+    var totalExpenses = Model.Items.Sum(x => x.Amount);
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-4 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-wallet2"></i>
+            </div>
+
+            <div class="kpi-label">
+                Current Page Expenses
+            </div>
+
+            <div class="kpi-value text-danger">
+                ₱@totalExpenses.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Total expenses on current page
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-4 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+
+            <div class="kpi-label">
+                Records Shown
+            </div>
+
+            <div class="kpi-value">
+                @Model.Items.Count()
+            </div>
+
+            <div class="kpi-trend">
+                Current page expense entries
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+
+            <h2 class="hb-section-title">
+                Expense Management
+            </h2>
+
+            <div class="hb-section-subtitle">
+                Track operating expenses, utilities, payroll, delivery, and other business costs
+            </div>
+
+        </div>
+
+        <button class="btn btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#expenseModal">
+
+            <i class="bi bi-plus-circle me-1"></i>
+
+            Add Expense
+
+        </button>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- FILTER -->
+
+        <form method="get"
+              asp-controller="Expenses"
+              asp-action="Index"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-4">
+
+                <label class="form-label fw-semibold">
+                    Search
+                </label>
+
+                <input type="text"
+                       name="searchTerm"
+                       value="@Model.SearchTerm"
+                       class="form-control"
+                       placeholder="Expense #, description, reference..." />
+
+            </div>
+
+            <div class="col-lg-3">
+
+                <label class="form-label fw-semibold">
+                    Category
+                </label>
+
+                <select name="categoryFilter"
+                        class="form-select">
+
+                    <option value="">
+                        All Categories
+                    </option>
+
+                    <option value="Rent"
+                            selected="@(categoryFilter == "Rent")">
+                        Rent
+                    </option>
+
+                    <option value="Utilities"
+                            selected="@(categoryFilter == "Utilities")">
+                        Utilities
+                    </option>
+
+                    <option value="Payroll"
+                            selected="@(categoryFilter == "Payroll")">
+                        Payroll
+                    </option>
+
+                    <option value="Delivery"
+                            selected="@(categoryFilter == "Delivery")">
+                        Delivery
+                    </option>
+
+                    <option value="Supplies"
+                            selected="@(categoryFilter == "Supplies")">
+                        Supplies
+                    </option>
+
+                    <option value="Maintenance"
+                            selected="@(categoryFilter == "Maintenance")">
+                        Maintenance
+                    </option>
+
+                    <option value="Misc"
+                            selected="@(categoryFilter == "Misc")">
+                        Misc
+                    </option>
+
+                </select>
+
+            </div>
+
+            <input type="hidden"
+                   name="pageSize"
+                   value="@Model.PageSize" />
+
+            <input type="hidden"
+                   name="pageNumber"
+                   value="1" />
+
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="submit"
+                        class="btn btn-primary w-100">
+
+                    <i class="bi bi-funnel me-1"></i>
+
+                    Filter
+
+                </button>
+
+            </div>
+
+        </form>
+
+        <!-- TABLE -->
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Date</th>
+                        <th>Expense #</th>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                        <th>Payment Method</th>
+                        <th>Reference #</th>
+                        <th>Created By</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var item in Model.Items)
+                        {
+                            <tr>
+
+                                <td>
+                                    @item.ExpenseDate.ToString("MMM dd, yyyy")
+                                    <div class="text-muted small">
+                                        @item.ExpenseDate.ToString("hh:mm tt")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <strong>@item.ExpenseNumber</strong>
+                                </td>
+
+                                <td>
+
+                                    <span class="badge badge-soft-primary">
+                                        @item.Category
+                                    </span>
+
+                                </td>
+
+                                <td>
+                                    @item.Description
+                                </td>
+
+                                <td>
+
+                                    <strong class="text-danger">
+                                        ₱@item.Amount.ToString("N2")
+                                    </strong>
+
+                                </td>
+
+                                <td>
+                                    @item.PaymentMethod
+                                </td>
+
+                                <td>
+                                    @(string.IsNullOrWhiteSpace(item.ReferenceNumber)
+                                                                ? "-"
+                                                                : item.ReferenceNumber)
+                        </td>
+
+                                <td>
+                                    @item.CreatedBy
+                                </td>
+
+                            </tr>
+                                        }
+                    }
+                    else
+                    {
+                        <tr>
+
+                            <td colspan="8"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+
+                                    No expense records found.
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Expenses",
+                "Index",
+                new Dictionary<string, string?>
+                {
+                    ["searchTerm"] = Model.SearchTerm,
+                    ["categoryFilter"] = categoryFilter
+                }))
+
+    </div>
+
+</div>
+
+<!-- MODAL -->
+
+<div class="modal fade"
+     id="expenseModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-lg">
+
+        <div class="modal-content">
+
+            <form asp-controller="Expenses"
+                  asp-action="Create"
+                  method="post"
+                  class="confirm-submit">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">
+
+                        <i class="bi bi-wallet2 me-2"></i>
+
+                        Add Expense
+
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                    </button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-semibold">
+                                Expense Date
+                            </label>
+
+                            <input type="datetime-local"
+                                   name="expenseDate"
+                                   class="form-control"
+                                   value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-semibold">
+                                Category
+                            </label>
+
+                            <select name="category"
+                                    class="form-select"
+                                    required>
+
+                                <option value="">
+                                    -- Select Category --
+                                </option>
+
+                                <option value="Rent">Rent</option>
+                                <option value="Utilities">Utilities</option>
+                                <option value="Payroll">Payroll</option>
+                                <option value="Delivery">Delivery</option>
+                                <option value="Supplies">Supplies</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="Misc">Misc</option>
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-12">
+
+                            <label class="form-label fw-semibold">
+                                Description
+                            </label>
+
+                            <input type="text"
+                                   name="description"
+                                   class="form-control"
+                                   required />
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-semibold">
+                                Amount
+                            </label>
+
+                            <div class="input-group">
+
+                                <span class="input-group-text">
+                                    ₱
+                                </span>
+
+                                <input type="number"
+                                       name="amount"
+                                       class="form-control"
+                                       step="0.01"
+                                       min="0.01"
+                                       required />
+
+                            </div>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-semibold">
+                                Payment Method
+                            </label>
+
+                            <select name="paymentMethod"
+                                    class="form-select"
+                                    id="paymentMethod"
+                                    required>
+
+                                <option value="">
+                                    -- Select Method --
+                                </option>
+
+                                <option value="Cash">Cash</option>
+                                <option value="GCash">GCash</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Check">Check</option>
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-12"
+                             id="referenceContainer"
+                             style="display:none;">
+
+                            <label class="form-label fw-semibold">
+                                Reference Number
+                            </label>
+
+                            <input type="text"
+                                   name="referenceNumber"
+                                   class="form-control" />
+
+                        </div>
+
+                        <div class="col-md-12">
+
+                            <label class="form-label fw-semibold">
+                                Remarks
+                            </label>
+
+                            <textarea name="remarks"
+                                      class="form-control"
+                                      rows="3">
+                            </textarea>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+
+                        Cancel
+
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+
+                        <i class="bi bi-check-circle me-1"></i>
+
+                        Save Expense
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+
+    <script>
+
+        const paymentMethod =
+            document.getElementById('paymentMethod');
+
+        const referenceContainer =
+            document.getElementById('referenceContainer');
+
+        function toggleReferenceField() {
+
+            const method = paymentMethod.value;
+
+            if (method === 'GCash' ||
+                method === 'Bank Transfer' ||
+                method === 'Check') {
+
+                referenceContainer.style.display = 'block';
+
+            }
+            else {
+
+                referenceContainer.style.display = 'none';
+
+            }
+
+        }
+
+        paymentMethod.addEventListener(
+            'change',
+            toggleReferenceField);
+
+        toggleReferenceField();
+
+    </script>
+
+}

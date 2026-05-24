@@ -1,0 +1,233 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.AgingReceivableReportViewModel>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Aging Receivables Report";
+
+    var totalBalance = ViewBag.TotalBalance ?? 0;
+    var currentBalance = ViewBag.CurrentBalance ?? 0;
+    var overdueBalance = ViewBag.OverdueBalance ?? 0;
+    var criticalBalance = ViewBag.CriticalBalance ?? 0;
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-wallet2"></i>
+            </div>
+            <div class="kpi-label">Total Receivables</div>
+            <div class="kpi-value">₱@Convert.ToDecimal(totalBalance).ToString("N2")</div>
+            <div class="kpi-trend">Outstanding credit balance</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="kpi-label">Current</div>
+            <div class="kpi-value text-success">₱@Convert.ToDecimal(currentBalance).ToString("N2")</div>
+            <div class="kpi-trend">0 to 30 days</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div class="kpi-label">Overdue</div>
+            <div class="kpi-value text-warning">₱@Convert.ToDecimal(overdueBalance).ToString("N2")</div>
+            <div class="kpi-trend">31 days and above</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="kpi-label">Critical</div>
+            <div class="kpi-value text-danger">₱@Convert.ToDecimal(criticalBalance).ToString("N2")</div>
+            <div class="kpi-trend">Over 90 days</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Aging Receivables Report</h2>
+            <div class="hb-section-subtitle">
+                Monitor customer credit balances by aging period
+            </div>
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="AgingReceivables"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-5">
+                <label class="form-label fw-semibold">Search Customer</label>
+                <input type="text"
+                       name="searchTerm"
+                       value="@Model.SearchTerm"
+                       class="form-control"
+                       placeholder="Search customer name or contact..." />
+            </div>
+
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button type="submit"
+                        class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Total Balance</th>
+                        <th>0-30 Days</th>
+                        <th>31-60 Days</th>
+                        <th>61-90 Days</th>
+                        <th>90+ Days</th>
+                        <th>Last Transaction</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var row in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@row.CustomerName</strong>
+                                </td>
+
+                                <td>
+                                    <strong>₱@row.TotalBalance.ToString("N2")</strong>
+                                </td>
+
+                                <td>
+                                    ₱@row.CurrentBalance.ToString("N2")
+                                </td>
+
+                                <td>
+                                    ₱@row.Days30.ToString("N2")
+                                </td>
+
+                                <td>
+                                    ₱@row.Days60.ToString("N2")
+                                </td>
+
+                                <td>
+                                    <span class="text-danger fw-bold">
+                                        ₱@row.Over90Days.ToString("N2")
+                                    </span>
+                                </td>
+
+                                <td>
+                                    @if (row.LastTransactionDate.HasValue)
+                                    {
+                                        @row.LastTransactionDate.Value.ToString("MMM dd, yyyy")
+                                        <div class="text-muted small">
+                                            @row.LastTransactionDate.Value.ToString("hh:mm tt")
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No activity</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @if (row.Status == "Critical")
+                                    {
+                                        <span class="badge badge-soft-danger">
+                                            Critical
+                                        </span>
+                                    }
+                                    else if (row.Status == "Overdue")
+                                    {
+                                        <span class="badge badge-soft-warning">
+                                            Overdue
+                                        </span>
+                                    }
+                                    else if (row.Status == "Due Soon")
+                                    {
+                                        <span class="badge badge-soft-warning">
+                                            Due Soon
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            Current
+                                        </span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8"
+                                class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No receivables found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Reports",
+                "AgingReceivables",
+                new Dictionary<string, string?>
+                {
+                    ["searchTerm"] = Model.SearchTerm
+                }))
+
+    </div>
+
+</div>

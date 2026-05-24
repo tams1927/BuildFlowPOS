@@ -1,15 +1,8 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.SalesReturnHeader>
-
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.SalesReturnHeader>
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = "Sales Return";
-
-    var returns = Model ?? Enumerable.Empty<HardwareManagementSystem.Models.SalesReturnHeader>();
-
-    var todayReturns = returns.Count(r => r.ReturnDate.Date == DateTime.Today);
-    var totalReturns = returns.Count();
-    var totalRefund = returns.Sum(r => r.RefundAmount);
-    var todayRefund = returns.Where(r => r.ReturnDate.Date == DateTime.Today).Sum(r => r.RefundAmount);
 }
 
 <div class="row g-3 mb-4">
@@ -18,7 +11,7 @@
         <div class="kpi-card">
             <div class="kpi-icon"><i class="bi bi-arrow-return-left"></i></div>
             <div class="kpi-label">Total Returns</div>
-            <div class="kpi-value">@totalReturns</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
         </div>
     </div>
 
@@ -26,7 +19,7 @@
         <div class="kpi-card">
             <div class="kpi-icon"><i class="bi bi-calendar-check"></i></div>
             <div class="kpi-label">Today's Returns</div>
-            <div class="kpi-value">@todayReturns</div>
+            <div class="kpi-value">@Model.Items.Count(r => r.ReturnDate.Date == DateTime.Today)</div>
         </div>
     </div>
 
@@ -34,7 +27,7 @@
         <div class="kpi-card">
             <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
             <div class="kpi-label">Total Refund</div>
-            <div class="kpi-value">₱@totalRefund.ToString("N2")</div>
+            <div class="kpi-value">₱@Model.Items.Sum(r => r.RefundAmount).ToString("N2")</div>
         </div>
     </div>
 
@@ -42,7 +35,7 @@
         <div class="kpi-card">
             <div class="kpi-icon"><i class="bi bi-wallet2"></i></div>
             <div class="kpi-label">Today's Refund</div>
-            <div class="kpi-value">₱@todayRefund.ToString("N2")</div>
+            <div class="kpi-value">₱@Model.Items.Where(r => r.ReturnDate.Date == DateTime.Today).Sum(r => r.RefundAmount).ToString("N2")</div>
         </div>
     </div>
 
@@ -63,6 +56,29 @@
 
     <div class="hb-card-body">
 
+        <form method="get" asp-controller="SalesReturn" asp-action="Index" class="row g-3 mb-4">
+            <div class="col-lg-6">
+                <label class="form-label fw-semibold">Search Return</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text"
+                           name="searchTerm"
+                           class="form-control border-start-0"
+                           value="@Model.SearchTerm"
+                           placeholder="Return #, receipt #, reason, processed by..." />
+                </div>
+            </div>
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="submit">
+                    <i class="bi bi-funnel me-1"></i> Filter
+                </button>
+            </div>
+        </form>
+
         <div class="table-responsive">
             <table class="table align-middle">
                 <thead>
@@ -77,9 +93,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @if (returns.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var ret in returns)
+                        foreach (var ret in Model.Items)
                         {
                             <tr>
                                 <td><strong>@ret.ReturnNumber</strong></td>
@@ -128,6 +144,8 @@
                 </tbody>
             </table>
         </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "SalesReturn", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm }))
 
     </div>
 

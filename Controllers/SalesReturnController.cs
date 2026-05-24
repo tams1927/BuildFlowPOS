@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,18 +26,50 @@ namespace HardwareManagementSystem.Controllers
             _notificationService = notificationService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? searchTerm = null)
         {
-            var returns = await _context.SalesReturnHeaders
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var query = _context.SalesReturnHeaders
                 .AsNoTracking()
                 .Include(r => r.SalesHeader)
                 .Include(r => r.SalesReturnDetails)
                     .ThenInclude(d => d.Item)
                         .ThenInclude(i => i!.Unit)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(r =>
+                    r.ReturnNumber.ToLower().Contains(term) ||
+                    (r.SalesHeader != null && r.SalesHeader.SalesNumber.ToLower().Contains(term)) ||
+                    (r.Reason != null && r.Reason.ToLower().Contains(term)) ||
+                    (r.CreatedBy != null && r.CreatedBy.ToLower().Contains(term)));
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var returns = await query
                 .OrderByDescending(r => r.ReturnDate)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return View(returns);
+            return View(new PagedResult<SalesReturnHeader>
+            {
+                Items = returns,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            });
         }
 
         public async Task<IActionResult> Create(int? saleId)

@@ -1,0 +1,355 @@
+﻿@model HardwareManagementSystem.ViewModels.VatTaxSummaryViewModel
+
+@{
+    ViewData["Title"] = "VAT Tax Summary";
+
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today;
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+    var taxMode = ViewBag.TaxMode as string ?? "VAT";
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+
+            <div class="kpi-label">
+                Gross Sales
+            </div>
+
+            <div class="kpi-value">
+                ₱@Model.GrossSales.ToString("N2")
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-percent"></i>
+            </div>
+
+            <div class="kpi-label">
+                @(taxMode == "VAT"
+                                ? "VAT Amount"
+                                : taxMode == "NONVAT"
+                                ? "Non-VAT Sales"
+                                : "Manual Tax")
+            </div>
+
+            <div class="kpi-value text-warning">
+                ₱@Model.VatAmount.ToString("N2")
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+
+            <div class="kpi-label">
+                @(taxMode == "VAT"
+                                ? "VAT Sales"
+                                : taxMode == "NONVAT"
+                                ? "Non-VAT Sales"
+                                : "Gross Sales")
+            </div>
+
+            <div class="kpi-value text-primary">
+                ₱@Model.VatSales.ToString("N2")
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-wallet2"></i>
+            </div>
+
+            <div class="kpi-label">
+                Net of VAT
+            </div>
+
+            <div class="kpi-value text-success">
+                ₱@Model.NetOfVatSales.ToString("N2")
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+
+            <h2 class="hb-section-title">
+
+                @(taxMode == "VAT"
+                                ? "VAT Tax Summary"
+                                : taxMode == "NONVAT"
+                                ? "Non-VAT Sales Summary"
+                                : "Manual Tax Summary")
+
+            </h2>
+
+            <div class="hb-section-subtitle">
+
+                @if (taxMode == "VAT")
+                {
+                    <span>
+                        Monitor VAT sales, VAT amount, and net sales for tax reporting
+                    </span>
+                }
+                else if (taxMode == "NONVAT")
+                {
+                    <span>
+                        Monitor non-VAT sales and gross taxable revenue
+                    </span>
+                }
+                else
+                {
+                    <span>
+                        Tax handling is managed manually outside the system
+                    </span>
+                }
+
+            </div>
+
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+
+            <i class="bi bi-arrow-left me-1"></i>
+
+            Back to Reports
+
+        </a>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- FILTER -->
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="VatTaxSummary"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-3">
+
+                <label class="form-label fw-semibold">
+                    Date From
+                </label>
+
+                <input type="date"
+                       name="dateFrom"
+                       value="@dateFrom.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+
+            </div>
+
+            <div class="col-lg-3">
+
+                <label class="form-label fw-semibold">
+                    Date To
+                </label>
+
+                <input type="date"
+                       name="dateTo"
+                       value="@dateTo.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+
+            </div>
+
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="submit"
+                        class="btn btn-primary w-100">
+
+                    <i class="bi bi-funnel me-1"></i>
+
+                    Filter
+
+                </button>
+
+            </div>
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="button"
+                        id="exportTaxPdfBtn"
+                        class="btn btn-danger w-100">
+
+                    <i class="bi bi-file-earmark-pdf me-1"></i>
+                    Export PDF
+
+                </button>
+
+            </div>
+
+        </form>
+
+        <!-- SUMMARY TABLE -->
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <tbody>
+
+                    <tr>
+
+                        <th style="width:40%;">
+                            Gross Sales
+                        </th>
+
+                        <td>
+                            ₱@Model.GrossSales.ToString("N2")
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <th>
+                            @(taxMode == "VAT"
+                                                        ? "VAT Sales"
+                                                        : taxMode == "NONVAT"
+                                                        ? "Non-VAT Sales"
+                                                        : "Gross Sales")
+                        </th>
+
+                        <td>
+                            ₱@Model.VatSales.ToString("N2")
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <th>
+                            @(taxMode == "VAT"
+                                                        ? "VAT Amount"
+                                                        : taxMode == "NONVAT"
+                                                        ? "Tax Mode"
+                                                        : "Tax Handling")
+                        </th>
+
+                        <td class="text-warning fw-bold">
+
+                            @if (taxMode == "VAT")
+                            {
+                                <span>
+                                    ₱@Model.VatAmount.ToString("N2")
+                                </span>
+                            }
+                            else if (taxMode == "NONVAT")
+                            {
+                                <span>NON-VAT</span>
+                            }
+                            else
+                            {
+                                <span>MANUAL</span>
+                            }
+
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <th>
+                            VAT Exempt Sales
+                        </th>
+
+                        <td>
+                            ₱@Model.VatExemptSales.ToString("N2")
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <th>
+                            Zero Rated Sales
+                        </th>
+
+                        <td>
+                            ₱@Model.ZeroRatedSales.ToString("N2")
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <th>
+                            Net Sales (Net of VAT)
+                        </th>
+
+                        <td class="text-success fw-bold">
+                            ₱@Model.NetOfVatSales.ToString("N2")
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+
+    <script>
+
+        document
+            .getElementById('exportTaxPdfBtn')
+            .addEventListener('click', function () {
+
+                const dateFrom =
+                    document.querySelector('[name="dateFrom"]').value;
+
+                const dateTo =
+                    document.querySelector('[name="dateTo"]').value;
+
+                const url =
+                    `/Reports/ExportVatTaxSummaryPdf` +
+                    `?dateFrom=${encodeURIComponent(dateFrom)}` +
+                    `&dateTo=${encodeURIComponent(dateTo)}`;
+
+                window.location.href = url;
+            });
+
+    </script>
+
+}

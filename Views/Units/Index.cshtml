@@ -1,7 +1,9 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.Unit>
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.Unit>
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = "Units";
+    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="row g-3 mb-4">
@@ -12,7 +14,7 @@
                 <i class="bi bi-rulers"></i>
             </div>
             <div class="kpi-label">Total Units</div>
-            <div class="kpi-value">@Model.Count()</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
             <div class="kpi-trend">Measurement types configured</div>
         </div>
     </div>
@@ -23,7 +25,7 @@
                 <i class="bi bi-check-circle"></i>
             </div>
             <div class="kpi-label">Active Units</div>
-            <div class="kpi-value">@Model.Count(u => u.IsActive)</div>
+            <div class="kpi-value">@Model.Items.Count(u => u.IsActive)</div>
             <div class="kpi-trend">Available for inventory use</div>
         </div>
     </div>
@@ -34,7 +36,7 @@
                 <i class="bi bi-calculator"></i>
             </div>
             <div class="kpi-label">Decimal Units</div>
-            <div class="kpi-value">@Model.Count(u => u.AllowsDecimal)</div>
+            <div class="kpi-value">@Model.Items.Count(u => u.AllowsDecimal)</div>
             <div class="kpi-trend">Supports decimal quantities</div>
         </div>
     </div>
@@ -45,7 +47,7 @@
                 <i class="bi bi-pause-circle"></i>
             </div>
             <div class="kpi-label">Inactive Units</div>
-            <div class="kpi-value">@Model.Count(u => !u.IsActive)</div>
+            <div class="kpi-value">@Model.Items.Count(u => !u.IsActive)</div>
             <div class="kpi-trend text-warning">Currently disabled</div>
         </div>
     </div>
@@ -79,6 +81,7 @@
 
     <div class="hb-card-body">
 
+        <form method="get" asp-controller="Units" asp-action="Index">
         <div class="row g-3 mb-4">
             <div class="col-lg-5">
                 <label class="form-label fw-semibold">Search Unit</label>
@@ -87,32 +90,33 @@
                         <i class="bi bi-search"></i>
                     </span>
                     <input type="text"
-                           id="unitSearchInput"
+                           name="searchTerm"
                            class="form-control border-start-0"
+                           value="@Model.SearchTerm"
                            placeholder="Search unit name or abbreviation..." />
                 </div>
             </div>
 
             <div class="col-lg-3">
-                <label class="form-label fw-semibold">Unit Type</label>
-                <select id="unitTypeFilter" class="form-select">
-                    <option value="all">All Types</option>
-                    <option value="piece">Piece</option>
-                    <option value="weight">Weight</option>
-                    <option value="volume">Volume</option>
-                    <option value="length">Length</option>
-                    <option value="packaging">Packaging</option>
-                    <option value="general">General</option>
+                <label class="form-label fw-semibold">Status</label>
+                <select name="statusFilter" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="active" selected="@(statusFilter == "active")">Active</option>
+                    <option value="inactive" selected="@(statusFilter == "inactive")">Inactive</option>
                 </select>
             </div>
 
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
             <div class="col-lg-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100">
+                <button class="btn btn-primary w-100" type="submit">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
             </div>
         </div>
+        </form>
 
         <div class="table-responsive">
             <table class="table align-middle">
@@ -129,9 +133,9 @@
                 </thead>
 
                 <tbody>
-                    @if (Model != null && Model.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var unit in Model)
+                        foreach (var unit in Model.Items)
                         {
                             <tr class="unit-row" data-type="@(unit.UnitType ?? "general")">
                                 <td>
@@ -226,6 +230,8 @@
                 </tbody>
             </table>
         </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Units", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["statusFilter"] = statusFilter }))
 
     </div>
 </div>

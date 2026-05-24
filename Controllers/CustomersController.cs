@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,13 +21,75 @@ namespace HardwareManagementSystem.Controllers
             _auditService = auditService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+    int pageNumber = 1,
+    int pageSize = 10,
+    string? searchTerm = null,
+    string? statusFilter = null)
         {
-            var customers = await _context.Customers
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var query = _context.Customers
+                .AsNoTracking()
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+
+                query = query.Where(c =>
+                    c.CustomerName.ToLower().Contains(term) ||
+                    (c.ContactNumber != null && c.ContactNumber.ToLower().Contains(term)) ||
+                    (c.Email != null && c.Email.ToLower().Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(statusFilter))
+            {
+                bool isActive = statusFilter == "active";
+
+                query = query.Where(c => c.IsActive == isActive);
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(
+                pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var customers = await query
                 .OrderBy(c => c.CustomerName)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return View(customers);
+            var customerIds = customers
+                .Select(c => c.Id)
+                .ToList();
+
+            var balances = await _context.CustomerLedgers
+                .AsNoTracking()
+                .Where(l => customerIds.Contains(l.CustomerId))
+                .GroupBy(l => l.CustomerId)
+                .Select(g => new
+                {
+                    CustomerId = g.Key,
+                    Balance = g.OrderByDescending(x => x.Id)
+                        .Select(x => x.RunningBalance)
+                        .FirstOrDefault()
+                })
+                .ToDictionaryAsync(x => x.CustomerId, x => x.Balance);
+
+            ViewBag.StatusFilter = statusFilter;
+            ViewBag.CustomerBalances = balances;
+
+            return View(new PagedResult<Customer>
+            {
+                Items = customers,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            });
         }
 
         [HttpPost]

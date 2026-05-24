@@ -1,5 +1,6 @@
 ﻿using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -28,15 +29,45 @@ namespace HardwareManagementSystem.Controllers
             _notificationService = notificationService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? searchTerm = null,
+            string? statusFilter = null)
         {
-            var users = await _userManager.Users
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var userQuery = _userManager.Users.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                userQuery = userQuery.Where(u =>
+                    u.FullName.ToLower().Contains(term) ||
+                    (u.UserName != null && u.UserName.ToLower().Contains(term)) ||
+                    (u.Email != null && u.Email.ToLower().Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(statusFilter))
+            {
+                bool isActive = statusFilter == "active";
+                userQuery = userQuery.Where(u => u.IsActive == isActive);
+            }
+
+            var totalRecords = await userQuery.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var pagedUsers = await userQuery
                 .OrderBy(u => u.FullName)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
             var userViewModels = new List<UserListVm>();
 
-            foreach (var user in users)
+            foreach (var user in pagedUsers)
             {
                 var roles = await _userManager.GetRolesAsync(user);
 
@@ -55,7 +86,16 @@ namespace HardwareManagementSystem.Controllers
                 .OrderBy(r => r.Name)
                 .ToListAsync();
 
-            return View(userViewModels);
+            ViewBag.StatusFilter = statusFilter;
+
+            return View(new PagedResult<UserListVm>
+            {
+                Items = userViewModels,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            });
         }
 
         [HttpPost]

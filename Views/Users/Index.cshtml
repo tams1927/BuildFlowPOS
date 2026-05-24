@@ -1,18 +1,12 @@
-﻿@model IEnumerable<HardwareManagementSystem.Controllers.UserListVm>
-
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Controllers.UserListVm>
+@using HardwareManagementSystem.ViewModels
 @using Microsoft.AspNetCore.Identity
 
 @{
     ViewData["Title"] = "Users";
 
     var roles = ViewBag.Roles as List<IdentityRole> ?? new();
-
-    var users = Model ?? Enumerable.Empty<HardwareManagementSystem.Controllers.UserListVm>();
-
-    var totalUsers = users.Count();
-    var activeUsers = users.Count(u => u.IsActive);
-    var inactiveUsers = users.Count(u => !u.IsActive);
-    var adminUsers = users.Count(u => u.Role == "Admin");
+    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="row g-3 mb-4">
@@ -28,7 +22,7 @@
             </div>
 
             <div class="kpi-value">
-                @totalUsers
+                @Model.TotalRecords
             </div>
 
             <div class="kpi-trend">
@@ -48,7 +42,7 @@
             </div>
 
             <div class="kpi-value">
-                @activeUsers
+                @Model.Items.Count(u => u.IsActive)
             </div>
 
             <div class="kpi-trend">
@@ -68,7 +62,7 @@
             </div>
 
             <div class="kpi-value">
-                @inactiveUsers
+                @Model.Items.Count(u => !u.IsActive)
             </div>
 
             <div class="kpi-trend">
@@ -88,7 +82,7 @@
             </div>
 
             <div class="kpi-value">
-                @adminUsers
+                @Model.Items.Count(u => u.Role == "Admin")
             </div>
 
             <div class="kpi-trend">
@@ -126,65 +120,42 @@
 
     <div class="hb-card-body">
 
+        <form method="get" asp-controller="Users" asp-action="Index">
         <div class="row g-3 mb-4">
 
             <div class="col-lg-4">
-
-                <label class="form-label">
-                    Search User
-                </label>
-
+                <label class="form-label">Search User</label>
                 <div class="search-box">
                     <i class="bi bi-search"></i>
-
                     <input type="text"
-                           id="usersSearchInput"
+                           name="searchTerm"
                            class="form-control"
+                           value="@Model.SearchTerm"
                            placeholder="Search name, username, email..." />
                 </div>
-
             </div>
 
             <div class="col-lg-3">
-
-                <label class="form-label">
-                    Role
-                </label>
-
-                <select class="form-select"
-                        id="usersRoleFilter">
-
-                    <option value="all">All Roles</option>
-
-                    @foreach (var role in roles)
-                    {
-                        <option value="@role.Name?.ToLower()">
-                            @role.Name
-                        </option>
-                    }
-
+                <label class="form-label">Status</label>
+                <select class="form-select" name="statusFilter">
+                    <option value="">All Status</option>
+                    <option value="active" selected="@(statusFilter == "active")">Active</option>
+                    <option value="inactive" selected="@(statusFilter == "inactive")">Inactive</option>
                 </select>
-
             </div>
 
-            <div class="col-lg-3">
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
 
-                <label class="form-label">
-                    Status
-                </label>
-
-                <select class="form-select"
-                        id="usersStatusFilter">
-
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-
-                </select>
-
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="submit">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
             </div>
 
         </div>
+        </form>
 
         <div class="table-responsive">
 
@@ -203,9 +174,9 @@
 
                 <tbody>
 
-                    @if (users.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var user in users)
+                        foreach (var user in Model.Items)
                         {
                             <tr class="user-row"
                                 data-role="@user.Role.ToLower()"
@@ -328,6 +299,8 @@
             </table>
 
         </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Users", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["statusFilter"] = statusFilter }))
 
     </div>
 

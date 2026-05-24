@@ -1,0 +1,366 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.CashierPerformanceReportViewModel>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Cashier Performance Report";
+
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today;
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+
+    var totalNetSales = Model.Items.Sum(x => x.NetSales);
+    var totalTransactions = Model.Items.Sum(x => x.TransactionCount);
+    var totalDiscounts = Model.Items.Sum(x => x.TotalDiscounts);
+    var totalVoids = Model.Items.Sum(x => x.VoidAmount);
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-person-badge"></i>
+            </div>
+            <div class="kpi-label">Cashiers Shown</div>
+            <div class="kpi-value">@Model.Items.Count()</div>
+            <div class="kpi-trend">Current page records</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="kpi-label">Page Net Sales</div>
+            <div class="kpi-value">₱@totalNetSales.ToString("N2")</div>
+            <div class="kpi-trend">Completed sales</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="kpi-label">Transactions</div>
+            <div class="kpi-value">@totalTransactions</div>
+            <div class="kpi-trend">Completed transactions</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-percent"></i>
+            </div>
+            <div class="kpi-label">Discounts / Voids</div>
+            <div class="kpi-value">₱@((totalDiscounts + totalVoids).ToString("N2"))</div>
+            <div class="kpi-trend">Monitoring amount</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Cashier Performance Report</h2>
+            <div class="hb-section-subtitle">
+                Compare cashier sales, transactions, discounts, voids, and payment method performance
+            </div>
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- QUICK FILTERS -->
+
+        <div class="d-flex gap-2 flex-wrap mb-3">
+
+            <a asp-controller="Reports"
+               asp-action="CashierPerformance"
+               asp-route-dateFrom="@DateTime.Today.ToString("yyyy-MM-dd")"
+               asp-route-dateTo="@DateTime.Today.ToString("yyyy-MM-dd")"
+               class="btn btn-outline-primary btn-sm">
+
+                <i class="bi bi-calendar-day me-1"></i>
+                Today
+
+            </a>
+
+            <a asp-controller="Reports"
+               asp-action="CashierPerformance"
+               asp-route-dateFrom="@DateTime.Today.AddDays(-6).ToString("yyyy-MM-dd")"
+               asp-route-dateTo="@DateTime.Today.ToString("yyyy-MM-dd")"
+               class="btn btn-outline-primary btn-sm">
+
+                <i class="bi bi-calendar-week me-1"></i>
+                Last 7 Days
+
+            </a>
+
+            <a asp-controller="Reports"
+               asp-action="CashierPerformance"
+               asp-route-dateFrom="@(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).ToString("yyyy-MM-dd"))"
+               asp-route-dateTo="@(DateTime.Today.ToString("yyyy-MM-dd"))"
+               class="btn btn-outline-primary btn-sm">
+
+                <i class="bi bi-calendar-month me-1"></i>
+                This Month
+
+            </a>
+
+        </div>
+
+        <!-- FILTER FORM -->
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="CashierPerformance"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-3">
+
+                <label class="form-label fw-semibold">
+                    Date From
+                </label>
+
+                <input type="date"
+                       name="dateFrom"
+                       value="@dateFrom.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+
+            </div>
+
+            <div class="col-lg-3">
+
+                <label class="form-label fw-semibold">
+                    Date To
+                </label>
+
+                <input type="date"
+                       name="dateTo"
+                       value="@dateTo.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+
+            </div>
+
+            <div class="col-lg-4">
+
+                <label class="form-label fw-semibold">
+                    Search Cashier
+                </label>
+
+                <input type="text"
+                       name="searchTerm"
+                       value="@Model.SearchTerm"
+                       class="form-control"
+                       placeholder="Search cashier name..." />
+
+            </div>
+
+            <input type="hidden"
+                   name="pageSize"
+                   value="@Model.PageSize" />
+
+            <input type="hidden"
+                   name="pageNumber"
+                   value="1" />
+
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="submit"
+                        class="btn btn-primary w-100">
+
+                    <i class="bi bi-funnel me-1"></i>
+
+                    Filter
+
+                </button>
+
+            </div>
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="button"
+                        id="exportCashierPdfBtn"
+                        class="btn btn-danger w-100">
+
+                    <i class="bi bi-file-earmark-pdf me-1"></i>
+                    Export PDF
+
+                </button>
+
+            </div>
+
+        </form>
+
+        <!-- TABLE -->
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Cashier</th>
+                        <th>Transactions</th>
+                        <th>Gross Sales</th>
+                        <th>Discounts</th>
+                        <th>Net Sales</th>
+                        <th>Cash</th>
+                        <th>GCash</th>
+                        <th>Credit</th>
+                        <th>Voids</th>
+                        <th>Average Sale</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var row in Model.Items)
+                        {
+                            <tr>
+
+                                <td>
+                                    <strong>@row.CashierName</strong>
+                                </td>
+
+                                <td>
+                                    @row.TransactionCount
+                                </td>
+
+                                <td>
+                                    ₱@row.GrossSales.ToString("N2")
+                                </td>
+
+                                <td>
+                                    <span class="text-warning fw-bold">
+                                        ₱@row.TotalDiscounts.ToString("N2")
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <strong class="text-success">
+                                        ₱@row.NetSales.ToString("N2")
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    ₱@row.CashSales.ToString("N2")
+                                </td>
+
+                                <td>
+                                    ₱@row.GCashSales.ToString("N2")
+                                </td>
+
+                                <td>
+                                    ₱@row.CreditSales.ToString("N2")
+                                </td>
+
+                                <td>
+
+                                    @if (row.VoidCount > 0)
+                                    {
+                                        <span class="badge badge-soft-warning">
+
+                                            @row.VoidCount voids /
+                                            ₱@row.VoidAmount.ToString("N2")
+
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            None
+                                        </span>
+                                    }
+
+                                </td>
+
+                                <td>
+                                    ₱@row.AverageSale.ToString("N2")
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+
+                            <td colspan="10"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+
+                                    No cashier performance records found.
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Reports",
+                "CashierPerformance",
+                new Dictionary<string, string?>
+                {
+                    ["dateFrom"] = dateFrom.ToString("yyyy-MM-dd"),
+                    ["dateTo"] = dateTo.ToString("yyyy-MM-dd"),
+                    ["searchTerm"] = Model.SearchTerm
+                }))
+
+    </div>
+
+</div>
+
+@section Scripts {
+
+    <script>
+        document
+            .getElementById('exportCashierPdfBtn')
+            .addEventListener('click', function () {
+
+                const dateFrom =
+                    document.querySelector('[name="dateFrom"]').value;
+
+                const dateTo =
+                    document.querySelector('[name="dateTo"]').value;
+
+                const searchTerm =
+                    document.querySelector('[name="searchTerm"]').value;
+
+                const url =
+                    `/Reports/ExportCashierPerformancePdf` +
+                    `?dateFrom=${encodeURIComponent(dateFrom)}` +
+                    `&dateTo=${encodeURIComponent(dateTo)}` +
+                    `&searchTerm=${encodeURIComponent(searchTerm)}`;
+
+                window.location.href = url;
+            });
+    </script>
+
+}

@@ -1,7 +1,14 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.Customer>
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.Customer>
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = "Customers";
+
+    var statusFilter = ViewBag.StatusFilter as string;
+
+    var balances =
+        ViewBag.CustomerBalances as Dictionary<int, decimal>
+        ?? new Dictionary<int, decimal>();
 }
 
 <div class="row g-3 mb-4">
@@ -11,8 +18,9 @@
             <div class="kpi-icon">
                 <i class="bi bi-people"></i>
             </div>
+
             <div class="kpi-label">Total Customers</div>
-            <div class="kpi-value">@Model.Count()</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
             <div class="kpi-trend">Registered customer records</div>
         </div>
     </div>
@@ -22,8 +30,9 @@
             <div class="kpi-icon">
                 <i class="bi bi-person-badge"></i>
             </div>
+
             <div class="kpi-label">Contractors</div>
-            <div class="kpi-value">@Model.Count(c => c.CustomerType == "Contractor")</div>
+            <div class="kpi-value">@Model.Items.Count(c => c.CustomerType == "Contractor")</div>
             <div class="kpi-trend">Frequent business buyers</div>
         </div>
     </div>
@@ -33,8 +42,9 @@
             <div class="kpi-icon">
                 <i class="bi bi-check-circle"></i>
             </div>
+
             <div class="kpi-label">Active Customers</div>
-            <div class="kpi-value">@Model.Count(c => c.IsActive)</div>
+            <div class="kpi-value">@Model.Items.Count(c => c.IsActive)</div>
             <div class="kpi-trend">Available in POS selection</div>
         </div>
     </div>
@@ -44,8 +54,9 @@
             <div class="kpi-icon">
                 <i class="bi bi-pause-circle"></i>
             </div>
+
             <div class="kpi-label">Inactive Customers</div>
-            <div class="kpi-value">@Model.Count(c => !c.IsActive)</div>
+            <div class="kpi-value">@Model.Items.Count(c => !c.IsActive)</div>
             <div class="kpi-trend text-warning">Currently disabled</div>
         </div>
     </div>
@@ -79,53 +90,56 @@
 
     <div class="hb-card-body">
 
-        <div class="row g-3 mb-4">
-            <div class="col-lg-4">
-                <label class="form-label fw-semibold">Search Customer</label>
+        <form method="get"
+              asp-controller="Customers"
+              asp-action="Index">
 
-                <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0">
-                        <i class="bi bi-search"></i>
-                    </span>
+            <div class="row g-3 mb-4">
 
-                    <input type="text"
-                           id="customerSearchInput"
-                           class="form-control border-start-0"
-                           placeholder="Customer name, contact, or address..." />
+                <div class="col-lg-4">
+                    <label class="form-label fw-semibold">Search Customer</label>
+
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+
+                        <input type="text"
+                               name="searchTerm"
+                               class="form-control border-start-0"
+                               value="@Model.SearchTerm"
+                               placeholder="Customer name, contact, or email..." />
+                    </div>
                 </div>
+
+                <div class="col-lg-3">
+                    <label class="form-label fw-semibold">Status</label>
+
+                    <select name="statusFilter" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="active" selected="@(statusFilter == "active")">Active</option>
+                        <option value="inactive" selected="@(statusFilter == "inactive")">Inactive</option>
+                    </select>
+                </div>
+
+                <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                <input type="hidden" name="pageNumber" value="1" />
+
+                <div class="col-lg-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" type="submit">
+                        <i class="bi bi-funnel me-1"></i>
+                        Filter
+                    </button>
+                </div>
+
             </div>
 
-            <div class="col-lg-3">
-                <label class="form-label fw-semibold">Customer Type</label>
-
-                <select id="customerTypeFilter" class="form-select">
-                    <option value="all">All Types</option>
-                    <option value="walk-in">Walk-in</option>
-                    <option value="contractor">Contractor</option>
-                    <option value="company">Company</option>
-                </select>
-            </div>
-
-            <div class="col-lg-3">
-                <label class="form-label fw-semibold">Status</label>
-
-                <select id="customerStatusFilter" class="form-select">
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                </select>
-            </div>
-
-            <div class="col-lg-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100" type="button">
-                    <i class="bi bi-funnel me-1"></i>
-                    Filter
-                </button>
-            </div>
-        </div>
+        </form>
 
         <div class="table-responsive">
+
             <table class="table align-middle">
+
                 <thead>
                     <tr>
                         <th>Customer</th>
@@ -133,15 +147,16 @@
                         <th>Contact</th>
                         <th>Email</th>
                         <th>Address</th>
+                        <th>Balance</th>
                         <th>Status</th>
-                        <th width="140">Actions</th>
+                        <th width="180">Actions</th>
                     </tr>
                 </thead>
 
                 <tbody>
-                    @if (Model != null && Model.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var customer in Model)
+                        foreach (var customer in Model.Items)
                         {
                             <tr class="customer-row"
                                 data-type="@customer.CustomerType.ToLower()"
@@ -161,8 +176,32 @@
                                 </td>
 
                                 <td>@(customer.ContactNumber ?? "N/A")</td>
+
                                 <td>@(customer.Email ?? "N/A")</td>
+
                                 <td>@(customer.Address ?? "N/A")</td>
+
+                                <td>
+                                    @{
+                                        var balance =
+                                        balances.ContainsKey(customer.Id)
+                                        ? balances[customer.Id]
+                                        : 0;
+                                    }
+
+                                    @if (balance > 0)
+                                    {
+                                        <span class="badge badge-soft-warning">
+                                            ₱@balance.ToString("N2")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            Paid
+                                        </span>
+                                    }
+                                </td>
 
                                 <td>
                                     @if (customer.IsActive)
@@ -177,6 +216,16 @@
 
                                 <td>
                                     <div class="d-flex gap-1">
+
+                                        <a asp-controller="CustomerCollections"
+                                           asp-action="Index"
+                                           asp-route-customerId="@customer.Id"
+                                           class="btn btn-sm btn-outline-primary"
+                                           title="View Ledger">
+
+                                            <i class="bi bi-journal-text"></i>
+
+                                        </a>
 
                                         <button class="btn btn-sm btn-outline-secondary"
                                                 data-bs-toggle="modal"
@@ -211,13 +260,14 @@
 
                                     </div>
                                 </td>
+
                             </tr>
                         }
                     }
                     else
                     {
                         <tr>
-                            <td colspan="7" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                                 <div class="text-muted">
                                     <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                     No customers found.
@@ -226,8 +276,12 @@
                         </tr>
                     }
                 </tbody>
+
             </table>
+
         </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Customers", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["statusFilter"] = statusFilter }))
 
     </div>
 </div>
@@ -258,8 +312,10 @@
                 <div class="modal-body">
 
                     <div class="row g-3">
+
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Customer Name</label>
+
                             <input type="text"
                                    name="customerName"
                                    class="form-control"
@@ -269,6 +325,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Customer Type</label>
+
                             <select name="customerType"
                                     class="form-select">
                                 <option value="Walk-in">Walk-in</option>
@@ -279,6 +336,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Contact Number</label>
+
                             <input type="text"
                                    name="contactNumber"
                                    class="form-control"
@@ -287,6 +345,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Email</label>
+
                             <input type="email"
                                    name="email"
                                    class="form-control"
@@ -295,16 +354,19 @@
 
                         <div class="col-12">
                             <label class="form-label fw-semibold">Address</label>
+
                             <textarea name="address"
                                       class="form-control"
                                       rows="3"
                                       placeholder="Customer address..."></textarea>
                         </div>
+
                     </div>
 
                 </div>
 
                 <div class="modal-footer border-0 pt-0">
+
                     <button type="button"
                             class="btn btn-outline-primary"
                             data-bs-dismiss="modal">
@@ -316,6 +378,7 @@
                         <i class="bi bi-check-circle me-1"></i>
                         Save Customer
                     </button>
+
                 </div>
 
             </form>
@@ -354,8 +417,10 @@
                 <div class="modal-body">
 
                     <div class="row g-3">
+
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Customer Name</label>
+
                             <input type="text"
                                    id="editCustomerName"
                                    name="customerName"
@@ -365,6 +430,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Customer Type</label>
+
                             <select id="editCustomerType"
                                     name="customerType"
                                     class="form-select">
@@ -376,6 +442,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Contact Number</label>
+
                             <input type="text"
                                    id="editCustomerContactNumber"
                                    name="contactNumber"
@@ -384,6 +451,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Email</label>
+
                             <input type="email"
                                    id="editCustomerEmail"
                                    name="email"
@@ -392,6 +460,7 @@
 
                         <div class="col-12">
                             <label class="form-label fw-semibold">Address</label>
+
                             <textarea id="editCustomerAddress"
                                       name="address"
                                       class="form-control"
@@ -400,6 +469,7 @@
 
                         <div class="col-12">
                             <div class="form-check form-switch">
+
                                 <input class="form-check-input"
                                        type="checkbox"
                                        id="editCustomerActive"
@@ -409,13 +479,16 @@
                                 <label class="form-check-label">
                                     Active Customer
                                 </label>
+
                             </div>
                         </div>
+
                     </div>
 
                 </div>
 
                 <div class="modal-footer border-0 pt-0">
+
                     <button type="button"
                             class="btn btn-outline-primary"
                             data-bs-dismiss="modal">
@@ -427,6 +500,7 @@
                         <i class="bi bi-check-circle me-1"></i>
                         Update Customer
                     </button>
+
                 </div>
 
             </form>
@@ -437,6 +511,7 @@
 
 @section Scripts {
     <script>
+
         document.querySelectorAll('.confirm-submit').forEach(form => {
             form.addEventListener('submit', function (e) {
                 e.preventDefault();
@@ -485,41 +560,28 @@
             editCustomerModal.addEventListener('show.bs.modal', function (event) {
                 const button = event.relatedTarget;
 
-                document.getElementById('editCustomerId').value = button.getAttribute('data-id');
-                document.getElementById('editCustomerName').value = button.getAttribute('data-name');
-                document.getElementById('editCustomerContactNumber').value = button.getAttribute('data-contactnumber') || '';
-                document.getElementById('editCustomerEmail').value = button.getAttribute('data-email') || '';
-                document.getElementById('editCustomerAddress').value = button.getAttribute('data-address') || '';
-                document.getElementById('editCustomerType').value = button.getAttribute('data-type') || 'Walk-in';
-                document.getElementById('editCustomerActive').checked = button.getAttribute('data-active') === 'true';
+                document.getElementById('editCustomerId').value =
+                    button.getAttribute('data-id');
+
+                document.getElementById('editCustomerName').value =
+                    button.getAttribute('data-name');
+
+                document.getElementById('editCustomerContactNumber').value =
+                    button.getAttribute('data-contactnumber') || '';
+
+                document.getElementById('editCustomerEmail').value =
+                    button.getAttribute('data-email') || '';
+
+                document.getElementById('editCustomerAddress').value =
+                    button.getAttribute('data-address') || '';
+
+                document.getElementById('editCustomerType').value =
+                    button.getAttribute('data-type') || 'Walk-in';
+
+                document.getElementById('editCustomerActive').checked =
+                    button.getAttribute('data-active') === 'true';
             });
         }
 
-        const customerSearchInput = document.getElementById('customerSearchInput');
-        const customerTypeFilter = document.getElementById('customerTypeFilter');
-        const customerStatusFilter = document.getElementById('customerStatusFilter');
-        const customerRows = document.querySelectorAll('.customer-row');
-
-        function filterCustomers() {
-            const searchValue = customerSearchInput.value.toLowerCase();
-            const typeValue = customerTypeFilter.value.toLowerCase();
-            const statusValue = customerStatusFilter.value.toLowerCase();
-
-            customerRows.forEach(row => {
-                const rowText = row.innerText.toLowerCase();
-                const rowType = row.getAttribute('data-type');
-                const rowStatus = row.getAttribute('data-status');
-
-                const matchesSearch = rowText.includes(searchValue);
-                const matchesType = typeValue === 'all' || rowType === typeValue;
-                const matchesStatus = statusValue === 'all' || rowStatus === statusValue;
-
-                row.style.display = matchesSearch && matchesType && matchesStatus ? '' : 'none';
-            });
-        }
-
-        customerSearchInput.addEventListener('input', filterCustomers);
-        customerTypeFilter.addEventListener('change', filterCustomers);
-        customerStatusFilter.addEventListener('change', filterCustomers);
     </script>
 }

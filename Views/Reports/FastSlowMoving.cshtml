@@ -1,0 +1,281 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.FastSlowMovingViewModel>
+
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Fast / Slow Moving Items";
+
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today.AddDays(-30);
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+    var movementType = ViewBag.MovementType as string ?? "FAST";
+
+    var totalQty = ViewBag.TotalQty ?? 0;
+    var totalSales = ViewBag.TotalSales ?? 0;
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-lightning-charge"></i>
+            </div>
+            <div class="kpi-label">Report Type</div>
+            <div class="kpi-value">@movementType</div>
+            <div class="kpi-trend">Fast or slow movement</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="kpi-label">Total Qty Sold</div>
+            <div class="kpi-value">@Convert.ToDecimal(totalQty).ToString("0.###")</div>
+            <div class="kpi-trend">From displayed items</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-12">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="kpi-label">Total Sales</div>
+            <div class="kpi-value">₱@Convert.ToDecimal(totalSales).ToString("N2")</div>
+            <div class="kpi-trend">From displayed items</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Fast / Slow Moving Items</h2>
+            <div class="hb-section-subtitle">
+                Identify best-selling and slow-moving inventory items
+            </div>
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="FastSlowMoving"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Date From</label>
+                <input type="date"
+                       name="dateFrom"
+                       value="@dateFrom.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Date To</label>
+                <input type="date"
+                       name="dateTo"
+                       value="@dateTo.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Movement Type</label>
+                <select name="movementType"
+                        class="form-select">
+                    <option value="FAST" selected="@(movementType == "FAST")">
+                        Fast Moving
+                    </option>
+                    <option value="SLOW" selected="@(movementType == "SLOW")">
+                        Slow Moving
+                    </option>
+                </select>
+            </div>
+
+            <div class="col-lg-3 d-flex align-items-end">
+                <button type="submit"
+                        class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-1"></i>
+                    Apply Filter
+                </button>
+            </div>
+
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Item</th>
+                        <th>Qty Sold</th>
+                        <th>Sales Amount</th>
+                        <th>Current Stock</th>
+                        <th>Last Sold</th>
+                        <th>Movement Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        int row = 1;
+
+                        foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>@row</td>
+
+                                <td>
+                                    <strong>@item.ItemName</strong>
+                                </td>
+
+                                <td>
+                                    @item.QuantitySold.ToString("0.###")
+                                </td>
+
+                                <td>
+                                    <strong>₱@item.SalesAmount.ToString("N2")</strong>
+                                </td>
+
+                                <td>
+                                    @item.CurrentStock.ToString("0.###")
+                                </td>
+
+                                <td>
+                                    @if (item.LastSoldDate.HasValue)
+                                    {
+                                        @item.LastSoldDate.Value.ToString("MMM dd, yyyy")
+                                        <div class="text-muted small">
+                                            @item.LastSoldDate.Value.ToString("hh:mm tt")
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Never sold</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @{
+                                        var daysSinceSold = item.LastSoldDate.HasValue
+                                        ? (DateTime.Today - item.LastSoldDate.Value.Date).Days
+                                        : 9999;
+                                    }
+
+                                    @if (!item.LastSoldDate.HasValue)
+                                    {
+                                        <span class="badge badge-soft-danger">
+
+                                            <i class="bi bi-x-circle me-1"></i>
+
+                                            Never Sold
+
+                                        </span>
+                                    }
+                                    else if (daysSinceSold >= 90)
+                                    {
+                                        <span class="badge badge-soft-danger">
+
+                                            <i class="bi bi-exclamation-triangle me-1"></i>
+
+                                            Dead Stock
+
+                                        </span>
+                                    }
+                                    else if (daysSinceSold >= 60)
+                                    {
+                                        <span class="badge badge-soft-warning">
+
+                                            <i class="bi bi-clock-history me-1"></i>
+
+                                            Very Slow
+
+                                        </span>
+                                    }
+                                    else if (daysSinceSold >= 30)
+                                    {
+                                        <span class="badge badge-soft-warning">
+
+                                            <i class="bi bi-arrow-down-right me-1"></i>
+
+                                            Slow Moving
+
+                                        </span>
+                                    }
+                                    else if (item.QuantitySold >= 50)
+                                    {
+                                        <span class="badge badge-soft-success">
+
+                                            <i class="bi bi-lightning-charge me-1"></i>
+
+                                            Fast Moving
+
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-primary">
+
+                                            <i class="bi bi-box-seam me-1"></i>
+
+                                            Normal
+
+                                        </span>
+                                    }
+                                </td>
+                            </tr>
+
+                            row++;
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7"
+                                class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No item movement records found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Reports",
+                "FastSlowMoving",
+                new Dictionary<string, string?>
+                {
+                    ["dateFrom"] = dateFrom.ToString("yyyy-MM-dd"),
+                    ["dateTo"] = dateTo.ToString("yyyy-MM-dd"),
+                    ["movementType"] = movementType
+                }))
+
+    </div>
+
+</div>

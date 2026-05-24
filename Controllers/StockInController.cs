@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,8 +23,13 @@ namespace HardwareManagementSystem.Controllers
             _notificationService = notificationService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? searchTerm = null)
         {
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
             ViewBag.Suppliers = await _context.Suppliers
                 .AsNoTracking()
                 .Where(s => s.IsActive)
@@ -37,17 +43,43 @@ namespace HardwareManagementSystem.Controllers
                 .OrderBy(i => i.ItemName)
                 .ToListAsync();
 
-            var stockIns = await _context.StockInHeaders
+            var query = _context.StockInHeaders
                 .AsNoTracking()
                 .Include(h => h.Supplier)
                 .Include(h => h.StockInDetails)
                     .ThenInclude(d => d.Item)
                        .ThenInclude(i => i!.Unit)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(h =>
+                    h.StockInNumber.ToLower().Contains(term) ||
+                    (h.Supplier != null && h.Supplier.SupplierName.ToLower().Contains(term)) ||
+                    (h.InvoiceNumber != null && h.InvoiceNumber.ToLower().Contains(term)));
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var stockIns = await query
                 .OrderByDescending(h => h.DateReceived)
                 .ThenByDescending(h => h.Id)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return View(stockIns);
+            return View(new PagedResult<StockInHeader>
+            {
+                Items = stockIns,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            });
         }
 
         [HttpPost]
@@ -114,7 +146,17 @@ namespace HardwareManagementSystem.Controllers
                 InvoiceNumber = invoiceNumber,
                 DateReceived = dateReceived == default ? DateTime.Now : dateReceived,
                 Remarks = remarks,
+
                 TotalCost = totalCost,
+
+                // =========================================
+                // SUPPLIER PAYABLES
+                // =========================================
+
+                AmountPaid = 0,
+                BalanceDue = totalCost,
+                PaymentStatus = "Unpaid",
+
                 CreatedAt = DateTime.Now
             };
 

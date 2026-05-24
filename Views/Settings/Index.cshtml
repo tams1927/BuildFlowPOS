@@ -57,6 +57,34 @@
                            min="0"
                            class="form-control" />
                 </div>
+                <div class="col-md-3">
+
+                    <label class="form-label fw-semibold">
+                        Tax Mode
+                    </label>
+
+                    <select asp-for="TaxMode"
+                            class="form-select">
+
+                        <option value="VAT">
+                            VAT Registered
+                        </option>
+
+                        <option value="NONVAT">
+                            Non-VAT / Percentage Tax
+                        </option>
+
+                        <option value="MANUAL">
+                            Manual Tax Handling
+                        </option>
+
+                    </select>
+
+                    <div class="form-text">
+                        Controls VAT computation and tax reporting behavior.
+                    </div>
+
+                </div>
 
                 <div class="col-md-3">
                     <label class="form-label fw-semibold">Receipt Paper Size</label>
@@ -89,6 +117,67 @@
                 <div class="text-muted small mb-3">Select a theme. It will apply immediately for all users after saving.</div>
 
                 <div class="row g-3" id="themePickerRow">
+
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <div class="theme-card" data-theme="white-blue">
+
+                            <div class="theme-preview"
+                                 style="background:#f8fafc; border:2px solid #dbeafe;">
+
+                                <div style="width:30%;
+                        background:#ffffff;
+                        height:100%;
+                        border-right:1px solid #dbeafe;
+                        display:flex;
+                        flex-direction:column;
+                        gap:5px;
+                        padding:6px;">
+
+                                    <div style="height:8px;
+                            border-radius:4px;
+                            background:#2563eb;"></div>
+
+                                    <div style="height:6px;
+                            border-radius:4px;
+                            background:#dbeafe;"></div>
+
+                                    <div style="height:6px;
+                            border-radius:4px;
+                            background:#dbeafe;"></div>
+
+                                </div>
+
+                                <div style="flex:1;
+                        padding:8px;
+                        display:flex;
+                        flex-direction:column;
+                        gap:5px;">
+
+                                    <div style="height:10px;
+                            border-radius:4px;
+                            background:#e2e8f0;
+                            width:80%;"></div>
+
+                                    <div style="height:28px;
+                            border-radius:6px;
+                            background:#ffffff;
+                            border:1px solid #dbeafe;"></div>
+
+                                </div>
+
+                            </div>
+
+                            <div class="theme-label">
+
+                                <span class="theme-dot"
+                                      style="background:#2563eb;"></span>
+
+                                White Blue
+
+                            </div>
+
+                        </div>
+                    </div>
 
                     <div class="col-6 col-md-4 col-lg-2">
                         <div class="theme-card" data-theme="dark-blue">
@@ -240,8 +329,22 @@
             </div>
 
             <div class="d-flex justify-content-between">
-                <span>VAT</span>
-                <strong>@Model.DefaultVatPercent.ToString("0.##")%</strong>
+                <span>Tax Mode</span>
+
+                <strong>
+                    @if (Model.TaxMode == "VAT")
+                    {
+                        <span>VAT (@Model.DefaultVatPercent.ToString("0.##")%)</span>
+                    }
+                    else if (Model.TaxMode == "NONVAT")
+                    {
+                        <span>NON-VAT</span>
+                    }
+                    else
+                    {
+                        <span>MANUAL</span>
+                    }
+                </strong>
             </div>
 
             <hr />

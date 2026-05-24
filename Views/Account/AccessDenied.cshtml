@@ -1,0 +1,104 @@
+﻿@{
+    ViewData["Title"] = "Access Denied";
+}
+
+<div class="row justify-content-center">
+
+    <div class="col-xl-5 col-lg-6 col-md-8">
+
+        <div class="hb-card text-center">
+
+            <div class="hb-card-body py-5">
+
+                <!-- ICON -->
+                <div class="mb-4">
+
+                    <div style="
+                        width:120px;
+                        height:120px;
+                        margin:auto;
+                        border-radius:50%;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        background:rgba(220,38,38,.12);
+                        color:#dc2626;
+                        font-size:54px;">
+
+                        <i class="bi bi-shield-lock-fill"></i>
+
+                    </div>
+
+                </div>
+
+                <!-- TITLE -->
+                <h1 class="display-6 fw-bold mb-3">
+
+                    Access Denied
+
+                </h1>
+
+                <!-- MESSAGE -->
+                <div class="hb-section-subtitle mb-4">
+
+                    You do not have permission
+                    to access this page or perform this action.
+
+                </div>
+
+                <!-- INFO CARD -->
+                <div class="alert alert-warning text-start mb-4">
+
+                    <div class="fw-semibold mb-2">
+                        Possible Reasons:
+                    </div>
+
+                    <ul class="mb-0 ps-3">
+
+                        <li>
+                            Your role does not have access permission
+                        </li>
+
+                        <li>
+                            The module is restricted to administrators
+                        </li>
+
+                        <li>
+                            Your account access was updated recently
+                        </li>
+
+                    </ul>
+
+                </div>
+
+                <!-- ACTIONS -->
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+
+                    <a asp-controller="Home"
+                       asp-action="Index"
+                       class="btn btn-primary">
+
+                        <i class="bi bi-house-door me-1"></i>
+
+                        Go Dashboard
+
+                    </a>
+
+                    <button class="btn btn-outline-secondary"
+                            onclick="history.back()">
+
+                        <i class="bi bi-arrow-left me-1"></i>
+
+                        Go Back
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

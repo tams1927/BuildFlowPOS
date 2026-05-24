@@ -1,0 +1,336 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<Microsoft.AspNetCore.Identity.IdentityRole>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Role Management";
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-4 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-shield-lock"></i>
+            </div>
+
+            <div class="kpi-label">
+                Total Roles
+            </div>
+
+            <div class="kpi-value">
+                @Model.TotalRecords
+            </div>
+
+            <div class="kpi-trend">
+                System access groups
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+
+            <h2 class="hb-section-title">
+                Role Management
+            </h2>
+
+            <div class="hb-section-subtitle">
+                Create and manage system roles dynamically
+            </div>
+
+        </div>
+
+        <button class="btn btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#addRoleModal">
+
+            <i class="bi bi-plus-circle me-1"></i>
+            Add Role
+
+        </button>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get" asp-controller="Roles" asp-action="Index" class="row g-3 mb-4">
+            <div class="col-lg-5">
+                <label class="form-label fw-semibold">Search Role</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text"
+                           name="searchTerm"
+                           class="form-control border-start-0"
+                           value="@Model.SearchTerm"
+                           placeholder="Search role name..." />
+                </div>
+            </div>
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="submit">
+                    <i class="bi bi-funnel me-1"></i> Filter
+                </button>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+
+                    <tr>
+                        <th style="width:80px;">#</th>
+                        <th>Role Name</th>
+                        <th>Normalized Name</th>
+                        <th style="width:180px;">Actions</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        int rowNumber = (Model.PageNumber - 1) * Model.PageSize + 1;
+
+                        foreach (var role in Model.Items)
+                        {
+                            <tr>
+
+                                <td>
+                                    @rowNumber
+                                </td>
+
+                                <td>
+
+                                    <div class="d-flex align-items-center gap-2">
+
+                                        <div class="table-icon">
+                                            <i class="bi bi-person-badge"></i>
+                                        </div>
+
+                                        <strong>
+                                            @role.Name
+                                        </strong>
+
+                                    </div>
+
+                                </td>
+
+                                <td>
+                                    @role.NormalizedName
+                                </td>
+
+                                <td>
+
+                                    <div class="d-flex gap-2">
+
+                                        <a asp-controller="RolePermissions"
+                                           asp-action="Index"
+                                           asp-route-role="@role.Name"
+                                           class="btn btn-sm btn-outline-primary">
+
+                                            <i class="bi bi-shield-check me-1"></i>
+                                            Permissions
+
+                                        </a>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                            rowNumber++;
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+
+                            <td colspan="4"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+
+                                    No roles found.
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Roles", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm }))
+
+    </div>
+
+</div>
+
+<!-- ADD ROLE MODAL -->
+
+<div class="modal fade"
+     id="addRoleModal"
+     tabindex="-1"
+     aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <form asp-controller="Roles"
+                  asp-action="Create"
+                  method="post"
+                  class="confirm-role-form">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">
+
+                        <i class="bi bi-plus-circle me-2"></i>
+                        Add New Role
+
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                    </button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-semibold">
+                            Role Name
+                        </label>
+
+                        <input type="text"
+                               name="roleName"
+                               class="form-control"
+                               maxlength="50"
+                               required
+                               placeholder="Enter role name" />
+
+                        <div class="form-text">
+                            Example: Manager, Supervisor, Encoder
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-light"
+                            data-bs-dismiss="modal">
+
+                        Cancel
+
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+
+                        <i class="bi bi-check-circle me-1"></i>
+                        Save Role
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+
+    <script>
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+            document.querySelectorAll('.confirm-role-form')
+                .forEach(form => {
+
+                    form.addEventListener('submit', function (e) {
+
+                        const roleInput =
+                            form.querySelector('input[name="roleName"]');
+
+                        const roleName =
+                            roleInput?.value?.trim();
+
+                        if (!roleName) {
+
+                            e.preventDefault();
+
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Role name required',
+                                text: 'Please enter a valid role name.'
+                            });
+
+                            roleInput?.focus();
+
+                            return;
+                        }
+
+                        e.preventDefault();
+
+                        Swal.fire({
+                            title: 'Create role?',
+                            text: 'New permission rows will be generated automatically.',
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, create role',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#2563eb',
+                            cancelButtonColor: '#64748b'
+                        }).then((result) => {
+
+                            if (result.isConfirmed) {
+                                form.submit();
+                            }
+
+                        });
+
+                    });
+
+                });
+
+        });
+
+    </script>
+
+}

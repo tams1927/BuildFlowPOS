@@ -1,0 +1,325 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.InventoryStatusReportViewModel>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Inventory Status Report";
+
+    var stockStatus = ViewBag.StockStatus as string;
+
+    var totalInventoryValue = Model.Items.Sum(x => x.InventoryValue);
+    var lowStockCount = Model.Items.Count(x => x.StockStatus == "Low Stock");
+    var outOfStockCount = Model.Items.Count(x => x.StockStatus == "Out of Stock");
+    var normalCount = Model.Items.Count(x => x.StockStatus == "Normal");
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+
+            <div class="kpi-label">
+                Items Shown
+            </div>
+
+            <div class="kpi-value">
+                @Model.Items.Count()
+            </div>
+
+            <div class="kpi-trend">
+                Current page records
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+
+            <div class="kpi-label">
+                Page Inventory Value
+            </div>
+
+            <div class="kpi-value">
+                ₱@totalInventoryValue.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Based on current page
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+
+            <div class="kpi-label">
+                Low Stock
+            </div>
+
+            <div class="kpi-value text-warning">
+                @lowStockCount
+            </div>
+
+            <div class="kpi-trend">
+                Items below reorder level
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-x-circle"></i>
+            </div>
+
+            <div class="kpi-label">
+                Out of Stock
+            </div>
+
+            <div class="kpi-value text-danger">
+                @outOfStockCount
+            </div>
+
+            <div class="kpi-trend">
+                Items with zero stock
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">
+                Inventory Status Report
+            </h2>
+
+            <div class="hb-section-subtitle">
+                Stock levels, reorder status, and inventory valuation
+            </div>
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+
+        </a>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="InventoryStatus"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-5">
+
+                <label class="form-label fw-semibold">
+                    Search
+                </label>
+
+                <input type="text"
+                       name="searchTerm"
+                       value="@Model.SearchTerm"
+                       class="form-control"
+                       placeholder="Item code, item name, category..." />
+
+            </div>
+
+            <div class="col-lg-3">
+
+                <label class="form-label fw-semibold">
+                    Stock Status
+                </label>
+
+                <select name="stockStatus"
+                        class="form-select">
+
+                    <option value="">
+                        All Status
+                    </option>
+
+                    <option value="normal"
+                            selected="@(stockStatus == "normal")">
+                        Normal
+                    </option>
+
+                    <option value="low"
+                            selected="@(stockStatus == "low")">
+                        Low Stock
+                    </option>
+
+                    <option value="out"
+                            selected="@(stockStatus == "out")">
+                        Out of Stock
+                    </option>
+
+                </select>
+
+            </div>
+
+            <input type="hidden"
+                   name="pageSize"
+                   value="@Model.PageSize" />
+
+            <input type="hidden"
+                   name="pageNumber"
+                   value="1" />
+
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="submit"
+                        class="btn btn-primary w-100">
+
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+
+                </button>
+
+            </div>
+
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Category</th>
+                        <th>Stock</th>
+                        <th>Reorder Level</th>
+                        <th>Cost</th>
+                        <th>Selling Price</th>
+                        <th>Inventory Value</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var item in Model.Items)
+                        {
+                            <tr>
+
+                                <td>
+                                    <strong>
+                                        @item.ItemName
+                                    </strong>
+
+                                    <div class="text-muted small">
+                                        @item.ItemCode
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @item.CategoryName
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        @item.CurrentStock.ToString("0.###")
+                                    </strong>
+
+                                    <span class="text-muted small">
+                                        @item.UnitName
+                                    </span>
+                                </td>
+
+                                <td>
+                                    @item.ReorderLevel.ToString("0.###")
+                                </td>
+
+                                <td>
+                                    ₱@item.CostPrice.ToString("N2")
+                                </td>
+
+                                <td>
+                                    ₱@item.SellingPrice.ToString("N2")
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        ₱@item.InventoryValue.ToString("N2")
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    @if (item.StockStatus == "Out of Stock")
+                                    {
+                                        <span class="badge badge-soft-danger">
+                                            Out of Stock
+                                        </span>
+                                    }
+                                    else if (item.StockStatus == "Low Stock")
+                                    {
+                                        <span class="badge badge-soft-warning">
+                                            Low Stock
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            Normal
+                                        </span>
+                                    }
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No inventory records found.
+                                </div>
+
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Reports",
+                "InventoryStatus",
+                new Dictionary<string, string?>
+                {
+                    ["searchTerm"] = Model.SearchTerm,
+                    ["stockStatus"] = stockStatus
+                }))
+
+    </div>
+
+</div>

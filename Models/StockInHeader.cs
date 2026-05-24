@@ -28,6 +28,24 @@ namespace HardwareManagementSystem.Models
 
         public Supplier? Supplier { get; set; }
 
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal AmountPaid { get; set; } = 0;
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal BalanceDue { get; set; } = 0;
+
+        public DateTime? DueDate { get; set; }
+
+        [StringLength(50)]
+        public string PaymentStatus { get; set; } = "Unpaid";
+        // Unpaid, Partial, Paid
+
+        [StringLength(50)]
+        public string? PaymentMethod { get; set; }
+
+        [StringLength(100)]
+        public string? PaymentReferenceNumber { get; set; }
+
         public ICollection<StockInDetail> StockInDetails { get; set; } = new List<StockInDetail>();
     }
 }

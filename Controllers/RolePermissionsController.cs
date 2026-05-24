@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,22 +21,58 @@ namespace HardwareManagementSystem.Controllers
             _auditService = auditService;
         }
 
-        public async Task<IActionResult> Index(string roleName = "Admin")
+        public async Task<IActionResult> Index(
+            string? role,
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? searchTerm = null)
         {
-            var roles = await _context.Roles
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var selectedRole = string.IsNullOrWhiteSpace(role) ? "Admin" : role;
+
+            ViewBag.SelectedRole = selectedRole;
+
+            var query = _context.RolePermissions
+                .AsNoTracking()
+                .Where(p => p.RoleName == selectedRole)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(p => p.ModuleName.ToLower().Contains(term));
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var permissions = await query
+                .OrderBy(p => p.ModuleName)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            // ============================================
+            // LOAD ROLES FOR DROPDOWN
+            // ============================================
+
+            ViewBag.Roles = await _context.Roles
+                .AsNoTracking()
                 .OrderBy(r => r.Name)
                 .Select(r => r.Name!)
                 .ToListAsync();
 
-            ViewBag.Roles = roles;
-            ViewBag.SelectedRole = roleName;
-
-            var permissions = await _context.RolePermissions
-                .Where(p => p.RoleName == roleName)
-                .OrderBy(p => p.ModuleName)
-                .ToListAsync();
-
-            return View(permissions);
+            return View(new PagedResult<RolePermission>
+            {
+                Items = permissions,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            });
         }
 
         [HttpPost]
@@ -81,7 +118,7 @@ namespace HardwareManagementSystem.Controllers
 
             TempData["SuccessMessage"] = "Role permissions updated successfully.";
 
-            return RedirectToAction(nameof(Index), new { roleName });
+            return RedirectToAction(nameof(Index), new { role = roleName });
         }
     }
 }

@@ -1,0 +1,316 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.SalesDetailReportViewModel>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Sales Detail Report";
+
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today;
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+    var paymentMethod = ViewBag.PaymentMethod as string;
+    var status = ViewBag.Status as string;
+
+    var totalSales = Model.Items.Sum(x => x.TotalAmount);
+    var totalDiscount = Model.Items.Sum(x => x.DiscountAmount);
+    var completedCount = Model.Items.Count(x => x.Status == "Completed");
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="kpi-label">Records Shown</div>
+            <div class="kpi-value">@Model.Items.Count()</div>
+            <div class="kpi-trend">Current page records</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="kpi-label">Page Sales</div>
+            <div class="kpi-value">₱@totalSales.ToString("N2")</div>
+            <div class="kpi-trend">Total from displayed page</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-12">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-percent"></i>
+            </div>
+            <div class="kpi-label">Page Discounts</div>
+            <div class="kpi-value">₱@totalDiscount.ToString("N2")</div>
+            <div class="kpi-trend">@completedCount completed transactions shown</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">Sales Detail Report</h2>
+            <div class="hb-section-subtitle">
+                Detailed sales transactions by date, payment method, status, cashier, or customer
+            </div>
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+        </a>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="SalesDetail"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Date From</label>
+                <input type="date"
+                       name="dateFrom"
+                       value="@dateFrom.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Date To</label>
+                <input type="date"
+                       name="dateTo"
+                       value="@dateTo.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Search</label>
+                <input type="text"
+                       name="searchTerm"
+                       value="@Model.SearchTerm"
+                       class="form-control"
+                       placeholder="Receipt, customer, cashier..." />
+            </div>
+            
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Payment</label>
+                <select name="paymentMethod" class="form-select">
+                    <option value="">All Payments</option>
+                    <option value="Cash" selected="@(paymentMethod == "Cash")">Cash</option>
+                    <option value="GCash" selected="@(paymentMethod == "GCash")">GCash</option>
+                    <option value="Credit" selected="@(paymentMethod == "Credit")">Credit</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="Completed" selected="@(status == "Completed")">Completed</option>
+                    <option value="Voided" selected="@(status == "Voided")">Voided</option>
+                </select>
+            </div>
+
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
+            <div class="col-lg-1 d-flex align-items-end">
+                <button type="submit"
+                        class="btn btn-primary w-100">
+                    <i class="bi bi-funnel"></i>
+                </button>
+            </div>
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="button"
+                        id="exportPdfBtn"
+                        class="btn btn-danger w-100">
+
+                    <i class="bi bi-file-earmark-pdf me-1"></i>
+
+                    Export PDF
+
+                </button>
+
+            </div>
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Receipt #</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Cashier</th>
+                        <th>Payment</th>
+                        <th>Subtotal</th>
+                        <th>Discount</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var sale in Model.Items)
+                        {
+                            <tr>
+
+                                <td>
+                                    <strong>@sale.SalesNumber</strong>
+                                </td>
+
+                                <td>
+                                    @sale.SalesDate.ToString("MMM dd, yyyy")
+                                    <div class="text-muted small">
+                                        @sale.SalesDate.ToString("hh:mm tt")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @sale.CustomerName
+                                </td>
+
+                                <td>
+                                    @sale.CashierName
+                                </td>
+
+                                <td>
+                                    @if (sale.PaymentMethod == "Cash")
+                                    {
+                                        <span class="badge badge-soft-success">Cash</span>
+                                    }
+                                    else if (sale.PaymentMethod == "GCash")
+                                    {
+                                        <span class="badge badge-soft-primary">GCash</span>
+                                    }
+                                    else if (sale.PaymentMethod == "Credit")
+                                    {
+                                        <span class="badge badge-soft-warning">Credit</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-primary">@sale.PaymentMethod</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    ₱@sale.SubTotal.ToString("N2")
+                                </td>
+
+                                <td>
+                                    ₱@sale.DiscountAmount.ToString("N2")
+                                </td>
+
+                                <td>
+                                    <strong>₱@sale.TotalAmount.ToString("N2")</strong>
+                                </td>
+
+                                <td>
+                                    @if (sale.Status == "Completed")
+                                    {
+                                        <span class="badge badge-soft-success">Completed</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">@sale.Status</span>
+                                    }
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No sales records found.
+                                </div>
+
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Reports",
+                "SalesDetail",
+                new Dictionary<string, string?>
+                {
+                    ["dateFrom"] = dateFrom.ToString("yyyy-MM-dd"),
+                    ["dateTo"] = dateTo.ToString("yyyy-MM-dd"),
+                    ["searchTerm"] = Model.SearchTerm,
+                    ["paymentMethod"] = paymentMethod,
+                    ["status"] = status
+                }))
+
+    </div>
+
+</div>
+
+@section Scripts {
+
+    <script>
+
+        document
+            .getElementById('exportPdfBtn')
+            .addEventListener('click', function () {
+
+                const dateFrom =
+                    document.querySelector('[name="dateFrom"]').value;
+
+                const dateTo =
+                    document.querySelector('[name="dateTo"]').value;
+
+                const searchTerm =
+                    document.querySelector('[name="searchTerm"]').value;
+
+                const paymentMethod =
+                    document.querySelector('[name="paymentMethod"]').value;
+
+                const status =
+                    document.querySelector('[name="status"]').value;
+
+                const url =
+                    `/Reports/ExportSalesDetailPdf` +
+                    `?dateFrom=${encodeURIComponent(dateFrom)}` +
+                    `&dateTo=${encodeURIComponent(dateTo)}` +
+                    `&searchTerm=${encodeURIComponent(searchTerm)}` +
+                    `&paymentMethod=${encodeURIComponent(paymentMethod)}` +
+                    `&status=${encodeURIComponent(status)}`;
+
+                window.location.href = url;
+            });
+
+    </script>
+
+}

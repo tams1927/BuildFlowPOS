@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -26,16 +27,56 @@ namespace HardwareManagementSystem.Controllers
             _notificationService = notificationService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? searchTerm = null,
+            string? typeFilter = null)
         {
-            var adjustments = await _context.StockAdjustmentHeaders
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var query = _context.StockAdjustmentHeaders
                 .AsNoTracking()
                 .Include(a => a.StockAdjustmentDetails)
                     .ThenInclude(d => d.Item)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(a =>
+                    a.AdjustmentNumber.ToLower().Contains(term) ||
+                    (a.Reason != null && a.Reason.ToLower().Contains(term)) ||
+                    (a.CreatedBy != null && a.CreatedBy.ToLower().Contains(term)) ||
+                    a.StockAdjustmentDetails.Any(d => d.Item != null && d.Item.ItemName.ToLower().Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(typeFilter) && typeFilter != "all")
+            {
+                query = query.Where(a => a.AdjustmentType.ToLower() == typeFilter.ToLower());
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var adjustments = await query
                 .OrderByDescending(a => a.AdjustmentDate)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return View(adjustments);
+            ViewBag.TypeFilter = typeFilter;
+
+            return View(new PagedResult<StockAdjustmentHeader>
+            {
+                Items = adjustments,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            });
         }
 
         public async Task<IActionResult> Create()

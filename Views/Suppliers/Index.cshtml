@@ -1,7 +1,9 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.Supplier>
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.Supplier>
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = "Suppliers";
+    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="row g-3 mb-4">
@@ -11,8 +13,8 @@
             <div class="kpi-icon">
                 <i class="bi bi-building"></i>
             </div>
-            <div class="kpi-label">Total Suppliers</div>
-            <div class="kpi-value">@Model.Count()</div>
+    <div class="kpi-label">Total Suppliers</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
             <div class="kpi-trend">Registered supply vendors</div>
         </div>
     </div>
@@ -22,8 +24,8 @@
             <div class="kpi-icon">
                 <i class="bi bi-check-circle"></i>
             </div>
-            <div class="kpi-label">Active Suppliers</div>
-            <div class="kpi-value">@Model.Count(s => s.IsActive)</div>
+    <div class="kpi-label">Active Suppliers</div>
+            <div class="kpi-value">@Model.Items.Count(s => s.IsActive)</div>
             <div class="kpi-trend">Available for stock-in</div>
         </div>
     </div>
@@ -33,8 +35,8 @@
             <div class="kpi-icon">
                 <i class="bi bi-pause-circle"></i>
             </div>
-            <div class="kpi-label">Inactive Suppliers</div>
-            <div class="kpi-value">@Model.Count(s => !s.IsActive)</div>
+    <div class="kpi-label">Inactive Suppliers</div>
+            <div class="kpi-value">@Model.Items.Count(s => !s.IsActive)</div>
             <div class="kpi-trend text-warning">Currently disabled</div>
         </div>
     </div>
@@ -44,8 +46,8 @@
             <div class="kpi-icon">
                 <i class="bi bi-truck"></i>
             </div>
-            <div class="kpi-label">Stock-In Ready</div>
-            <div class="kpi-value">@Model.Count(s => s.IsActive)</div>
+    <div class="kpi-label">Stock-In Ready</div>
+            <div class="kpi-value">@Model.Items.Count(s => s.IsActive)</div>
             <div class="kpi-trend">Can be used for receiving</div>
         </div>
     </div>
@@ -79,39 +81,42 @@
 
     <div class="hb-card-body">
 
+        <form method="get" asp-controller="Suppliers" asp-action="Index">
         <div class="row g-3 mb-4">
             <div class="col-lg-5">
                 <label class="form-label fw-semibold">Search Supplier</label>
-
                 <div class="input-group">
                     <span class="input-group-text bg-white border-end-0">
                         <i class="bi bi-search"></i>
                     </span>
-
                     <input type="text"
-                           id="supplierSearchInput"
+                           name="searchTerm"
                            class="form-control border-start-0"
+                           value="@Model.SearchTerm"
                            placeholder="Supplier name, contact person, or number..." />
                 </div>
             </div>
 
             <div class="col-lg-3">
                 <label class="form-label fw-semibold">Status</label>
-
-                <select id="supplierStatusFilter" class="form-select">
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                <select name="statusFilter" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="active" selected="@(statusFilter == "active")">Active</option>
+                    <option value="inactive" selected="@(statusFilter == "inactive")">Inactive</option>
                 </select>
             </div>
 
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
             <div class="col-lg-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100">
+                <button class="btn btn-primary w-100" type="submit">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
             </div>
         </div>
+        </form>
 
         <div class="table-responsive">
             <table class="table align-middle">
@@ -128,9 +133,9 @@
                 </thead>
 
                 <tbody>
-                    @if (Model != null && Model.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var supplier in Model)
+                        foreach (var supplier in Model.Items)
                         {
                             <tr class="supplier-row" data-status="@(supplier.IsActive ? "active" : "inactive")">
                                 <td>
@@ -210,6 +215,8 @@
                 </tbody>
             </table>
         </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Suppliers", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["statusFilter"] = statusFilter }))
 
     </div>
 </div>

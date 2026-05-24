@@ -2,6 +2,16 @@
 
 @{
     ViewData["Title"] = "Receipt";
+
+    var settings =
+        ViewBag.SystemSetting
+        as HardwareManagementSystem.Models.SystemSetting;
+
+    var taxMode =
+        settings?.TaxMode ?? "VAT";
+
+    var defaultVatPercent =
+        settings?.DefaultVatPercent ?? 0;
 }
 
 <div class="hb-card mx-auto receipt-card">
@@ -110,10 +120,44 @@
                 <strong>₱@Model.DiscountAmount.ToString("N2")</strong>
             </div>
 
-            <div class="d-flex justify-content-between mb-2">
-                <span>VAT</span>
-                <strong>₱@Model.VatAmount.ToString("N2")</strong>
-            </div>
+            @if (taxMode == "VAT")
+            {
+                <div class="d-flex justify-content-between mb-2">
+
+                    <span>
+                        VAT (@defaultVatPercent.ToString("0.##")%)
+                    </span>
+
+                    <strong>
+                        ₱@Model.VatAmount.ToString("N2")
+                    </strong>
+
+                </div>
+            }
+            else if (taxMode == "NONVAT")
+            {
+                <div class="d-flex justify-content-between mb-2">
+
+                    <span>Tax Mode</span>
+
+                    <strong class="text-warning">
+                        NON-VAT
+                    </strong>
+
+                </div>
+            }
+            else
+            {
+                <div class="d-flex justify-content-between mb-2">
+
+                    <span>Tax Mode</span>
+
+                    <strong class="text-secondary">
+                        MANUAL
+                    </strong>
+
+                </div>
+            }
 
             <div class="d-flex justify-content-between fs-5 border-top pt-3 mt-3">
                 <strong>Total</strong>

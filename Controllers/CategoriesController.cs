@@ -1,5 +1,6 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,13 +19,53 @@ namespace HardwareManagementSystem.Controllers
             _auditService = auditService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? searchTerm = null,
+            string? statusFilter = null)
         {
-            var categories = await _context.Categories
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var query = _context.Categories
+                .AsNoTracking()
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(c =>
+                    c.CategoryName.ToLower().Contains(term) ||
+                    (c.Description != null && c.Description.ToLower().Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(statusFilter))
+            {
+                bool isActive = statusFilter == "active";
+                query = query.Where(c => c.IsActive == isActive);
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var categories = await query
                 .OrderBy(c => c.CategoryName)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return View(categories);
+            ViewBag.StatusFilter = statusFilter;
+
+            return View(new PagedResult<Models.Category>
+            {
+                Items = categories,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            });
         }
 
         [HttpPost]

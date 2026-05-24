@@ -1,14 +1,11 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.StockInHeader>
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.StockInHeader>
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = "Stock In";
 
     var suppliers = ViewBag.Suppliers as List<HardwareManagementSystem.Models.Supplier>;
     var items = ViewBag.Items as List<HardwareManagementSystem.Models.Item>;
-
-    var totalTransactions = Model.Count();
-    var totalCost = Model.Sum(h => h.TotalCost);
-    var totalQuantity = Model.Sum(h => h.StockInDetails.Sum(d => d.Quantity));
 }
 
 <div class="row g-3 mb-4">
@@ -21,7 +18,7 @@
 
             <div class="kpi-label">Total Stock In</div>
 
-            <div class="kpi-value">@totalTransactions</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
 
             <div class="kpi-trend">
                 Received inventory transactions
@@ -38,7 +35,7 @@
             <div class="kpi-label">Total Inventory Cost</div>
 
             <div class="kpi-value">
-                ₱@totalCost.ToString("N2")
+                ₱@Model.Items.Sum(h => h.TotalCost).ToString("N2")
             </div>
 
             <div class="kpi-trend">
@@ -56,7 +53,7 @@
             <div class="kpi-label">Total Quantity Received</div>
 
             <div class="kpi-value">
-                @totalQuantity.ToString("0.###")
+                @Model.Items.Sum(h => h.StockInDetails.Sum(d => d.Quantity)).ToString("0.###")
             </div>
 
             <div class="kpi-trend">
@@ -103,69 +100,35 @@
 
     <div class="hb-card-body">
 
+        <form method="get" asp-controller="StockIn" asp-action="Index">
         <div class="row g-3 mb-4">
 
             <div class="col-lg-5">
-
-                <label class="form-label fw-semibold">
-                    Search Stock In
-                </label>
-
+                <label class="form-label fw-semibold">Search Stock In</label>
                 <div class="input-group">
-
                     <span class="input-group-text bg-white border-end-0">
                         <i class="bi bi-search"></i>
                     </span>
-
                     <input type="text"
-                           id="stockInSearchInput"
+                           name="searchTerm"
                            class="form-control border-start-0"
+                           value="@Model.SearchTerm"
                            placeholder="Search supplier, item, invoice..." />
-
                 </div>
-
             </div>
 
-            <div class="col-lg-3">
-
-                <label class="form-label fw-semibold">
-                    Supplier
-                </label>
-
-                <select id="stockInSupplierFilter"
-                        class="form-select">
-
-                    <option value="all">
-                        All Suppliers
-                    </option>
-
-                    @if (suppliers != null)
-                    {
-                        foreach (var supplier in suppliers)
-                        {
-                            <option value="@supplier.SupplierName.ToLower()">
-                                @supplier.SupplierName
-                            </option>
-                        }
-                    }
-
-                </select>
-
-            </div>
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
 
             <div class="col-lg-2 d-flex align-items-end">
-
-                <button class="btn btn-primary w-100"
-                        type="button">
-
+                <button class="btn btn-primary w-100" type="submit">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
-
                 </button>
-
             </div>
 
         </div>
+        </form>
 
         <div class="table-responsive">
 
@@ -185,9 +148,9 @@
 
                 <tbody>
 
-                    @if (Model != null && Model.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var header in Model)
+                        foreach (var header in Model.Items)
                         {
                             var detail = header.StockInDetails.FirstOrDefault();
 
@@ -254,6 +217,8 @@
             </table>
 
         </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "StockIn", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm }))
 
     </div>
 
@@ -400,6 +365,7 @@
 
                             <input type="number"
                                    step="0.001"
+                                   min="0.001"
                                    name="quantity"
                                    class="form-control"
                                    value="1"
@@ -415,6 +381,7 @@
 
                             <input type="number"
                                    step="0.01"
+                                   min="0"
                                    name="unitCost"
                                    class="form-control"
                                    value="0"
@@ -502,6 +469,20 @@
             form.addEventListener('submit', function (e) {
 
                 e.preventDefault();
+
+                const quantityVal = parseFloat(form.querySelector('[name="quantity"]')?.value || 0);
+                const unitCostVal = parseFloat(form.querySelector('[name="unitCost"]')?.value || 0);
+
+                if (quantityVal <= 0) {
+                    Swal.fire({ icon: 'warning', title: 'Invalid Quantity', text: 'Quantity must be greater than zero.', confirmButtonColor: '#1e40af' });
+                    form.querySelector('[name="quantity"]').focus();
+                    return;
+                }
+                if (unitCostVal < 0) {
+                    Swal.fire({ icon: 'warning', title: 'Invalid Unit Cost', text: 'Unit cost cannot be negative.', confirmButtonColor: '#1e40af' });
+                    form.querySelector('[name="unitCost"]').focus();
+                    return;
+                }
 
                 Swal.fire({
                     title: 'Save stock in?',

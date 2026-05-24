@@ -52,6 +52,7 @@ namespace HardwareManagementSystem.Controllers
             setting.Email = model.Email;
             setting.CurrencySymbol = model.CurrencySymbol;
             setting.DefaultVatPercent = model.DefaultVatPercent;
+            setting.TaxMode = model.TaxMode;
             setting.ReceiptFooter = model.ReceiptFooter;
             setting.UpdatedAt = DateTime.Now;
             setting.ReceiptPaperSize = model.ReceiptPaperSize;
@@ -62,7 +63,7 @@ namespace HardwareManagementSystem.Controllers
                 User,
                 "Settings",
                 "UPDATED",
-                $"System settings updated. Business Name: {setting.BusinessName}, VAT: {setting.DefaultVatPercent:0.##}%, Paper Size: {setting.ReceiptPaperSize}",
+                $"System settings updated. Business Name: {setting.BusinessName}, TaxMode: {setting.TaxMode}, VAT: {setting.DefaultVatPercent:0.##}%, Paper Size: {setting.ReceiptPaperSize}",
                 "SystemSetting",
                 setting.Id.ToString(),
                 HttpContext.Connection.RemoteIpAddress?.ToString()

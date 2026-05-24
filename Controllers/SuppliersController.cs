@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,13 +21,55 @@ namespace HardwareManagementSystem.Controllers
             _auditService = auditService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? searchTerm = null,
+            string? statusFilter = null)
         {
-            var suppliers = await _context.Suppliers
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var query = _context.Suppliers
+                .AsNoTracking()
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(s =>
+                    s.SupplierName.ToLower().Contains(term) ||
+                    (s.ContactPerson != null && s.ContactPerson.ToLower().Contains(term)) ||
+                    (s.ContactNumber != null && s.ContactNumber.ToLower().Contains(term)) ||
+                    (s.Email != null && s.Email.ToLower().Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(statusFilter))
+            {
+                bool isActive = statusFilter == "active";
+                query = query.Where(s => s.IsActive == isActive);
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var suppliers = await query
                 .OrderBy(s => s.SupplierName)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return View(suppliers);
+            ViewBag.StatusFilter = statusFilter;
+
+            return View(new PagedResult<Supplier>
+            {
+                Items = suppliers,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            });
         }
 
         [HttpPost]

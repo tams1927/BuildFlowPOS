@@ -1,5 +1,6 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,23 +22,84 @@ namespace HardwareManagementSystem.Controllers
             _notificationService = notificationService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? searchTerm = null,
+            string? paymentFilter = null,
+            string? statusFilter = null)
         {
-            var sales = await _context.SalesHeaders
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var query = _context.SalesHeaders
                 .AsNoTracking()
                 .Include(s => s.Customer)
                 .Include(s => s.SalesDetails)
                     .ThenInclude(d => d.Item)
                         .ThenInclude(i => i!.Unit)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(s =>
+                    s.SalesNumber.ToLower().Contains(term) ||
+                    (s.Customer != null && s.Customer.CustomerName.ToLower().Contains(term)) ||
+                    (s.CashierName != null && s.CashierName.ToLower().Contains(term)) ||
+                    (s.ReferenceNumber != null && s.ReferenceNumber.ToLower().Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(paymentFilter) && paymentFilter != "all")
+            {
+                query = query.Where(s => s.PaymentMethod.ToLower() == paymentFilter.ToLower());
+            }
+
+            if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "all")
+            {
+                query = query.Where(s => s.Status.ToLower() == statusFilter.ToLower());
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var items = await query
                 .OrderByDescending(s => s.SalesDate)
                 .ThenByDescending(s => s.Id)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
             var settings = await _context.SystemSettings.FirstOrDefaultAsync();
-
             ViewBag.SystemSetting = settings;
 
-            return View(sales);
+            // Today's summary stats (separate lightweight query for KPI cards)
+            var today = DateTime.Today;
+            var todayStats = await _context.SalesHeaders
+                .AsNoTracking()
+                .Where(s => s.SalesDate.Date == today)
+                .Select(s => new { s.TotalAmount, s.PaymentMethod })
+                .ToListAsync();
+
+            ViewBag.TodayTotalSales = todayStats.Sum(s => s.TotalAmount);
+            ViewBag.TodayTransactions = todayStats.Count;
+            ViewBag.TodayCashPayments = todayStats.Where(s => s.PaymentMethod == "Cash").Sum(s => s.TotalAmount);
+            ViewBag.TodayDigitalPayments = todayStats.Where(s => s.PaymentMethod != "Cash").Sum(s => s.TotalAmount);
+
+            var result = new PagedResult<HardwareManagementSystem.Models.SalesHeader>
+            {
+                Items = items,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            };
+
+            ViewBag.PaymentFilter = paymentFilter;
+            ViewBag.StatusFilter = statusFilter;
+
+            return View(result);
         }
 
         [HttpPost]
@@ -114,6 +176,31 @@ namespace HardwareManagementSystem.Controllers
             }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        public async Task<IActionResult> Receipt(int id)
+        {
+            var sale = await _context.SalesHeaders
+                .AsNoTracking()
+                .Include(s => s.Customer)
+                .Include(s => s.SalesDetails)
+                    .ThenInclude(d => d.Item)
+                        .ThenInclude(i => i!.Unit)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (sale == null)
+            {
+                TempData["ErrorMessage"] = "Receipt not found.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var settings = await _context.SystemSettings
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
+
+            ViewBag.SystemSetting = settings;
+
+            return View(sale);
         }
     }
 }

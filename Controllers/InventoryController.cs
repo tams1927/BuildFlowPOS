@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,8 +23,16 @@ namespace HardwareManagementSystem.Controllers
             _notificationService = notificationService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? searchTerm = null,
+            string? categoryFilter = null,
+            string? statusFilter = null,
+            string? stockFilter = null)
         {
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
             ViewBag.Categories = await _context.Categories
                 .AsNoTracking()
                 .Where(c => c.IsActive)
@@ -42,15 +51,71 @@ namespace HardwareManagementSystem.Controllers
                 .OrderBy(s => s.SupplierName)
                 .ToListAsync();
 
-            var items = await _context.Items
+            var query = _context.Items
                 .AsNoTracking()
                 .Include(i => i.Category)
                 .Include(i => i.Unit)
                 .Include(i => i.Supplier)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(i =>
+                    i.ItemName.ToLower().Contains(term) ||
+                    i.ItemCode.ToLower().Contains(term) ||
+                    (i.Category != null && i.Category.CategoryName.ToLower().Contains(term)) ||
+                    (i.Supplier != null && i.Supplier.SupplierName.ToLower().Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(categoryFilter) && categoryFilter != "all")
+            {
+                query = query.Where(i => i.Category != null && i.Category.CategoryName.ToLower() == categoryFilter.ToLower());
+            }
+
+            if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "all")
+            {
+                query = query.Where(i => i.Status.ToLower() == statusFilter.ToLower());
+            }
+
+            if (!string.IsNullOrWhiteSpace(stockFilter))
+            {
+                query = stockFilter switch
+                {
+                    "low" => query.Where(i => i.CurrentStock > 0 && i.CurrentStock <= i.ReorderLevel),
+                    "out" => query.Where(i => i.CurrentStock <= 0),
+                    _ => query
+                };
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+                (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var items = await query
                 .OrderBy(i => i.ItemName)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return View(items);
+            ViewBag.CategoryFilter = categoryFilter;
+            ViewBag.StatusFilter = statusFilter;
+            ViewBag.StockFilter = stockFilter;
+
+            ViewBag.TotalActive = await _context.Items.CountAsync(i => i.Status == "Active");
+            ViewBag.TotalLowStock = await _context.Items.CountAsync(i =>
+                i.Status == "Active" && i.CurrentStock > 0 && i.CurrentStock <= i.ReorderLevel);
+            ViewBag.TotalOutOfStock = await _context.Items.CountAsync(i => i.CurrentStock <= 0);
+
+            return View(new PagedResult<Item>
+            {
+                Items = items,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                SearchTerm = searchTerm
+            });
         }
 
         [HttpPost]
@@ -70,6 +135,12 @@ namespace HardwareManagementSystem.Controllers
             if (string.IsNullOrWhiteSpace(itemCode) || string.IsNullOrWhiteSpace(itemName))
             {
                 TempData["ErrorMessage"] = "Item code and item name are required.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (currentStock < 0 || reorderLevel < 0 || costPrice < 0 || sellingPrice < 0)
+            {
+                TempData["ErrorMessage"] = "Stock, reorder level, cost price, and selling price cannot be negative.";
                 return RedirectToAction(nameof(Index));
             }
 
@@ -140,6 +211,12 @@ namespace HardwareManagementSystem.Controllers
             if (string.IsNullOrWhiteSpace(itemCode) || string.IsNullOrWhiteSpace(itemName))
             {
                 TempData["ErrorMessage"] = "Item code and item name are required.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (currentStock < 0 || reorderLevel < 0 || costPrice < 0 || sellingPrice < 0)
+            {
+                TempData["ErrorMessage"] = "Stock, reorder level, cost price, and selling price cannot be negative.";
                 return RedirectToAction(nameof(Index));
             }
 

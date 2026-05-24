@@ -1,13 +1,10 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.StockAdjustmentHeader>
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.StockAdjustmentHeader>
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = "Stock Adjustment";
 
-    var adjustments = Model ?? Enumerable.Empty<HardwareManagementSystem.Models.StockAdjustmentHeader>();
-
-    var totalAdjustments = adjustments.Count();
-    var increaseCount = adjustments.Count(a => a.AdjustmentType == "Increase");
-    var decreaseCount = adjustments.Count(a => a.AdjustmentType == "Decrease");
+    var typeFilter = ViewBag.TypeFilter as string;
 }
 
 <div class="row g-3 mb-4">
@@ -18,7 +15,7 @@
                 <i class="bi bi-sliders"></i>
             </div>
             <div class="kpi-label">Total Adjustments</div>
-            <div class="kpi-value">@totalAdjustments</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
             <div class="kpi-trend">Manual stock corrections</div>
         </div>
     </div>
@@ -29,7 +26,7 @@
                 <i class="bi bi-arrow-up-circle"></i>
             </div>
             <div class="kpi-label">Stock Increase</div>
-            <div class="kpi-value">@increaseCount</div>
+            <div class="kpi-value">@Model.Items.Count(a => a.AdjustmentType == "Increase")</div>
             <div class="kpi-trend">Added adjustments</div>
         </div>
     </div>
@@ -40,7 +37,7 @@
                 <i class="bi bi-arrow-down-circle"></i>
             </div>
             <div class="kpi-label">Stock Decrease</div>
-            <div class="kpi-value">@decreaseCount</div>
+            <div class="kpi-value">@Model.Items.Count(a => a.AdjustmentType == "Decrease")</div>
             <div class="kpi-trend">Deducted adjustments</div>
         </div>
     </div>
@@ -69,6 +66,7 @@
 
     <div class="hb-card-body">
 
+        <form method="get" asp-controller="StockAdjustment" asp-action="Index">
         <div class="row g-3 mb-4">
 
             <div class="col-lg-5">
@@ -78,29 +76,34 @@
                         <i class="bi bi-search"></i>
                     </span>
                     <input type="text"
-                           id="adjustmentSearchInput"
+                           name="searchTerm"
                            class="form-control border-start-0"
+                           value="@Model.SearchTerm"
                            placeholder="Search number, item, reason, user..." />
                 </div>
             </div>
 
             <div class="col-lg-3">
                 <label class="form-label fw-semibold">Type</label>
-                <select id="adjustmentTypeFilter" class="form-select">
-                    <option value="all">All Types</option>
-                    <option value="increase">Increase</option>
-                    <option value="decrease">Decrease</option>
+                <select name="typeFilter" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="Increase" selected="@(typeFilter == "Increase")">Increase</option>
+                    <option value="Decrease" selected="@(typeFilter == "Decrease")">Decrease</option>
                 </select>
             </div>
 
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
             <div class="col-lg-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100" type="button">
+                <button class="btn btn-primary w-100" type="submit">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
             </div>
 
         </div>
+        </form>
 
         <div class="table-responsive">
 
@@ -121,9 +124,9 @@
                 </thead>
 
                 <tbody>
-                    @if (adjustments.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var adjustment in adjustments)
+                        foreach (var adjustment in Model.Items)
                         {
                             var detail = adjustment.StockAdjustmentDetails.FirstOrDefault();
 
@@ -199,32 +202,11 @@
 
         </div>
 
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "StockAdjustment", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["typeFilter"] = typeFilter }))
+
     </div>
 
 </div>
 
 @section Scripts {
-    <script>
-        const adjustmentSearchInput = document.getElementById('adjustmentSearchInput');
-        const adjustmentTypeFilter = document.getElementById('adjustmentTypeFilter');
-        const adjustmentRows = document.querySelectorAll('.adjustment-row');
-
-        function filterAdjustments() {
-            const searchValue = adjustmentSearchInput.value.toLowerCase();
-            const typeValue = adjustmentTypeFilter.value.toLowerCase();
-
-            adjustmentRows.forEach(row => {
-                const rowText = row.innerText.toLowerCase();
-                const rowType = row.getAttribute('data-type') || '';
-
-                const matchesSearch = rowText.includes(searchValue);
-                const matchesType = typeValue === 'all' || rowType === typeValue;
-
-                row.style.display = matchesSearch && matchesType ? '' : 'none';
-            });
-        }
-
-        adjustmentSearchInput.addEventListener('input', filterAdjustments);
-        adjustmentTypeFilter.addEventListener('change', filterAdjustments);
-    </script>
 }

@@ -1,0 +1,186 @@
+﻿@model HardwareManagementSystem.ViewModels.ExpenseVsProfitReportViewModel
+
+@{
+    ViewData["Title"] = "Expense vs Profit Report";
+
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today;
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
+            <div class="kpi-label">Gross Sales</div>
+            <div class="kpi-value">₱@Model.GrossSales.ToString("N2")</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
+            <div class="kpi-label">Cost of Goods</div>
+            <div class="kpi-value text-warning">₱@Model.CostOfGoods.ToString("N2")</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-wallet2"></i></div>
+            <div class="kpi-label">Operating Expenses</div>
+            <div class="kpi-value text-danger">₱@Model.OperatingExpenses.ToString("N2")</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-graph-up-arrow"></i></div>
+            <div class="kpi-label">Net Profit</div>
+            <div class="kpi-value @(Model.NetProfit >= 0 ? "text-success" : "text-danger")">
+                ₱@Model.NetProfit.ToString("N2")
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Expense vs Profit Report</h2>
+            <div class="hb-section-subtitle">
+                Compare sales, cost of goods, operating expenses, and net profit
+            </div>
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="ExpenseVsProfit"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Date From</label>
+                <input type="date"
+                       name="dateFrom"
+                       value="@dateFrom.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Date To</label>
+                <input type="date"
+                       name="dateTo"
+                       value="@dateTo.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button type="submit"
+                        class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="button"
+                        id="exportExpenseProfitPdfBtn"
+                        class="btn btn-danger w-100">
+
+                    <i class="bi bi-file-earmark-pdf me-1"></i>
+
+                    Export PDF
+
+                </button>
+
+            </div>
+
+        </form>
+
+        <table class="table align-middle">
+
+            <tbody>
+                <tr>
+                    <th>Gross Sales</th>
+                    <td>₱@Model.GrossSales.ToString("N2")</td>
+                </tr>
+
+                <tr>
+                    <th>Cost of Goods Sold</th>
+                    <td>₱@Model.CostOfGoods.ToString("N2")</td>
+                </tr>
+
+                <tr>
+                    <th>Gross Profit</th>
+                    <td class="text-success fw-bold">
+                        ₱@Model.GrossProfit.ToString("N2")
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Operating Expenses</th>
+                    <td class="text-danger fw-bold">
+                        ₱@Model.OperatingExpenses.ToString("N2")
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Net Profit</th>
+                    <td class="fw-bold @(Model.NetProfit >= 0 ? "text-success" : "text-danger")">
+                        ₱@Model.NetProfit.ToString("N2")
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Net Profit Margin</th>
+                    <td>
+                        <span class="badge @(Model.ProfitMarginPercent >= 0 ? "badge-soft-success" : "badge-soft-danger")">
+                            @Model.ProfitMarginPercent.ToString("N2")%
+                        </span>
+                    </td>
+                </tr>
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+@section Scripts {
+
+    <script>
+
+        document
+            .getElementById('exportExpenseProfitPdfBtn')
+            .addEventListener('click', function () {
+
+                const dateFrom =
+                    document.querySelector('[name="dateFrom"]').value;
+
+                const dateTo =
+                    document.querySelector('[name="dateTo"]').value;
+
+                const url =
+                    `/Reports/ExportExpenseVsProfitPdf` +
+                    `?dateFrom=${encodeURIComponent(dateFrom)}` +
+                    `&dateTo=${encodeURIComponent(dateTo)}`;
+
+                window.location.href = url;
+            });
+
+    </script>
+
+}

@@ -1,4 +1,5 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.Item>
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.Item>
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = "Inventory";
@@ -6,11 +7,9 @@
     var categories = ViewBag.Categories as List<HardwareManagementSystem.Models.Category>;
     var units = ViewBag.Units as List<HardwareManagementSystem.Models.Unit>;
     var suppliers = ViewBag.Suppliers as List<HardwareManagementSystem.Models.Supplier>;
-
-    var totalItems = Model.Count();
-    var activeItems = Model.Count(i => i.Status == "Active");
-    var lowStockItems = Model.Count(i => i.CurrentStock > 0 && i.CurrentStock <= i.ReorderLevel);
-    var outOfStockItems = Model.Count(i => i.CurrentStock <= 0);
+    var categoryFilter = ViewBag.CategoryFilter as string;
+    var statusFilter = ViewBag.StatusFilter as string;
+    var stockFilter = ViewBag.StockFilter as string;
 }
 
 <div class="row g-3 mb-4">
@@ -21,7 +20,7 @@
                 <i class="bi bi-box-seam"></i>
             </div>
             <div class="kpi-label">Total Items</div>
-            <div class="kpi-value">@totalItems</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
             <div class="kpi-trend">Inventory records</div>
         </div>
     </div>
@@ -32,7 +31,7 @@
                 <i class="bi bi-check-circle"></i>
             </div>
             <div class="kpi-label">Active Items</div>
-            <div class="kpi-value">@activeItems</div>
+            <div class="kpi-value">@(ViewBag.TotalActive ?? 0)</div>
             <div class="kpi-trend">Available for POS</div>
         </div>
     </div>
@@ -43,7 +42,7 @@
                 <i class="bi bi-exclamation-triangle"></i>
             </div>
             <div class="kpi-label">Low Stock</div>
-            <div class="kpi-value">@lowStockItems</div>
+            <div class="kpi-value">@(ViewBag.TotalLowStock ?? 0)</div>
             <div class="kpi-trend text-warning">Needs restocking</div>
         </div>
     </div>
@@ -54,7 +53,7 @@
                 <i class="bi bi-x-circle"></i>
             </div>
             <div class="kpi-label">Out of Stock</div>
-            <div class="kpi-value">@outOfStockItems</div>
+            <div class="kpi-value">@(ViewBag.TotalOutOfStock ?? 0)</div>
             <div class="kpi-trend text-danger">Critical inventory</div>
         </div>
     </div>
@@ -88,33 +87,32 @@
 
     <div class="hb-card-body">
 
+        <form method="get" asp-controller="Inventory" asp-action="Index">
         <div class="row g-3 mb-4">
 
             <div class="col-lg-4">
                 <label class="form-label fw-semibold">Search Item</label>
-
                 <div class="input-group">
                     <span class="input-group-text bg-white border-end-0">
                         <i class="bi bi-search"></i>
                     </span>
-
                     <input type="text"
-                           id="inventorySearchInput"
+                           name="searchTerm"
                            class="form-control border-start-0"
+                           value="@Model.SearchTerm"
                            placeholder="Search item name, code, category, supplier..." />
                 </div>
             </div>
 
             <div class="col-lg-3">
                 <label class="form-label fw-semibold">Category</label>
-
-                <select id="inventoryCategoryFilter" class="form-select">
-                    <option value="all">All Categories</option>
+                <select name="categoryFilter" class="form-select">
+                    <option value="">All Categories</option>
                     @if (categories != null)
                     {
-                        foreach (var category in categories)
+                        foreach (var cat in categories)
                         {
-                            <option value="@category.CategoryName.ToLower()">@category.CategoryName</option>
+                            <option value="@cat.CategoryName" selected="@(categoryFilter == cat.CategoryName)">@cat.CategoryName</option>
                         }
                     }
                 </select>
@@ -122,24 +120,25 @@
 
             <div class="col-lg-3">
                 <label class="form-label fw-semibold">Stock Status</label>
-
-                <select id="inventoryStockFilter" class="form-select">
-                    <option value="all">All Status</option>
-                    <option value="in-stock">In Stock</option>
-                    <option value="low-stock">Low Stock</option>
-                    <option value="out-of-stock">Out of Stock</option>
-                    <option value="inactive">Inactive</option>
+                <select name="stockFilter" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="low" selected="@(stockFilter == "low")">Low Stock</option>
+                    <option value="out" selected="@(stockFilter == "out")">Out of Stock</option>
                 </select>
             </div>
 
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
             <div class="col-lg-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100" type="button">
+                <button class="btn btn-primary w-100" type="submit">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
             </div>
 
         </div>
+        </form>
 
         <div class="table-responsive">
 
@@ -160,9 +159,9 @@
                 </thead>
 
                 <tbody>
-                    @if (Model != null && Model.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var item in Model)
+                        foreach (var item in Model.Items)
                         {
                             var stockStatus = item.Status == "Inactive"
                             ? "inactive"
@@ -283,6 +282,8 @@
 
         </div>
 
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Inventory", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["categoryFilter"] = categoryFilter, ["stockFilter"] = stockFilter }))
+
     </div>
 
 </div>
@@ -380,6 +381,7 @@
                             <label class="form-label fw-semibold">Current Stock</label>
                             <input type="number"
                                    step="0.001"
+                                   min="0"
                                    name="currentStock"
                                    class="form-control"
                                    value="0"
@@ -390,6 +392,7 @@
                             <label class="form-label fw-semibold">Reorder Level</label>
                             <input type="number"
                                    step="0.001"
+                                   min="0"
                                    name="reorderLevel"
                                    class="form-control"
                                    value="0"
@@ -400,6 +403,7 @@
                             <label class="form-label fw-semibold">Cost Price</label>
                             <input type="number"
                                    step="0.01"
+                                   min="0"
                                    name="costPrice"
                                    class="form-control"
                                    value="0"
@@ -410,6 +414,7 @@
                             <label class="form-label fw-semibold">Selling Price</label>
                             <input type="number"
                                    step="0.01"
+                                   min="0"
                                    name="sellingPrice"
                                    class="form-control"
                                    value="0"
@@ -553,6 +558,7 @@
                             <label class="form-label fw-semibold">Current Stock</label>
                             <input type="number"
                                    step="0.001"
+                                   min="0"
                                    id="editItemCurrentStock"
                                    name="currentStock"
                                    class="form-control"
@@ -563,6 +569,7 @@
                             <label class="form-label fw-semibold">Reorder Level</label>
                             <input type="number"
                                    step="0.001"
+                                   min="0"
                                    id="editItemReorderLevel"
                                    name="reorderLevel"
                                    class="form-control"
@@ -573,6 +580,7 @@
                             <label class="form-label fw-semibold">Cost Price</label>
                             <input type="number"
                                    step="0.01"
+                                   min="0"
                                    id="editItemCostPrice"
                                    name="costPrice"
                                    class="form-control"
@@ -583,6 +591,7 @@
                             <label class="form-label fw-semibold">Selling Price</label>
                             <input type="number"
                                    step="0.01"
+                                   min="0"
                                    id="editItemSellingPrice"
                                    name="sellingPrice"
                                    class="form-control"
@@ -636,6 +645,32 @@
         document.querySelectorAll('.confirm-submit').forEach(form => {
             form.addEventListener('submit', function (e) {
                 e.preventDefault();
+
+                const stockInput = form.querySelector('[name="currentStock"]');
+                const reorderInput = form.querySelector('[name="reorderLevel"]');
+                const costInput = form.querySelector('[name="costPrice"]');
+                const priceInput = form.querySelector('[name="sellingPrice"]');
+
+                if (stockInput && parseFloat(stockInput.value) < 0) {
+                    Swal.fire({ icon: 'warning', title: 'Invalid Value', text: 'Current stock cannot be negative.', confirmButtonColor: '#1e40af' });
+                    stockInput.focus();
+                    return;
+                }
+                if (reorderInput && parseFloat(reorderInput.value) < 0) {
+                    Swal.fire({ icon: 'warning', title: 'Invalid Value', text: 'Reorder level cannot be negative.', confirmButtonColor: '#1e40af' });
+                    reorderInput.focus();
+                    return;
+                }
+                if (costInput && parseFloat(costInput.value) < 0) {
+                    Swal.fire({ icon: 'warning', title: 'Invalid Value', text: 'Cost price cannot be negative.', confirmButtonColor: '#1e40af' });
+                    costInput.focus();
+                    return;
+                }
+                if (priceInput && parseFloat(priceInput.value) < 0) {
+                    Swal.fire({ icon: 'warning', title: 'Invalid Value', text: 'Selling price cannot be negative.', confirmButtonColor: '#1e40af' });
+                    priceInput.focus();
+                    return;
+                }
 
                 Swal.fire({
                     title: 'Save changes?',
@@ -695,32 +730,5 @@
                 document.getElementById('editItemDescription').value = button.getAttribute('data-description') || '';
             });
         }
-
-        const inventorySearchInput = document.getElementById('inventorySearchInput');
-        const inventoryCategoryFilter = document.getElementById('inventoryCategoryFilter');
-        const inventoryStockFilter = document.getElementById('inventoryStockFilter');
-        const inventoryRows = document.querySelectorAll('.inventory-row');
-
-        function filterInventory() {
-            const searchValue = inventorySearchInput.value.toLowerCase();
-            const categoryValue = inventoryCategoryFilter.value.toLowerCase();
-            const stockValue = inventoryStockFilter.value.toLowerCase();
-
-            inventoryRows.forEach(row => {
-                const rowText = row.innerText.toLowerCase();
-                const rowCategory = row.getAttribute('data-category');
-                const rowStock = row.getAttribute('data-stock');
-
-                const matchesSearch = rowText.includes(searchValue);
-                const matchesCategory = categoryValue === 'all' || rowCategory === categoryValue;
-                const matchesStock = stockValue === 'all' || rowStock === stockValue;
-
-                row.style.display = matchesSearch && matchesCategory && matchesStock ? '' : 'none';
-            });
-        }
-
-        inventorySearchInput.addEventListener('input', filterInventory);
-        inventoryCategoryFilter.addEventListener('change', filterInventory);
-        inventoryStockFilter.addEventListener('change', filterInventory);
     </script>
 }

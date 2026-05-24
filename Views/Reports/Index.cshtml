@@ -1,16 +1,138 @@
-﻿@model IEnumerable<HardwareManagementSystem.Controllers.CashierSalesReportVm>
+﻿@model HardwareManagementSystem.ViewModels.ReportsDashboardViewModel
 
 @{
-    ViewData["Title"] = "Reports";
-
-    decimal todaySales = ViewBag.TodaySales ?? 0;
-    decimal monthlySales = ViewBag.MonthlySales ?? 0;
-    decimal inventoryValue = ViewBag.InventoryValue ?? 0;
-    decimal stockInValue = ViewBag.StockInValue ?? 0;
-
-    int lowStockCount = ViewBag.LowStockCount ?? 0;
-    int outOfStockCount = ViewBag.OutOfStockCount ?? 0;
+    ViewData["Title"] = "Reports Dashboard";
 }
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h2 class="hb-section-title mb-1">
+            Reports Dashboard
+        </h2>
+
+        <div class="hb-section-subtitle">
+            Sales, collections, inventory, and business analytics overview
+        </div>
+    </div>
+
+    <form method="get"
+          asp-controller="Reports"
+          asp-action="Index"
+          class="row g-2 align-items-end">
+
+        <div class="col-auto">
+
+            <label class="form-label fw-semibold">
+                Date From
+            </label>
+
+            <input type="date"
+                   name="dateFrom"
+                   value="@Model.DateFrom.ToString("yyyy-MM-dd")"
+                   class="form-control" />
+
+        </div>
+
+        <div class="col-auto">
+
+            <label class="form-label fw-semibold">
+                Date To
+            </label>
+
+            <input type="date"
+                   name="dateTo"
+                   value="@Model.DateTo.ToString("yyyy-MM-dd")"
+                   class="form-control" />
+
+        </div>
+
+        <div class="col-auto">
+
+            <label class="form-label fw-semibold">
+                Report Type
+            </label>
+
+            <select name="reportType"
+                    id="reportType"
+                    class="form-select">
+
+                <option value="All">
+                    All Summary
+                </option>
+
+                <option value="Sales">
+                    Sales Report
+                </option>
+
+                <option value="Payments">
+                    Payment Summary
+                </option>
+
+                <option value="TopSelling">
+                    Top Selling Items
+                </option>
+
+                <option value="CustomerBalances">
+                    Customer Balances
+                </option>
+
+                <option value="Collections">
+                    Collections
+                </option>
+
+                <option value="Returns">
+                    Returns
+                </option>
+
+                <option value="Inventory">
+                    Inventory Status
+                </option>
+
+            </select>
+
+        </div>
+
+        <div class="col-auto">
+
+            <button type="submit"
+                    class="btn btn-primary">
+
+                <i class="bi bi-funnel me-1"></i>
+                Apply Filter
+
+            </button>
+
+        </div>
+
+
+        <div class="col-auto">
+            <a asp-controller="Reports"
+               asp-action="Print"
+               asp-route-dateFrom="@Model.DateFrom.ToString("yyyy-MM-dd")"
+               asp-route-dateTo="@Model.DateTo.ToString("yyyy-MM-dd")"
+               target="_blank"
+               class="btn btn-info text-dark fw-semibold border-0">
+
+                <i class="bi bi-printer me-1"></i>
+                Print
+
+            </a>
+            <button type="submit"
+                    formaction="@Url.Action("ExportExcel", "Reports")"
+                    formmethod="get"
+                    class="btn btn-success">
+
+                <i class="bi bi-file-earmark-excel me-1"></i>
+                Export Excel
+
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
 
 <div class="row g-3 mb-4">
 
@@ -20,14 +142,16 @@
                 <i class="bi bi-cash-stack"></i>
             </div>
 
-            <div class="kpi-label">Today's Sales</div>
+            <div class="kpi-label">
+                Gross Sales
+            </div>
 
             <div class="kpi-value">
-                ₱@todaySales.ToString("N2")
+                ₱@Model.GrossSales.ToString("N2")
             </div>
 
             <div class="kpi-trend">
-                Completed POS sales today
+                Before discounts
             </div>
         </div>
     </div>
@@ -35,17 +159,19 @@
     <div class="col-xl-3 col-md-6">
         <div class="kpi-card">
             <div class="kpi-icon">
-                <i class="bi bi-graph-up-arrow"></i>
+                <i class="bi bi-wallet2"></i>
             </div>
 
-            <div class="kpi-label">Monthly Sales</div>
+            <div class="kpi-label">
+                Net Sales
+            </div>
 
             <div class="kpi-value">
-                ₱@monthlySales.ToString("N2")
+                ₱@Model.NetSales.ToString("N2")
             </div>
 
             <div class="kpi-trend">
-                Current month sales total
+                Final completed sales
             </div>
         </div>
     </div>
@@ -53,17 +179,19 @@
     <div class="col-xl-3 col-md-6">
         <div class="kpi-card">
             <div class="kpi-icon">
-                <i class="bi bi-box-seam"></i>
+                <i class="bi bi-percent"></i>
             </div>
 
-            <div class="kpi-label">Inventory Value</div>
+            <div class="kpi-label">
+                Discounts
+            </div>
 
-            <div class="kpi-value">
-                ₱@inventoryValue.ToString("N2")
+            <div class="kpi-value text-warning">
+                ₱@Model.TotalDiscounts.ToString("N2")
             </div>
 
             <div class="kpi-trend">
-                Current stock cost valuation
+                Total discount amount
             </div>
         </div>
     </div>
@@ -71,17 +199,19 @@
     <div class="col-xl-3 col-md-6">
         <div class="kpi-card">
             <div class="kpi-icon">
-                <i class="bi bi-truck"></i>
+                <i class="bi bi-receipt"></i>
             </div>
 
-            <div class="kpi-label">Stock-In Value</div>
+            <div class="kpi-label">
+                Transactions
+            </div>
 
             <div class="kpi-value">
-                ₱@stockInValue.ToString("N2")
+                @Model.TransactionCount
             </div>
 
             <div class="kpi-trend">
-                This month's received inventory
+                Completed transactions
             </div>
         </div>
     </div>
@@ -90,244 +220,412 @@
 
 <div class="row g-3 mb-4">
 
-    <div class="col-xl-6">
-        <div class="hb-card h-100">
-            <div class="hb-card-header">
-                <div>
-                    <h2 class="hb-section-title">Inventory Alerts</h2>
-                    <div class="hb-section-subtitle">
-                        Real-time stock monitoring
-                    </div>
-                </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-cash"></i>
             </div>
 
-            <div class="hb-card-body">
-                <div class="row g-3">
-
-                    <div class="col-md-6">
-                        <div class="kpi-card">
-                            <div class="kpi-icon">
-                                <i class="bi bi-exclamation-triangle"></i>
-                            </div>
-
-                            <div class="kpi-label">Low Stock Items</div>
-
-                            <div class="kpi-value">@lowStockCount</div>
-
-                            <div class="kpi-trend text-warning">
-                                Items below reorder level
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <div class="kpi-card">
-                            <div class="kpi-icon">
-                                <i class="bi bi-x-circle"></i>
-                            </div>
-
-                            <div class="kpi-label">Out of Stock</div>
-
-                            <div class="kpi-value">@outOfStockCount</div>
-
-                            <div class="kpi-trend text-danger">
-                                Critical stock issue
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
+            <div class="kpi-label">
+                Cash Sales
             </div>
+
+            <div class="kpi-value">
+                ₱@Model.CashSales.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Cash payments
+            </div>
+
         </div>
     </div>
 
-    <div class="col-xl-6">
-        <div class="hb-card h-100">
-            <div class="hb-card-header">
-                <div>
-                    <h2 class="hb-section-title">Available Reports</h2>
-                    <div class="hb-section-subtitle">
-                        Report modules ready for export later
-                    </div>
-                </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-phone"></i>
             </div>
 
-            <div class="hb-card-body">
-                <div class="row g-2">
-
-                    <div class="col-md-6">
-                        <a asp-controller="Sales"
-                           asp-action="Index"
-                           class="btn btn-outline-primary w-100">
-                            <i class="bi bi-receipt me-1"></i>
-                            Sales Report
-                        </a>
-                    </div>
-
-                    <div class="col-md-6">
-                        <a asp-controller="Inventory"
-                           asp-action="Index"
-                           class="btn btn-outline-primary w-100">
-                            <i class="bi bi-box-seam me-1"></i>
-                            Inventory Report
-                        </a>
-                    </div>
-
-                    <div class="col-md-6">
-                        <a asp-controller="StockIn"
-                           asp-action="Index"
-                           class="btn btn-outline-primary w-100">
-                            <i class="bi bi-truck me-1"></i>
-                            Stock In Report
-                        </a>
-                    </div>
-
-                    <div class="col-md-6">
-                        <button class="btn btn-outline-primary w-100"
-                                type="button">
-                            <i class="bi bi-printer me-1"></i>
-                            Print Summary
-                        </button>
-                    </div>
-
-                </div>
+            <div class="kpi-label">
+                GCash Sales
             </div>
+
+            <div class="kpi-value">
+                ₱@Model.GCashSales.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Digital collections
+            </div>
+
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-journal-plus"></i>
+            </div>
+
+            <div class="kpi-label">
+                Credit Sales
+            </div>
+
+            <div class="kpi-value text-warning">
+                ₱@Model.CreditSales.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Charged to customers
+            </div>
+
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-cash-coin"></i>
+            </div>
+
+            <div class="kpi-label">
+                Collections
+            </div>
+
+            <div class="kpi-value text-success">
+                ₱@Model.Collections.ToString("N2")
+            </div>
+
+            <div class="kpi-trend">
+                Customer payments
+            </div>
+
         </div>
     </div>
 
 </div>
 
-<div class="hb-card">
+<div class="row g-3 mb-4">
 
-    <div class="hb-card-header">
+    <div class="col-xl-4">
+        <div class="hb-card h-100">
 
-        <div>
-            <h2 class="hb-section-title">
-                Cashier Sales Report
-            </h2>
-
-            <div class="hb-section-subtitle">
-                Monthly sales performance by cashier
+            <div class="hb-card-header">
+                <h5 class="mb-0">
+                    Inventory Status
+                </h5>
             </div>
-        </div>
 
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary">
-                <i class="bi bi-download me-1"></i>
-                Export
-            </button>
-        </div>
+            <div class="hb-card-body">
 
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <div class="text-muted small">
+                            Low Stock
+                        </div>
+
+                        <div class="fs-3 fw-bold text-warning">
+                            @Model.LowStockCount
+                        </div>
+                    </div>
+
+                    <i class="bi bi-exclamation-triangle fs-1 text-warning"></i>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">
+                            Out of Stock
+                        </div>
+
+                        <div class="fs-3 fw-bold text-danger">
+                            @Model.OutOfStockCount
+                        </div>
+                    </div>
+
+                    <i class="bi bi-x-circle fs-1 text-danger"></i>
+                </div>
+
+            </div>
+
+        </div>
     </div>
 
-    <div class="hb-card-body">
+    <div class="col-xl-4">
+        <div class="hb-card h-100">
 
-        <div class="row g-3 mb-4">
+            <div class="hb-card-header">
+                <h5 class="mb-0">
+                    Returns & Voids
+                </h5>
+            </div>
 
-            <div class="col-lg-5">
-                <label class="form-label fw-semibold">
-                    Search Cashier
-                </label>
+            <div class="hb-card-body">
 
-                <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0">
-                        <i class="bi bi-search"></i>
-                    </span>
+                <div class="mb-3">
+                    <div class="text-muted small">
+                        Sales Returns
+                    </div>
 
-                    <input type="text"
-                           id="cashierReportSearchInput"
-                           class="form-control border-start-0"
-                           placeholder="Search cashier name..." />
+                    <div class="fs-4 fw-bold text-danger">
+                        ₱@Model.Returns.ToString("N2")
+                    </div>
                 </div>
+
+                <div>
+                    <div class="text-muted small">
+                        Voided Sales
+                    </div>
+
+                    <div class="fs-4 fw-bold text-warning">
+                        ₱@Model.VoidedSales.ToString("N2")
+                    </div>
+                </div>
+
             </div>
 
         </div>
+    </div>
 
-        <div class="table-responsive">
-            <table class="table align-middle">
+    <div class="col-xl-4">
+        <div class="hb-card h-100">
 
-                <thead>
-                    <tr>
-                        <th>Cashier</th>
-                        <th>Transactions</th>
-                        <th>Cash Sales</th>
-                        <th>GCash / Digital</th>
-                        <th>Total Sales</th>
-                    </tr>
-                </thead>
+            <div class="hb-card-header">
+                <h5 class="mb-0">
+                    Customer Credit
+                </h5>
+            </div>
 
-                <tbody>
-                    @if (Model != null && Model.Any())
-                    {
-                        foreach (var report in Model)
-                        {
-                            <tr class="cashier-report-row">
-                                <td>
-                                    <strong>@report.CashierName</strong>
-                                </td>
+            <div class="hb-card-body">
 
-                                <td>
-                                    @report.TransactionCount
-                                </td>
+                <div class="text-muted small mb-2">
+                    Outstanding Balance
+                </div>
 
-                                <td>
-                                    ₱@report.CashSales.ToString("N2")
-                                </td>
+                <div class="fs-2 fw-bold text-primary">
+                    ₱@Model.OutstandingCustomerBalance.ToString("N2")
+                </div>
 
-                                <td>
-                                    ₱@report.DigitalSales.ToString("N2")
-                                </td>
+                <div class="text-muted small mt-2">
+                    Total collectible amount
+                </div>
 
-                                <td>
-                                    <strong class="text-primary">
-                                        ₱@report.TotalSales.ToString("N2")
-                                    </strong>
-                                </td>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<div class="row g-3">
+
+    <div class="col-xl-6">
+
+        <div class="hb-card">
+
+            <div class="hb-card-header">
+                <h5 class="mb-0">
+                    Top Selling Items
+                </h5>
+            </div>
+
+            <div class="hb-card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table align-middle">
+
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Qty Sold</th>
+                                <th>Sales Amount</th>
                             </tr>
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="5"
-                                class="text-center py-5">
+                        </thead>
 
-                                <div class="text-muted">
-                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                    No cashier sales records found.
-                                </div>
+                        <tbody>
 
-                            </td>
-                        </tr>
-                    }
-                </tbody>
+                            @if (Model.TopSellingItems.Any())
+                            {
+                                foreach (var item in Model.TopSellingItems)
+                                {
+                                    <tr>
 
-            </table>
+                                        <td>
+                                            @item.ItemName
+                                        </td>
+
+                                        <td>
+                                            @item.QuantitySold.ToString("N2")
+                                        </td>
+
+                                        <td class="fw-bold">
+                                            ₱@item.SalesAmount.ToString("N2")
+                                        </td>
+
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="3"
+                                        class="text-center text-muted py-4">
+
+                                        No sales data found.
+
+                                    </td>
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-xl-6">
+
+        <div class="hb-card mb-3">
+
+            <div class="hb-card-header">
+                <h5 class="mb-0">
+                    Payment Summary
+                </h5>
+            </div>
+
+            <div class="hb-card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table align-middle">
+
+                        <thead>
+                            <tr>
+                                <th>Payment Method</th>
+                                <th>Transactions</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            @if (Model.PaymentSummary.Any())
+                            {
+                                foreach (var payment in Model.PaymentSummary)
+                                {
+                                    <tr>
+
+                                        <td>
+                                            @payment.PaymentMethod
+                                        </td>
+
+                                        <td>
+                                            @payment.TransactionCount
+                                        </td>
+
+                                        <td class="fw-bold">
+                                            ₱@payment.TotalAmount.ToString("N2")
+                                        </td>
+
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="3"
+                                        class="text-center text-muted py-4">
+
+                                        No payment data found.
+
+                                    </td>
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="hb-card">
+
+            <div class="hb-card-header">
+                <h5 class="mb-0">
+                    Customers With Balance
+                </h5>
+            </div>
+
+            <div class="hb-card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table align-middle">
+
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Balance</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            @if (Model.CustomerBalances.Any())
+                            {
+                                foreach (var customer in Model.CustomerBalances)
+                                {
+                                    <tr>
+
+                                        <td>
+                                            @customer.CustomerName
+                                        </td>
+
+                                        <td class="fw-bold text-danger">
+                                            ₱@customer.Balance.ToString("N2")
+                                        </td>
+
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="2"
+                                        class="text-center text-muted py-4">
+
+                                        No customer balances found.
+
+                                    </td>
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
         </div>
 
     </div>
 
 </div>
-
-@section Scripts {
-    <script>
-        const cashierReportSearchInput =
-            document.getElementById('cashierReportSearchInput');
-
-        const cashierReportRows =
-            document.querySelectorAll('.cashier-report-row');
-
-        if (cashierReportSearchInput) {
-            cashierReportSearchInput.addEventListener('input', function () {
-                const value = this.value.toLowerCase();
-
-                cashierReportRows.forEach(row => {
-                    row.style.display =
-                        row.innerText.toLowerCase().includes(value)
-                            ? ''
-                            : 'none';
-                });
-            });
-        }
-    </script>
-}

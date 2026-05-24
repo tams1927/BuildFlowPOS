@@ -1,0 +1,399 @@
+﻿@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Sales Analytics";
+
+    var dailyLabels =
+        JsonSerializer.Serialize(ViewBag.DailyLabels);
+
+    var dailyTotals =
+        JsonSerializer.Serialize(ViewBag.DailyTotals);
+
+    var paymentLabels =
+        JsonSerializer.Serialize(ViewBag.PaymentLabels);
+
+    var paymentTotals =
+        JsonSerializer.Serialize(ViewBag.PaymentTotals);
+
+    var topItems =
+        ViewBag.TopItems as dynamic;
+}
+
+<div class="row g-3 mb-4">
+
+    <!-- TOTAL SALES -->
+    <div class="col-xl-4 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+
+            <div class="kpi-label">
+                Total Sales
+            </div>
+
+            <div class="kpi-value">
+
+                ₱@(((decimal)ViewBag.TotalSales).ToString("N2"))
+
+            </div>
+
+            <div class="kpi-trend">
+                Revenue within selected range
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- TOTAL TRANSACTIONS -->
+    <div class="col-xl-4 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+
+            <div class="kpi-label">
+                Transactions
+            </div>
+
+            <div class="kpi-value">
+
+                @ViewBag.TotalTransactions
+
+            </div>
+
+            <div class="kpi-trend">
+                Completed sales transactions
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- AVERAGE SALE -->
+    <div class="col-xl-4 col-md-6">
+
+        <div class="kpi-card">
+
+            <div class="kpi-icon">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+
+            <div class="kpi-label">
+                Average Sale
+            </div>
+
+            <div class="kpi-value">
+
+                ₱@(((decimal)ViewBag.AverageSale).ToString("N2"))
+
+            </div>
+
+            <div class="kpi-trend">
+                Average per transaction
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- FILTER -->
+<div class="hb-card mb-4">
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="Analytics"
+              class="row g-3 align-items-end">
+
+            <div class="col-md-3">
+
+                <label class="form-label fw-semibold">
+                    Date From
+                </label>
+
+                <input type="date"
+                       name="dateFrom"
+                       class="form-control"
+                       value="@(((DateTime)ViewBag.DateFrom).ToString("yyyy-MM-dd"))" />
+
+            </div>
+
+            <div class="col-md-3">
+
+                <label class="form-label fw-semibold">
+                    Date To
+                </label>
+
+                <input type="date"
+                       name="dateTo"
+                       class="form-control"
+                       value="@(((DateTime)ViewBag.DateTo).ToString("yyyy-MM-dd"))" />
+
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+
+                <button class="btn btn-primary w-100"
+                        type="submit">
+
+                    <i class="bi bi-funnel me-1"></i>
+
+                    Apply
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<div class="row g-4">
+
+    <!-- DAILY SALES -->
+    <div class="col-xl-8">
+
+        <div class="hb-card h-100">
+
+            <div class="hb-card-header">
+
+                <div>
+                    <h2 class="hb-section-title">
+                        Daily Sales Trend
+                    </h2>
+
+                    <div class="hb-section-subtitle">
+                        Revenue trend across selected period
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="hb-card-body">
+
+                <canvas id="dailySalesChart"
+                        height="120">
+                </canvas>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- PAYMENT METHODS -->
+    <div class="col-xl-4">
+
+        <div class="hb-card h-100">
+
+            <div class="hb-card-header">
+
+                <div>
+                    <h2 class="hb-section-title">
+                        Payment Methods
+                    </h2>
+
+                    <div class="hb-section-subtitle">
+                        Cash vs digital breakdown
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="hb-card-body">
+
+                <canvas id="paymentChart"
+                        height="220">
+                </canvas>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- TOP ITEMS -->
+<div class="hb-card mt-4">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">
+                Top Selling Items
+            </h2>
+
+            <div class="hb-section-subtitle">
+                Best performing inventory items
+            </div>
+        </div>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+
+                    <tr>
+                        <th>#</th>
+                        <th>Item</th>
+                        <th>Quantity Sold</th>
+                        <th>Total Revenue</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    @{
+                        int row = 1;
+                    }
+
+                    @foreach (var item in topItems)
+                    {
+                        <tr>
+
+                            <td>
+                                @row
+                            </td>
+
+                            <td>
+
+                                <strong>
+                                    @item.ItemName
+                                </strong>
+
+                            </td>
+
+                            <td>
+
+                                @item.Qty
+
+                            </td>
+
+                            <td>
+
+                                ₱@item.Total.ToString("N2")
+
+                            </td>
+
+                        </tr>
+
+                        row++;
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+
+    <!-- CHART JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+
+        // ============================================
+        // DAILY SALES CHART
+        // ============================================
+
+        const dailyCtx =
+            document.getElementById('dailySalesChart');
+
+        new Chart(dailyCtx, {
+
+            type: 'line',
+
+            data: {
+
+                labels: JSON.parse('@Html.Raw(dailyLabels)'),
+
+                datasets: [{
+
+                    label: 'Sales',
+
+                    data: JSON.parse('@Html.Raw(dailyTotals)'),
+
+                    borderWidth: 3,
+
+                    tension: 0.4,
+
+                    fill: true
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                plugins: {
+
+                    legend: {
+                        display: false
+                    }
+
+                }
+
+            }
+
+        });
+
+        // ============================================
+        // PAYMENT CHART
+        // ============================================
+
+        const paymentCtx =
+            document.getElementById('paymentChart');
+
+        new Chart(paymentCtx, {
+
+            type: 'doughnut',
+
+            data: {
+                data: JSON.parse('@Html.Raw(paymentLabels)'),
+
+                datasets: [{
+
+                    data: JSON.parse('@Html.Raw(paymentTotals)'),
+
+                    borderWidth: 1
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true
+
+            }
+
+        });
+
+    </script>
+
+}

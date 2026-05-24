@@ -36,5 +36,9 @@ namespace HardwareManagementSystem.Models
 
         [StringLength(30)]
         public string ThemeColor { get; set; } = "dark-blue";
+
+        [StringLength(50)]
+        public string TaxMode { get; set; } = "VAT";
+        // VAT, NONVAT, MANUAL
     }
 }

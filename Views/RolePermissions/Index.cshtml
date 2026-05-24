@@ -1,10 +1,11 @@
-﻿@model List<HardwareManagementSystem.Models.RolePermission>
-
+@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.RolePermission>
+@using HardwareManagementSystem.ViewModels
 @{
     ViewData["Title"] = "Role Permissions";
 
     var roles = ViewBag.Roles as List<string> ?? new();
     var selectedRole = ViewBag.SelectedRole as string ?? "Admin";
+    var permissionList = Model.Items.ToList();
 }
 
 <div class="hb-card mb-4">
@@ -27,19 +28,37 @@
 
             <div class="col-md-4">
                 <label class="form-label fw-semibold">Select Role</label>
-
-                <select name="roleName"
+                <select name="role"
                         class="form-select"
                         onchange="this.form.submit()">
-
-                    @foreach (var role in roles)
+                    @foreach (var r in roles)
                     {
-                        <option value="@role" selected="@(role == selectedRole)">
-                            @role
-                        </option>
+                        <option value="@r" selected="@(r == selectedRole)">@r</option>
                     }
-
                 </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Search Module</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text"
+                           name="searchTerm"
+                           class="form-control border-start-0"
+                           value="@Model.SearchTerm"
+                           placeholder="Search module name..." />
+                </div>
+            </div>
+
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-1"></i> Filter
+                </button>
             </div>
 
         </form>
@@ -85,53 +104,60 @@
                     </thead>
 
                     <tbody>
-                        @for (int i = 0; i < Model.Count; i++)
+                        @if (permissionList.Count == 0)
                         {
                             <tr>
-                                <td>
-                                    <strong>@Model[i].ModuleName</strong>
-
-                                    <input type="hidden" asp-for="@Model[i].Id" />
-                                    <input type="hidden" asp-for="@Model[i].RoleName" />
-                                    <input type="hidden" asp-for="@Model[i].ModuleName" />
-                                </td>
-
-                                <td>
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           asp-for="@Model[i].CanView" />
-                                </td>
-
-                                <td>
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           asp-for="@Model[i].CanCreate" />
-                                </td>
-
-                                <td>
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           asp-for="@Model[i].CanEdit" />
-                                </td>
-
-                                <td>
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           asp-for="@Model[i].CanDelete" />
-                                </td>
-
-                                <td>
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           asp-for="@Model[i].CanPrint" />
-                                </td>
-
-                                <td>
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           asp-for="@Model[i].CanExport" />
+                                <td colspan="7" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                        No permissions found.
+                                    </div>
                                 </td>
                             </tr>
+                        }
+                        else
+                        {
+                            for (int i = 0; i < permissionList.Count; i++)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@permissionList[i].ModuleName</strong>
+                                        <input type="hidden" name="permissions[@i].Id" value="@permissionList[i].Id" />
+                                        <input type="hidden" name="permissions[@i].RoleName" value="@permissionList[i].RoleName" />
+                                        <input type="hidden" name="permissions[@i].ModuleName" value="@permissionList[i].ModuleName" />
+                                    </td>
+                                    <td>
+                                        <input class="form-check-input" type="checkbox"
+                                               name="permissions[@i].CanView"
+                                               @(permissionList[i].CanView ? "checked" : "") />
+                                    </td>
+                                    <td>
+                                        <input class="form-check-input" type="checkbox"
+                                               name="permissions[@i].CanCreate"
+                                               @(permissionList[i].CanCreate ? "checked" : "") />
+                                    </td>
+                                    <td>
+                                        <input class="form-check-input" type="checkbox"
+                                               name="permissions[@i].CanEdit"
+                                               @(permissionList[i].CanEdit ? "checked" : "") />
+                                    </td>
+                                    <td>
+                                        <input class="form-check-input" type="checkbox"
+                                               name="permissions[@i].CanDelete"
+                                               @(permissionList[i].CanDelete ? "checked" : "") />
+                                    </td>
+                                    <td>
+                                        <input class="form-check-input" type="checkbox"
+                                               name="permissions[@i].CanPrint"
+                                               @(permissionList[i].CanPrint ? "checked" : "") />
+                                    </td>
+                                    <td>
+                                        <input class="form-check-input" type="checkbox"
+                                               name="permissions[@i].CanExport"
+                                               @(permissionList[i].CanExport ? "checked" : "") />
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
 
@@ -148,6 +174,9 @@
 
         </form>
 
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "RolePermissions", "Index",
+            new Dictionary<string, string?> { ["role"] = selectedRole, ["searchTerm"] = Model.SearchTerm }))
+
     </div>
 
 </div>
@@ -157,7 +186,6 @@
         document.querySelectorAll('.confirm-submit').forEach(form => {
             form.addEventListener('submit', function (e) {
                 e.preventDefault();
-
                 Swal.fire({
                     title: 'Save role permissions?',
                     text: 'This will update access for the selected role.',

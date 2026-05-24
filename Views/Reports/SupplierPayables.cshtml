@@ -1,0 +1,361 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.SupplierPayableReportViewModel>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Supplier Payables Report";
+
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today.AddMonths(-1);
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+    var paymentStatus = ViewBag.PaymentStatus as string;
+
+    var totalPayables = ViewBag.TotalPayables ?? 0;
+    var totalPaid = ViewBag.TotalPaid ?? 0;
+    var totalBalance = ViewBag.TotalBalance ?? 0;
+    var overdueBalance = ViewBag.OverdueBalance ?? 0;
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-truck"></i>
+            </div>
+            <div class="kpi-label">Total Payables</div>
+            <div class="kpi-value">₱@Convert.ToDecimal(totalPayables).ToString("N2")</div>
+            <div class="kpi-trend">Stock-in purchase cost</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cash-coin"></i>
+            </div>
+            <div class="kpi-label">Total Paid</div>
+            <div class="kpi-value text-success">₱@Convert.ToDecimal(totalPaid).ToString("N2")</div>
+            <div class="kpi-trend">Payments made to suppliers</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-wallet2"></i>
+            </div>
+            <div class="kpi-label">Balance Due</div>
+            <div class="kpi-value text-warning">₱@Convert.ToDecimal(totalBalance).ToString("N2")</div>
+            <div class="kpi-trend">Remaining payable amount</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="kpi-label">Overdue</div>
+            <div class="kpi-value text-danger">₱@Convert.ToDecimal(overdueBalance).ToString("N2")</div>
+            <div class="kpi-trend">Past due balances</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Supplier Payables Report</h2>
+            <div class="hb-section-subtitle">
+                Track unpaid, partially paid, and paid supplier stock-in invoices
+            </div>
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="SupplierPayables"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Date From</label>
+                <input type="date"
+                       name="dateFrom"
+                       value="@dateFrom.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Date To</label>
+                <input type="date"
+                       name="dateTo"
+                       value="@dateTo.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Search</label>
+                <input type="text"
+                       name="searchTerm"
+                       value="@Model.SearchTerm"
+                       class="form-control"
+                       placeholder="Stock-in #, invoice, supplier..." />
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Payment Status</label>
+                <select name="paymentStatus"
+                        class="form-select">
+                    <option value="">All Status</option>
+                    <option value="Unpaid" selected="@(paymentStatus == "Unpaid")">Unpaid</option>
+                    <option value="Partial" selected="@(paymentStatus == "Partial")">Partial</option>
+                    <option value="Paid" selected="@(paymentStatus == "Paid")">Paid</option>
+                </select>
+            </div>
+
+            <input type="hidden"
+                   name="pageSize"
+                   value="@Model.PageSize" />
+
+            <input type="hidden"
+                   name="pageNumber"
+                   value="1" />
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button type="submit"
+                        class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+            <div class="col-lg-2 d-flex align-items-end">
+
+                <button type="button"
+                        id="exportSupplierPayablesPdfBtn"
+                        class="btn btn-danger w-100">
+
+                    <i class="bi bi-file-earmark-pdf me-1"></i>
+                    Export PDF
+
+                </button>
+
+            </div>
+
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Stock In #</th>
+                        <th>Supplier</th>
+                        <th>Invoice #</th>
+                        <th>Date Received</th>
+                        <th>Due Date</th>
+                        <th>Total Cost</th>
+                        <th>Paid</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                        <th>Aging</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var row in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@row.StockInNumber</strong>
+                                </td>
+
+                                <td>
+                                    @row.SupplierName
+                                </td>
+
+                                <td>
+                                    @(row.InvoiceNumber ?? "N/A")
+                                </td>
+
+                                <td>
+                                    @row.DateReceived.ToString("MMM dd, yyyy")
+                                </td>
+
+                                <td>
+                                    @if (row.DueDate.HasValue)
+                                    {
+                                        @row.DueDate.Value.ToString("MMM dd, yyyy")
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No due date</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    ₱@row.TotalCost.ToString("N2")
+                                </td>
+
+                                <td>
+                                    <span class="text-success fw-bold">
+                                        ₱@row.AmountPaid.ToString("N2")
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="text-warning fw-bold">
+                                        ₱@row.BalanceDue.ToString("N2")
+                                    </span>
+                                </td>
+
+                                <td>
+                                    @if (row.PaymentStatus == "Paid")
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            Paid
+                                        </span>
+                                    }
+                                    else if (row.PaymentStatus == "Partial")
+                                    {
+                                        <span class="badge badge-soft-warning">
+                                            Partial
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-danger">
+                                            Unpaid
+                                        </span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @if (row.BalanceDue <= 0)
+                                    {
+                                        <span class="badge badge-soft-success">
+                                            Cleared
+                                        </span>
+                                    }
+                                    else if (row.AgingDays > 0)
+                                    {
+                                        <span class="badge badge-soft-danger">
+                                            @row.AgingDays days overdue
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-primary">
+                                            Current
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+
+                                    @if (row.BalanceDue > 0)
+                                    {
+                                        <a asp-controller="SupplierPayments"
+                                           asp-action="Pay"
+                                           asp-route-id="@row.StockInId"
+                                           class="btn btn-sm btn-primary">
+
+                                            <i class="bi bi-cash-coin me-1"></i>
+
+                                            Pay
+
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-success">
+
+                                            Fully Paid
+
+                                        </span>
+                                    }
+
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="11"
+                                class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No supplier payable records found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Reports",
+                "SupplierPayables",
+                new Dictionary<string, string?>
+                {
+                    ["dateFrom"] = dateFrom.ToString("yyyy-MM-dd"),
+                    ["dateTo"] = dateTo.ToString("yyyy-MM-dd"),
+                    ["searchTerm"] = Model.SearchTerm,
+                    ["paymentStatus"] = paymentStatus
+                }))
+
+    </div>
+
+</div>
+@section Scripts {
+
+    <script>
+        document
+            .getElementById('exportSupplierPayablesPdfBtn')
+            .addEventListener('click', function () {
+
+                const dateFrom =
+                    document.querySelector('[name="dateFrom"]').value;
+
+                const dateTo =
+                    document.querySelector('[name="dateTo"]').value;
+
+                const searchTerm =
+                    document.querySelector('[name="searchTerm"]').value;
+
+                const paymentStatus =
+                    document.querySelector('[name="paymentStatus"]').value;
+
+                const url =
+                    `/Reports/ExportSupplierPayablesPdf` +
+                    `?dateFrom=${encodeURIComponent(dateFrom)}` +
+                    `&dateTo=${encodeURIComponent(dateTo)}` +
+                    `&searchTerm=${encodeURIComponent(searchTerm)}` +
+                    `&paymentStatus=${encodeURIComponent(paymentStatus)}`;
+
+                window.location.href = url;
+            });
+    </script>
+
+}

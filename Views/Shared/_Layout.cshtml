@@ -19,6 +19,19 @@
 
 @{
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+
+    var isDashboardMenu = currentController == "Home";
+    var isOperationsMenu =
+        currentController == "POS" ||
+        currentController == "Sales" ||
+        currentController == "SalesReturn" ||
+        currentController == "CustomerCollections" ||
+        currentController == "Expenses";
+    var isInventoryMenu = currentController == "Inventory" || currentController == "StockIn" || currentController == "StockAdjustment" || currentController == "Suppliers" || currentController == "Categories" || currentController == "Units";
+    var isCustomersMenu = currentController == "Customers";
+    var isReportsMenu = currentController == "Reports" || currentController == "AuditTrail";
+    var isAdminMenu = currentController == "Users" || currentController == "Roles" || currentController == "RolePermissions" || currentController == "Settings";
 
     var canDashboard = await PermissionService.HasPermissionAsync(User, "Dashboard");
     var canPOS = await PermissionService.HasPermissionAsync(User, "POS");
@@ -34,6 +47,9 @@
     var canSettings = await PermissionService.HasPermissionAsync(User, "Settings");
     var canStockAdjustment = await PermissionService.HasPermissionAsync(User, "StockAdjustment");
     var canSalesReturn = await PermissionService.HasPermissionAsync(User, "SalesReturn");
+    var canCustomerCollections = await PermissionService.HasPermissionAsync(User, "CustomerCollections");
+    var canExpenses = await PermissionService.HasPermissionAsync(User, "Expenses");
+
 
     List<HardwareManagementSystem.Models.Notification> notifications = new();
     int unreadCount = 0;
@@ -75,181 +91,482 @@
 
             </div>
 
-            <nav class="sidebar-nav">
+    <nav class="sidebar-nav">
 
-                @if (canDashboard)
-                {
+    <!-- DASHBOARD -->
+    @if (canDashboard)
+    {
+        <div class="sidebar-group">
+
+            <a class="sidebar-group-toggle"
+               data-bs-toggle="collapse"
+               href="#menuDashboard"
+               aria-expanded="@(isDashboardMenu.ToString().ToLower())">
+
+                <div>
+                    <i class="bi bi-speedometer2"></i>
+                    <span>Dashboard</span>
+                </div>
+
+                <i class="bi bi-chevron-down"></i>
+
+            </a>
+
+            <div class="collapse @(isDashboardMenu ? "show" : "")"
+                 id="menuDashboard">
+
+                <div class="sidebar-submenu">
+
                     <a class="sidebar-link @(currentController == "Home" ? "active" : "")"
                        asp-controller="Home"
                        asp-action="Index">
 
-                        <i class="bi bi-speedometer2"></i>
-                        <span>Dashboard</span>
+                        Overview
 
                     </a>
-                }
 
-                @if (canPOS)
-                {
-                    <a class="sidebar-link @(currentController == "POS" ? "active" : "")"
-                       asp-controller="POS"
-                       asp-action="Index">
+                </div>
 
-                        <i class="bi bi-cart-check"></i>
-                        <span>POS</span>
+            </div>
 
-                    </a>
-                }
+        </div>
+    }
 
-                @if (canSales)
-                {
-                    <a class="sidebar-link @(currentController == "Sales" ? "active" : "")"
-                       asp-controller="Sales"
-                       asp-action="Index">
+    <!-- OPERATIONS -->
+    @if (canPOS || canSales || canSalesReturn || canCustomerCollections || canExpenses)
+    {
+        <div class="sidebar-group">
 
-                        <i class="bi bi-receipt"></i>
-                        <span>Sales</span>
+            <a class="sidebar-group-toggle"
+               data-bs-toggle="collapse"
+               href="#menuOperations"
+               aria-expanded="@(isOperationsMenu.ToString().ToLower())">
 
-                    </a>
-                }
-                @if (canSalesReturn)
-                {
-                    <a class="sidebar-link @(currentController == "SalesReturn" ? "active" : "")"
-                       asp-controller="SalesReturn"
-                       asp-action="Index">
-                        <i class="bi bi-arrow-return-left"></i>
-                        <span>Sales Return</span>
-                    </a>
-                }
+                <div>
+                    <i class="bi bi-cart-check"></i>
+                    <span>Operations</span>
+                </div>
 
-                @if (canInventory)
-                {
-                    <a class="sidebar-link @(currentController == "Inventory" ? "active" : "")"
-                       asp-controller="Inventory"
-                       asp-action="Index">
+                <i class="bi bi-chevron-down"></i>
 
-                        <i class="bi bi-box-seam"></i>
-                        <span>Inventory</span>
+            </a>
 
-                    </a>
-                }
+            <div class="collapse @(isOperationsMenu ? "show" : "")"
+                 id="menuOperations">
 
-                @if (canStockIn)
-                {
-                    <a class="sidebar-link @(currentController == "StockIn" ? "active" : "")"
-                       asp-controller="StockIn"
-                       asp-action="Index">
+                <div class="sidebar-submenu">
 
-                        <i class="bi bi-truck"></i>
-                        <span>Stock In</span>
+                    @if (canPOS)
+                    {
+                        <a class="sidebar-link @(currentController == "POS" ? "active" : "")"
+                           asp-controller="POS"
+                           asp-action="Index">
 
-                    </a>
-                }
+                            POS
 
-                @if (canStockAdjustment)
-                {
-                    <a class="sidebar-link @(currentController == "StockAdjustment" ? "active" : "")"
-                       asp-controller="StockAdjustment"
-                       asp-action="Index">
-                        <i class="bi bi-sliders"></i>
-                        <span>Stock Adjustment</span>
-                    </a>
-                }
+                        </a>
+                    }
 
-                @if (canCustomers)
-                {
+                    @if (canSales)
+                    {
+                        <a class="sidebar-link @(currentController == "Sales" ? "active" : "")"
+                           asp-controller="Sales"
+                           asp-action="Index">
+
+                            Sales
+
+                        </a>
+                    }
+
+                    @if (canSalesReturn)
+                    {
+                        <a class="sidebar-link @(currentController == "SalesReturn" ? "active" : "")"
+                           asp-controller="SalesReturn"
+                           asp-action="Index">
+
+                            Sales Return
+
+                        </a>
+                    }
+
+                    @if (canCustomerCollections)
+                    {
+                        <a class="sidebar-link @(currentController == "CustomerCollections" ? "active" : "")"
+                           asp-controller="CustomerCollections"
+                           asp-action="Index">
+
+                            Collections
+
+                        </a>
+                    }
+                    @if (canExpenses)
+                    {
+                        <a class="sidebar-link @(currentController == "Expenses" ? "active" : "")"
+                           asp-controller="Expenses"
+                           asp-action="Index">
+
+                            Expenses
+
+                        </a>
+                    }
+
+                </div>
+
+            </div>
+
+        </div>
+    }
+
+    <!-- INVENTORY -->
+    @if (canInventory || canStockIn || canStockAdjustment || canSuppliers || canCategories || canUnits)
+    {
+        <div class="sidebar-group">
+
+            <a class="sidebar-group-toggle"
+               data-bs-toggle="collapse"
+               href="#menuInventory"
+               aria-expanded="@(isInventoryMenu.ToString().ToLower())">
+
+                <div>
+                    <i class="bi bi-box-seam"></i>
+                    <span>Inventory</span>
+                </div>
+
+                <i class="bi bi-chevron-down"></i>
+
+            </a>
+
+            <div class="collapse @(isInventoryMenu ? "show" : "")"
+                 id="menuInventory">
+
+                <div class="sidebar-submenu">
+
+                    @if (canInventory)
+                    {
+                        <a class="sidebar-link @(currentController == "Inventory" ? "active" : "")"
+                           asp-controller="Inventory"
+                           asp-action="Index">
+
+                            Inventory
+
+                        </a>
+                    }
+
+                    @if (canStockIn)
+                    {
+                        <a class="sidebar-link @(currentController == "StockIn" ? "active" : "")"
+                           asp-controller="StockIn"
+                           asp-action="Index">
+
+                            Stock In
+
+                        </a>
+                    }
+
+                    @if (canStockAdjustment)
+                    {
+                        <a class="sidebar-link @(currentController == "StockAdjustment" ? "active" : "")"
+                           asp-controller="StockAdjustment"
+                           asp-action="Index">
+
+                            Stock Adjustment
+
+                        </a>
+                    }
+
+                    @if (canSuppliers)
+                    {
+                        <a class="sidebar-link @(currentController == "Suppliers" ? "active" : "")"
+                           asp-controller="Suppliers"
+                           asp-action="Index">
+
+                            Suppliers
+
+                        </a>
+                    }
+
+                    @if (canCategories)
+                    {
+                        <a class="sidebar-link @(currentController == "Categories" ? "active" : "")"
+                           asp-controller="Categories"
+                           asp-action="Index">
+
+                            Categories
+
+                        </a>
+                    }
+
+                    @if (canUnits)
+                    {
+                        <a class="sidebar-link @(currentController == "Units" ? "active" : "")"
+                           asp-controller="Units"
+                           asp-action="Index">
+
+                            Units
+
+                        </a>
+                    }
+
+                </div>
+
+            </div>
+
+        </div>
+    }
+
+    <!-- CUSTOMERS -->
+    @if (canCustomers)
+    {
+        <div class="sidebar-group">
+
+            <a class="sidebar-group-toggle"
+               data-bs-toggle="collapse"
+               href="#menuCustomers"
+               aria-expanded="@(isCustomersMenu.ToString().ToLower())">
+
+                <div>
+                    <i class="bi bi-people"></i>
+                    <span>Customers</span>
+                </div>
+
+                <i class="bi bi-chevron-down"></i>
+
+            </a>
+
+            <div class="collapse @(isCustomersMenu ? "show" : "")"
+                 id="menuCustomers">
+
+                <div class="sidebar-submenu">
+
                     <a class="sidebar-link @(currentController == "Customers" ? "active" : "")"
                        asp-controller="Customers"
                        asp-action="Index">
 
-                        <i class="bi bi-people"></i>
-                        <span>Customers</span>
+                        Customer List
 
                     </a>
-                }
 
-                @if (canSuppliers)
-                {
-                    <a class="sidebar-link @(currentController == "Suppliers" ? "active" : "")"
-                       asp-controller="Suppliers"
-                       asp-action="Index">
+                </div>
 
-                        <i class="bi bi-building"></i>
-                        <span>Suppliers</span>
+            </div>
 
-                    </a>
-                }
+        </div>
+    }
 
-                @if (canCategories)
-                {
-                    <a class="sidebar-link @(currentController == "Categories" ? "active" : "")"
-                       asp-controller="Categories"
-                       asp-action="Index">
+    <!-- REPORTS -->
+    @if (canReports)
+    {
+        <div class="sidebar-group">
 
-                        <i class="bi bi-tags"></i>
-                        <span>Categories</span>
+            <a class="sidebar-group-toggle"
+               data-bs-toggle="collapse"
+               href="#menuReports"
+               aria-expanded="@(isReportsMenu.ToString().ToLower())">
 
-                    </a>
-                }
+                <div>
+                    <i class="bi bi-bar-chart-line"></i>
+                    <span>Reports</span>
+                </div>
 
-                @if (canUnits)
-                {
-                    <a class="sidebar-link @(currentController == "Units" ? "active" : "")"
-                       asp-controller="Units"
-                       asp-action="Index">
+                <i class="bi bi-chevron-down"></i>
 
-                        <i class="bi bi-rulers"></i>
-                        <span>Units</span>
+            </a>
 
-                    </a>
-                }
+            <div class="collapse @(isReportsMenu ? "show" : "")"
+                 id="menuReports">
 
-                @if (canReports)
-                {
-                    <a class="sidebar-link @(currentController == "AuditTrail" ? "active" : "")"
-                       asp-controller="AuditTrail"
-                       asp-action="Index">
-                        <i class="bi bi-clock-history"></i>
-                        <span>Audit Trail</span>
-                    </a>
-                }
+                <div class="sidebar-submenu">
 
-                @if (canReports)
-                {
-                    <a class="sidebar-link @(currentController == "Reports" ? "active" : "")"
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "Index" ? "active" : "")"
                        asp-controller="Reports"
                        asp-action="Index">
 
-                        <i class="bi bi-bar-chart-line"></i>
-                        <span>Reports</span>
+                        Dashboard
 
                     </a>
-                }
 
-                @if (canUsers)
-                {
-                    <a class="sidebar-link @(currentController == "RolePermissions" ? "active" : "")"
-                       asp-controller="RolePermissions"
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "Analytics" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="Analytics">
+
+                        Analytics
+
+                    </a>
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "FastSlowMoving" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="FastSlowMoving">
+
+                        Fast / Slow Moving
+
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "AgingReceivables" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="AgingReceivables">
+                        Aging Receivables
+                    </a>
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "SupplierPayables" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="SupplierPayables">
+                        Supplier Payables
+                    </a>
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "SupplierPaymentHistory" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="SupplierPaymentHistory">
+                        Supplier Payment History
+                    </a>
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "ExpenseVsProfit" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="ExpenseVsProfit">
+                        Expense vs Profit
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "CashierPerformance" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="CashierPerformance">
+
+                        Cashier Performance
+
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "SalesDetail" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="SalesDetail">
+
+                        Sales Detail
+
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "CollectionsDetail" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="CollectionsDetail">
+
+                        Collections
+
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "CustomerBalance" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="CustomerBalance">
+
+                        Customer Balances
+
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "InventoryStatus" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="InventoryStatus">
+
+                        Inventory Status
+
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "ReturnsVoid" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="ReturnsVoid">
+
+                        Returns / Voids
+
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "ProfitReport" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="ProfitReport">
+
+                        Profitability
+
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "AuditTrail" ? "active" : "")"
+                       asp-controller="AuditTrail"
                        asp-action="Index">
-                        <i class="bi bi-shield-check"></i>
-                        <span>Permissions</span>
-                    </a>
-                }
 
-                @if (canSettings)
-                {
-                    <a class="sidebar-link @(currentController == "Settings" ? "active" : "")"
-                       asp-controller="Settings"
-                       asp-action="Index">
-
-                        <i class="bi bi-gear"></i>
-                        <span>Settings</span>
+                        Audit Trail
 
                     </a>
-                }
-                
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "VatTaxSummary" ? "active" : "")"
+                       asp-controller="Reports"
+                       asp-action="VatTaxSummary">
+                        VAT Tax Summary
+                    </a>
 
-            </nav>
+                </div>
+
+            </div>
+
+        </div>
+    }
+
+    <!-- ADMINISTRATION -->
+    @if (canUsers || canSettings)
+    {
+        <div class="sidebar-group">
+
+            <a class="sidebar-group-toggle"
+               data-bs-toggle="collapse"
+               href="#menuAdministration"
+               aria-expanded="@(isAdminMenu.ToString().ToLower())">
+
+                <div>
+                    <i class="bi bi-shield-lock"></i>
+                    <span>Administration</span>
+                </div>
+
+                <i class="bi bi-chevron-down"></i>
+
+            </a>
+
+            <div class="collapse @(isAdminMenu ? "show" : "")"
+                 id="menuAdministration">
+
+                <div class="sidebar-submenu">
+
+                    @if (canUsers && User.IsInRole("Admin"))
+                    {
+                        <a class="sidebar-link @(currentController == "Users" ? "active" : "")"
+                           asp-controller="Users"
+                           asp-action="Index">
+
+                            Users
+
+                        </a>
+
+                        <a class="sidebar-link @(currentController == "Roles" ? "active" : "")"
+                           asp-controller="Roles"
+                           asp-action="Index">
+
+                            Roles
+
+                        </a>
+
+                        <a class="sidebar-link @(currentController == "RolePermissions" ? "active" : "")"
+                           asp-controller="RolePermissions"
+                           asp-action="Index">
+
+                            Permissions
+
+                        </a>
+                    }
+
+                    @if (canSettings)
+                    {
+                        <a class="sidebar-link @(currentController == "Settings" ? "active" : "")"
+                           asp-controller="Settings"
+                           asp-action="Index">
+
+                            Settings
+
+                        </a>
+                    }
+
+                </div>
+
+            </div>
+
+        </div>
+    }
+
+</nav>
 
         </aside>
 
@@ -405,27 +722,46 @@
 
                         </button>
 
-                        <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                        <div class="dropdown-menu dropdown-menu-end user-dropdown-menu">
 
-                            <li>
+    <a class="dropdown-item"
+       asp-controller="Account"
+       asp-action="Profile">
 
-                                <form asp-controller="Account"
-                                      asp-action="Logout"
-                                      method="post">
+        <i class="bi bi-person-circle me-2"></i>
+        My Profile
 
-                                    <button type="submit"
-                                            class="dropdown-item text-danger">
+    </a>
 
-                                        <i class="bi bi-box-arrow-right me-2"></i>
-                                        Logout
+    <a class="dropdown-item"
+       asp-controller="Account"
+       asp-action="ChangePassword">
 
-                                    </button>
+        <i class="bi bi-key me-2"></i>
+        Change Password
 
-                                </form>
+    </a>
 
-                            </li>
+    <div class="dropdown-divider"></div>
 
-                        </ul>
+    <form asp-controller="Account"
+          asp-action="Logout"
+          method="post"
+          class="m-0">
+
+        @Html.AntiForgeryToken()
+
+        <button type="submit"
+                class="dropdown-item text-danger">
+
+            <i class="bi bi-box-arrow-right me-2"></i>
+            Logout
+
+        </button>
+
+    </form>
+
+</div>
 
                     </div>
 

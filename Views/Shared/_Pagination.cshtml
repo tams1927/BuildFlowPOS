@@ -1,0 +1,159 @@
+@model HardwareManagementSystem.ViewModels.PaginationMeta
+@{
+    if (Model == null) return;
+
+    int pageNumber   = Model.PageNumber;
+    int pageSize     = Model.PageSize;
+    int totalPages   = Model.TotalPages;
+    int totalRecords = Model.TotalRecords;
+    int firstItem    = Model.FirstItemIndex;
+    int lastItem     = Model.LastItemIndex;
+    string actionName     = Model.ActionName;
+    string controllerName = Model.ControllerName;
+    var extraParams = Model.ExtraParams ?? new Dictionary<string, string?>();
+}
+
+<div class="pagination-wrap mt-4">
+
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+
+        <div class="pagination-info">
+            @if (totalRecords == 0)
+            {
+                <span class="text-muted">No records found</span>
+            }
+            else
+            {
+                <span class="text-muted">
+                    Showing <strong class="text-body">@firstItem</strong>
+                    to <strong class="text-body">@lastItem</strong>
+                    of <strong class="text-body">@totalRecords</strong> records
+                </span>
+            }
+        </div>
+
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+
+            <form method="get"
+                  asp-controller="@controllerName"
+                  asp-action="@actionName"
+                  class="d-flex align-items-center gap-2">
+
+                @foreach (var param in extraParams)
+                {
+                    if (param.Key != "pageSize" && param.Key != "pageNumber" && param.Value != null)
+                    {
+                        <input type="hidden" name="@param.Key" value="@param.Value" />
+                    }
+                }
+
+                <input type="hidden" name="pageNumber" value="1" />
+
+                <label class="form-label mb-0 text-muted small text-nowrap">Rows per page:</label>
+                <select name="pageSize"
+                        class="form-select form-select-sm page-size-select"
+                        onchange="this.form.submit()"
+                        style="width:80px">
+                    @foreach (var size in new[] { 10, 25, 50, 100 })
+                    {
+                        <option value="@size" selected="@(pageSize == size)">@size</option>
+                    }
+                </select>
+            </form>
+
+            @if (totalPages > 1)
+            {
+                <nav aria-label="Page navigation">
+                    <ul class="hb-pagination mb-0">
+
+                        @{
+                            var prevParams = new Dictionary<string, string?>(extraParams)
+                            {
+                                ["pageNumber"] = (pageNumber - 1).ToString(),
+                                ["pageSize"] = pageSize.ToString()
+                            };
+                        }
+                        <li>
+                            <a class="hb-page-link @(pageNumber <= 1 ? "disabled" : "")"
+                               href="@(pageNumber > 1 ? Url.Action(actionName, controllerName, prevParams) : "#")"
+                               aria-label="Previous">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+
+                        @{
+                            int startPage = Math.Max(1, pageNumber - 2);
+                            int endPage   = Math.Min(totalPages, startPage + 4);
+                            if (endPage - startPage < 4)
+                                startPage = Math.Max(1, endPage - 4);
+                        }
+
+                        @if (startPage > 1)
+                        {
+                            var p1Params = new Dictionary<string, string?>(extraParams)
+                            {
+                                ["pageNumber"] = "1",
+                                ["pageSize"]   = pageSize.ToString()
+                            };
+                            <li>
+                                <a class="hb-page-link" href="@Url.Action(actionName, controllerName, p1Params)">1</a>
+                            </li>
+                            if (startPage > 2)
+                            {
+                                <li><span class="hb-page-link disabled">…</span></li>
+                            }
+                        }
+
+                        @for (int p = startPage; p <= endPage; p++)
+                        {
+                            var pParams = new Dictionary<string, string?>(extraParams)
+                            {
+                                ["pageNumber"] = p.ToString(),
+                                ["pageSize"]   = pageSize.ToString()
+                            };
+                            <li>
+                                <a class="hb-page-link @(p == pageNumber ? "active" : "")"
+                                   href="@Url.Action(actionName, controllerName, pParams)">@p</a>
+                            </li>
+                        }
+
+                        @if (endPage < totalPages)
+                        {
+                            if (endPage < totalPages - 1)
+                            {
+                                <li><span class="hb-page-link disabled">…</span></li>
+                            }
+                            var lastParams = new Dictionary<string, string?>(extraParams)
+                            {
+                                ["pageNumber"] = totalPages.ToString(),
+                                ["pageSize"]   = pageSize.ToString()
+                            };
+                            <li>
+                                <a class="hb-page-link" href="@Url.Action(actionName, controllerName, lastParams)">@totalPages</a>
+                            </li>
+                        }
+
+                        @{
+                            var nextParams = new Dictionary<string, string?>(extraParams)
+                            {
+                                ["pageNumber"] = (pageNumber + 1).ToString(),
+                                ["pageSize"]   = pageSize.ToString()
+                            };
+                        }
+                        <li>
+                            <a class="hb-page-link @(pageNumber >= totalPages ? "disabled" : "")"
+                               href="@(pageNumber < totalPages ? Url.Action(actionName, controllerName, nextParams) : "#")"
+                               aria-label="Next">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+
+                    </ul>
+                </nav>
+            }
+
+        </div>
+
+    </div>
+
+</div>

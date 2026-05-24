@@ -45,6 +45,9 @@ namespace HardwareManagementSystem.Data
 
         public DbSet<Notification> Notifications { get; set; }
 
+        public DbSet<CustomerLedger> CustomerLedgers { get; set; }
+        public DbSet<SupplierPayment> SupplierPayments { get; set; }
+        public DbSet<Expense> Expenses { get; set; }
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -72,6 +75,18 @@ namespace HardwareManagementSystem.Data
                 .WithMany()
                 .HasForeignKey(h => h.SalesHeaderId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<SupplierPayment>()
+                .HasOne(p => p.StockInHeader)
+                .WithMany()
+                .HasForeignKey(p => p.StockInHeaderId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            builder.Entity<SupplierPayment>()
+                .HasOne(p => p.Supplier)
+                .WithMany()
+                .HasForeignKey(p => p.SupplierId)
+                .OnDelete(DeleteBehavior.NoAction);
         }
     }
 }

@@ -1,0 +1,237 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.CollectionDetailReportViewModel>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Collections Detail Report";
+
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today;
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+    var paymentMethod = ViewBag.PaymentMethod as string;
+
+    var totalCollections = Model.Items.Sum(x => x.PaymentAmount);
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cash-coin"></i>
+            </div>
+            <div class="kpi-label">Records Shown</div>
+            <div class="kpi-value">@Model.Items.Count()</div>
+            <div class="kpi-trend">Current page collections</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-wallet2"></i>
+            </div>
+            <div class="kpi-label">Page Collections</div>
+            <div class="kpi-value">₱@totalCollections.ToString("N2")</div>
+            <div class="kpi-trend">Total from displayed page</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">Collections Detail Report</h2>
+            <div class="hb-section-subtitle">
+                Detailed customer payment collections and running balance report
+            </div>
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+        </a>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="CollectionsDetail"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Date From</label>
+                <input type="date"
+                       name="dateFrom"
+                       value="@dateFrom.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Date To</label>
+                <input type="date"
+                       name="dateTo"
+                       value="@dateTo.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-4">
+                <label class="form-label fw-semibold">Search</label>
+                <input type="text"
+                       name="searchTerm"
+                       value="@Model.SearchTerm"
+                       class="form-control"
+                       placeholder="Collection #, customer, reference, cashier..." />
+            </div>
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Payment</label>
+                <select name="paymentMethod" class="form-select">
+                    <option value="">All Payments</option>
+                    <option value="Cash" selected="@(paymentMethod == "Cash")">Cash</option>
+                    <option value="GCash" selected="@(paymentMethod == "GCash")">GCash</option>
+                    <option value="Bank Transfer" selected="@(paymentMethod == "Bank Transfer")">Bank Transfer</option>
+                </select>
+            </div>
+
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button type="submit"
+                        class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Collection #</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Payment</th>
+                        <th>Reference #</th>
+                        <th>Previous Balance</th>
+                        <th>Payment Amount</th>
+                        <th>Remaining Balance</th>
+                        <th>Collected By</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var row in Model.Items)
+                        {
+                            <tr>
+
+                                <td>
+                                    <strong>@row.CollectionNumber</strong>
+                                </td>
+
+                                <td>
+                                    @row.CollectionDate.ToString("MMM dd, yyyy")
+                                    <div class="text-muted small">
+                                        @row.CollectionDate.ToString("hh:mm tt")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @row.CustomerName
+                                </td>
+
+                                <td>
+                                    @if (row.PaymentMethod == "Cash")
+                                    {
+                                        <span class="badge badge-soft-success">Cash</span>
+                                    }
+                                    else if (row.PaymentMethod == "GCash")
+                                    {
+                                        <span class="badge badge-soft-primary">GCash</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">@row.PaymentMethod</span>
+                                    }
+                        </td>
+
+                        <td>
+                            @(string.IsNullOrWhiteSpace(row.PaymentReferenceNumber)
+                                                        ? "-"
+                                                        : row.PaymentReferenceNumber)
+                        </td>
+
+                                <td>
+                                    ₱@row.PreviousBalance.ToString("N2")
+                                </td>
+
+                                <td>
+                                    <strong class="text-success">
+                                        ₱@row.PaymentAmount.ToString("N2")
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    <strong class="text-danger">
+                                        ₱@row.RemainingBalance.ToString("N2")
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    @row.CollectedBy
+                                </td>
+
+                            </tr>
+                                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No collection records found.
+                                </div>
+
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Reports",
+                "CollectionsDetail",
+                new Dictionary<string, string?>
+                {
+                    ["dateFrom"] = dateFrom.ToString("yyyy-MM-dd"),
+                    ["dateTo"] = dateTo.ToString("yyyy-MM-dd"),
+                    ["searchTerm"] = Model.SearchTerm,
+                    ["paymentMethod"] = paymentMethod
+                }))
+
+    </div>
+
+</div>

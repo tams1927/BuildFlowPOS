@@ -1,0 +1,233 @@
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.ReturnsVoidReportViewModel>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Returns / Voids Report";
+
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today;
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+    var reportType = ViewBag.ReportType as string;
+
+    var totalAmount = Model.Items.Sum(x => x.Amount);
+    var returnCount = Model.Items.Count(x => x.ReportType == "RETURN");
+    var voidCount = Model.Items.Count(x => x.ReportType == "VOID");
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-arrow-return-left"></i>
+            </div>
+            <div class="kpi-label">Returns Shown</div>
+            <div class="kpi-value">@returnCount</div>
+            <div class="kpi-trend">Current page return records</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-x-circle"></i>
+            </div>
+            <div class="kpi-label">Voids Shown</div>
+            <div class="kpi-value">@voidCount</div>
+            <div class="kpi-trend">Current page void records</div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-12">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="kpi-label">Page Amount</div>
+            <div class="kpi-value text-warning">₱@totalAmount.ToString("N2")</div>
+            <div class="kpi-trend">Returns and voids amount shown</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+
+        <div>
+            <h2 class="hb-section-title">Returns / Voids Report</h2>
+            <div class="hb-section-subtitle">
+                Detailed customer returns and voided sales transactions
+            </div>
+        </div>
+
+        <a asp-controller="Reports"
+           asp-action="Index"
+           class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Reports
+        </a>
+
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get"
+              asp-controller="Reports"
+              asp-action="ReturnsVoid"
+              class="row g-3 mb-4">
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Date From</label>
+                <input type="date"
+                       name="dateFrom"
+                       value="@dateFrom.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-2">
+                <label class="form-label fw-semibold">Date To</label>
+                <input type="date"
+                       name="dateTo"
+                       value="@dateTo.ToString("yyyy-MM-dd")"
+                       class="form-control" />
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Type</label>
+                <select name="reportType" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="RETURN" selected="@(reportType == "RETURN")">Returns</option>
+                    <option value="VOID" selected="@(reportType == "VOID")">Voids</option>
+                </select>
+            </div>
+
+            <div class="col-lg-3">
+                <label class="form-label fw-semibold">Search</label>
+                <input type="text"
+                       name="searchTerm"
+                       value="@Model.SearchTerm"
+                       class="form-control"
+                       placeholder="Reference, receipt, reason, user..." />
+            </div>
+
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
+
+            <div class="col-lg-2 d-flex align-items-end">
+                <button type="submit"
+                        class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filter
+                </button>
+            </div>
+
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Reference #</th>
+                        <th>Original Receipt</th>
+                        <th>Date</th>
+                        <th>Reason</th>
+                        <th>Amount</th>
+                        <th>Processed By</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var row in Model.Items)
+                        {
+                            <tr>
+
+                                <td>
+                                    @if (row.ReportType == "RETURN")
+                                    {
+                                        <span class="badge badge-soft-primary">
+                                            Return
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">
+                                            Void
+                                        </span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <strong>@row.ReferenceNumber</strong>
+                                </td>
+
+                                <td>
+                                    @row.OriginalReceiptNumber
+                                </td>
+
+                                <td>
+                                    @row.TransactionDate.ToString("MMM dd, yyyy")
+                                    <div class="text-muted small">
+                                        @row.TransactionDate.ToString("hh:mm tt")
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @row.Reason
+                                </td>
+
+                                <td>
+                                    <strong>₱@row.Amount.ToString("N2")</strong>
+                                </td>
+
+                                <td>
+                                    @row.ProcessedBy
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No return or void records found.
+                                </div>
+
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync(
+        "_Pagination",
+                PaginationMeta.From(
+                Model,
+                "Reports",
+                "ReturnsVoid",
+                new Dictionary<string, string?>
+                {
+                    ["dateFrom"] = dateFrom.ToString("yyyy-MM-dd"),
+                    ["dateTo"] = dateTo.ToString("yyyy-MM-dd"),
+                    ["reportType"] = reportType,
+                    ["searchTerm"] = Model.SearchTerm
+                }))
+
+    </div>
+
+</div>

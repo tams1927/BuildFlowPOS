@@ -1,5 +1,6 @@
 ﻿using HardwareManagementSystem.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace HardwareManagementSystem.Data.Seeders
@@ -11,19 +12,9 @@ namespace HardwareManagementSystem.Data.Seeders
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-            string[] roles =
+            if (!await roleManager.RoleExistsAsync("Admin"))
             {
-                "Admin",
-                "Cashier",
-                "InventoryStaff"
-            };
-
-            foreach (var role in roles)
-            {
-                if (!await roleManager.RoleExistsAsync(role))
-                {
-                    await roleManager.CreateAsync(new IdentityRole(role));
-                }
+                await roleManager.CreateAsync(new IdentityRole("Admin"));
             }
 
             var adminUsername = "admin";
@@ -55,110 +46,77 @@ namespace HardwareManagementSystem.Data.Seeders
         public static async Task SeedRolePermissionsAsync(IServiceProvider services)
         {
             var context = services.GetRequiredService<ApplicationDbContext>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
 
-            var existing = await context.RolePermissions
+            var roles = await roleManager.Roles
+                .Select(r => r.Name!)
+                .ToListAsync();
+
+            if (!roles.Contains("Admin"))
+            {
+                await roleManager.CreateAsync(new IdentityRole("Admin"));
+                roles.Add("Admin");
+            }
+
+            var modules = GetControllerModules();
+
+            var existingPermissions = await context.RolePermissions
                 .Select(p => p.RoleName + "|" + p.ModuleName)
                 .ToListAsync();
 
-            var permissions = new List<RolePermission>();
+            var permissionsToAdd = new List<RolePermission>();
 
-            var modules = new[]
+            foreach (var role in roles)
             {
-                "Dashboard",
-                "POS",
-                "Sales",
-                "Customers",
-                "Inventory",
-                "StockIn",
-                "Suppliers",
-                "Categories",
-                "Units",
-                "Reports",
-                "Users",
-                "Settings",
-                "StockAdjustment",
-                "SalesReturn"
-            };
-
-            // ADMIN
-
-            foreach (var module in modules)
-            {
-                permissions.Add(new RolePermission
+                foreach (var module in modules)
                 {
-                    RoleName = "Admin",
-                    ModuleName = module,
-                    CanView = true,
-                    CanCreate = true,
-                    CanEdit = true,
-                    CanDelete = true,
-                    CanPrint = true,
-                    CanExport = true
-                });
+                    var key = role + "|" + module;
+
+                    if (existingPermissions.Contains(key))
+                    {
+                        continue;
+                    }
+
+                    permissionsToAdd.Add(new RolePermission
+                    {
+                        RoleName = role,
+                        ModuleName = module,
+
+                        CanView = role == "Admin",
+                        CanCreate = role == "Admin",
+                        CanEdit = role == "Admin",
+                        CanDelete = role == "Admin",
+                        CanPrint = role == "Admin",
+                        CanExport = role == "Admin"
+                    });
+                }
             }
 
-            // CASHIER
-
-            var cashierModules = new[]
+            if (permissionsToAdd.Any())
             {
-                "Dashboard",
-                "POS",
-                "Sales",
-                "Customers"
-            };
-
-            foreach (var module in cashierModules)
-            {
-                permissions.Add(new RolePermission
-                {
-                    RoleName = "Cashier",
-                    ModuleName = module,
-                    CanView = true,
-                    CanCreate = true,
-                    CanEdit = true,
-                    CanDelete = false,
-                    CanPrint = true,
-                    CanExport = false
-                });
-            }
-
-            // INVENTORY STAFF
-
-            var inventoryModules = new[]
-            {
-                "Dashboard",
-                "Inventory",
-                "StockIn",
-                "Suppliers",
-                "Categories",
-                "Units",
-                "StockAdjustment"
-            };
-
-            foreach (var module in inventoryModules)
-            {
-                permissions.Add(new RolePermission
-                {
-                    RoleName = "InventoryStaff",
-                    ModuleName = module,
-                    CanView = true,
-                    CanCreate = true,
-                    CanEdit = true,
-                    CanDelete = false,
-                    CanPrint = false,
-                    CanExport = false
-                });
-            }
-
-            var toAdd = permissions
-                .Where(p => !existing.Contains(p.RoleName + "|" + p.ModuleName))
-                .ToList();
-
-            if (toAdd.Count > 0)
-            {
-                await context.RolePermissions.AddRangeAsync(toAdd);
+                await context.RolePermissions.AddRangeAsync(permissionsToAdd);
                 await context.SaveChangesAsync();
             }
+        }
+
+        private static List<string> GetControllerModules()
+        {
+            var excludedControllers = new[]
+            {
+                "Account",
+                "Notifications"
+            };
+
+            return typeof(Program).Assembly
+                .GetTypes()
+                .Where(t =>
+                    typeof(Controller).IsAssignableFrom(t) &&
+                    !t.IsAbstract &&
+                    t.Name.EndsWith("Controller"))
+                .Select(t => t.Name.Replace("Controller", ""))
+                .Where(name => !excludedControllers.Contains(name))
+                .OrderBy(name => name)
+                .ToList();
         }
     }
 }

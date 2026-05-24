@@ -1,13 +1,9 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.Category>
+﻿@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.Category>
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = "Categories";
-
-    var categoryList = Model ?? Enumerable.Empty<HardwareManagementSystem.Models.Category>();
-
-    var totalCategories = categoryList.Count();
-    var activeCategories = categoryList.Count(c => c.IsActive);
-    var inactiveCategories = categoryList.Count(c => !c.IsActive);
+    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="row g-3 mb-4">
@@ -23,7 +19,7 @@
             </div>
 
             <div class="kpi-value">
-                @totalCategories
+                @Model.TotalRecords
             </div>
 
             <div class="kpi-trend">
@@ -43,7 +39,7 @@
             </div>
 
             <div class="kpi-value">
-                @inactiveCategories
+                @Model.Items.Count(c => !c.IsActive)
             </div>
 
             <div class="kpi-trend">
@@ -63,7 +59,7 @@
             </div>
 
             <div class="kpi-value">
-                @(activeCategories > 0 ? "Active" : "Empty")
+                @(Model.Items.Any(c => c.IsActive) ? "Active" : "Empty")
             </div>
 
             <div class="kpi-trend">
@@ -83,7 +79,7 @@
             </div>
 
             <div class="kpi-value">
-                @activeCategories
+                @Model.Items.Count(c => c.IsActive)
             </div>
 
             <div class="kpi-trend">
@@ -130,53 +126,44 @@
 
         <!-- FILTER -->
 
+        <form method="get" asp-controller="Categories" asp-action="Index">
         <div class="row g-3 mb-4">
 
             <div class="col-lg-5">
-
-                <label class="form-label fw-semibold">
-                    Search Category
-                </label>
-
+                <label class="form-label fw-semibold">Search Category</label>
                 <div class="input-group">
-
                     <span class="input-group-text bg-white border-end-0">
                         <i class="bi bi-search"></i>
                     </span>
-
                     <input type="text"
-                           id="categorySearchInput"
+                           name="searchTerm"
                            class="form-control border-start-0"
+                           value="@Model.SearchTerm"
                            placeholder="Search category..." />
-
                 </div>
-
             </div>
 
             <div class="col-lg-3">
-
-                <label class="form-label fw-semibold">
-                    Status
-                </label>
-
-                <select id="categoryStatusFilter" class="form-select">
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                <label class="form-label fw-semibold">Status</label>
+                <select name="statusFilter" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="active" selected="@(statusFilter == "active")">Active</option>
+                    <option value="inactive" selected="@(statusFilter == "inactive")">Inactive</option>
                 </select>
-
             </div>
 
-            <div class="col-lg-2 d-flex align-items-end">
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="pageNumber" value="1" />
 
-                <button class="btn btn-primary w-100">
+            <div class="col-lg-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="submit">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
-
             </div>
 
         </div>
+        </form>
 
         <!-- TABLE -->
 
@@ -189,7 +176,6 @@
                     <tr>
                         <th>Category</th>
                         <th>Description</th>
-                        <th>Total Items</th>
                         <th>Status</th>
                         <th width="150">Actions</th>
                     </tr>
@@ -198,9 +184,9 @@
 
                 <tbody>
 
-                    @if (Model != null && Model.Any())
+                    @if (Model.Items.Any())
                     {
-                        foreach (var category in Model)
+                        foreach (var category in Model.Items)
                         {
                             <tr class="category-row" data-status="@(category.IsActive ? "active" : "inactive")">
                                 <td>
@@ -220,10 +206,6 @@
 
                                 <td>
                                     @(category.Description ?? "No description")
-                                </td>
-
-                                <td>
-                                    0 Items
                                 </td>
 
                                 <td>
@@ -292,6 +274,8 @@
             </table>
 
         </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Categories", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["statusFilter"] = statusFilter }))
 
     </div>
 
