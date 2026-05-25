@@ -15,7 +15,9 @@ namespace HardwareManagementSystem.Controllers
         private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
 
-        public RolePermissionsController(ApplicationDbContext context, AuditService auditService)
+        public RolePermissionsController(
+            ApplicationDbContext context,
+            AuditService auditService)
         {
             _context = context;
             _auditService = auditService;
@@ -29,7 +31,9 @@ namespace HardwareManagementSystem.Controllers
         {
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
-            var selectedRole = string.IsNullOrWhiteSpace(role) ? "Admin" : role;
+            var selectedRole = string.IsNullOrWhiteSpace(role)
+                ? "Admin"
+                : role;
 
             ViewBag.SelectedRole = selectedRole;
 
@@ -41,12 +45,15 @@ namespace HardwareManagementSystem.Controllers
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 var term = searchTerm.Trim().ToLower();
-                query = query.Where(p => p.ModuleName.ToLower().Contains(term));
+
+                query = query.Where(p =>
+                    p.ModuleName.ToLower().Contains(term));
             }
 
             var totalRecords = await query.CountAsync();
 
-            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+            pageNumber = PagedResult<object>.ValidatePageNumber(
+                pageNumber,
                 (int)Math.Ceiling(totalRecords / (double)pageSize));
 
             var permissions = await query
@@ -54,10 +61,6 @@ namespace HardwareManagementSystem.Controllers
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
-
-            // ============================================
-            // LOAD ROLES FOR DROPDOWN
-            // ============================================
 
             ViewBag.Roles = await _context.Roles
                 .AsNoTracking()
@@ -77,15 +80,34 @@ namespace HardwareManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Update(List<RolePermission> permissions)
+        public async Task<IActionResult> Update(
+            List<RolePermission> permissions,
+            string? selectedRole,
+            string? searchTerm,
+            int pageNumber = 1,
+            int pageSize = 10)
         {
             if (permissions == null || !permissions.Any())
             {
-                TempData["ErrorMessage"] = "No permissions submitted.";
-                return RedirectToAction(nameof(Index));
+                TempData["ErrorMessage"] =
+                    "No permissions submitted.";
+
+                return RedirectToAction(
+                    nameof(Index),
+                    new { role = selectedRole, searchTerm, pageNumber, pageSize });
             }
 
             var roleName = permissions.First().RoleName;
+
+            if (!ModelState.IsValid)
+            {
+                TempData["ErrorMessage"] =
+                    "Invalid permission submission.";
+
+                return RedirectToAction(
+                    nameof(Index),
+                    new { role = roleName, searchTerm, pageNumber, pageSize });
+            }
 
             foreach (var submitted in permissions)
             {
@@ -94,18 +116,30 @@ namespace HardwareManagementSystem.Controllers
                         p.RoleName == submitted.RoleName &&
                         p.ModuleName == submitted.ModuleName);
 
-                if (existing != null)
+                if (existing == null)
+                    continue;
+
+                // ============================================
+                // PREVENT ADMIN SELF LOCKOUT
+                // ============================================
+
+                if (submitted.RoleName == "Admin" &&
+                    submitted.ModuleName == "RolePermissions")
                 {
-                    existing.CanView = submitted.CanView;
-                    existing.CanCreate = submitted.CanCreate;
-                    existing.CanEdit = submitted.CanEdit;
-                    existing.CanDelete = submitted.CanDelete;
-                    existing.CanPrint = submitted.CanPrint;
-                    existing.CanExport = submitted.CanExport;
+                    submitted.CanView = true;
+                    submitted.CanEdit = true;
                 }
+
+                existing.CanView = submitted.CanView;
+                existing.CanCreate = submitted.CanCreate;
+                existing.CanEdit = submitted.CanEdit;
+                existing.CanDelete = submitted.CanDelete;
+                existing.CanPrint = submitted.CanPrint;
+                existing.CanExport = submitted.CanExport;
             }
 
             await _context.SaveChangesAsync();
+
             await _auditService.LogAsync(
                 User,
                 "RolePermissions",
@@ -116,9 +150,12 @@ namespace HardwareManagementSystem.Controllers
                 HttpContext.Connection.RemoteIpAddress?.ToString()
             );
 
-            TempData["SuccessMessage"] = "Role permissions updated successfully.";
+            TempData["SuccessMessage"] =
+                "Role permissions updated successfully.";
 
-            return RedirectToAction(nameof(Index), new { role = roleName });
+            return RedirectToAction(
+                nameof(Index),
+                new { role = roleName, searchTerm, pageNumber, pageSize });
         }
     }
 }
