@@ -1,0 +1,101 @@
+@model HardwareManagementSystem.ViewModels.InventoryValuationReport
+@{
+    ViewData["Title"] = "Inventory Valuation";
+    var categories = ViewBag.AllCategories as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+    var allBranches = ViewBag.AllBranches as IEnumerable<HardwareManagementSystem.Models.Branch> ?? Enumerable.Empty<HardwareManagementSystem.Models.Branch>();
+    bool isGlobal = ViewBag.IsGlobalUser == true;
+}
+
+<div class="hb-card">
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title"><i class="bi bi-currency-exchange me-2 text-primary"></i>Inventory Valuation</h2>
+            <div class="hb-section-subtitle">Weighted Average Cost · As of @Model.AsOfDate.ToString("MMMM dd, yyyy")</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="InventoryValuationPdf" asp-route-branchId="@Model.BranchId" asp-route-categoryId="@Model.CategoryId"
+               class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+        </div>
+    </div>
+    <div class="hb-card-body">
+
+        <form method="get" asp-action="InventoryValuationReport" class="mb-4">
+            <div class="row g-2 align-items-end">
+                @if (isGlobal)
+                {
+                    <div class="col-md-2"><label class="form-label small fw-semibold">Branch</label>
+                        <select name="branchId" class="form-select form-select-sm">
+                            <option value="">All Branches</option>
+                            @foreach (var b in allBranches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }
+                        </select></div>
+                }
+                <div class="col-md-2"><label class="form-label small fw-semibold">Category</label>
+                    <select name="categoryId" class="form-select form-select-sm">
+                        <option value="">All Categories</option>
+                        @foreach (var c in categories) { <option value="@c.Id" selected="@(Model.CategoryId == (int)c.Id)">@c.CategoryName</option> }
+                    </select></div>
+                <div class="col-md-1"><button type="submit" class="btn btn-primary btn-sm" data-no-disable="true"><i class="bi bi-funnel"></i></button></div>
+            </div>
+        </form>
+
+        <!-- Grand total banner -->
+        <div class="alert alert-primary d-flex justify-content-between align-items-center mb-4">
+            <span><i class="bi bi-currency-exchange me-2"></i>Total Inventory Value (Weighted Avg Cost)</span>
+            <strong class="fs-5">₱@Model.GrandTotal.ToString("N2")</strong>
+        </div>
+
+        @foreach (var group in Model.Groups)
+        {
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center bg-body-secondary rounded px-3 py-2 mb-2">
+                    <strong>@group.Category</strong>
+                    <span class="fw-semibold text-primary">₱@group.Subtotal.ToString("N2")</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light"><tr>
+                            <th>SKU</th><th>Item Name</th><th>Unit</th>
+                            <th class="text-end">Qty On Hand</th>
+                            <th class="text-end">Avg Cost</th>
+                            <th class="text-end">Inventory Value</th>
+                        </tr></thead>
+                        <tbody>
+                            @foreach (var item in group.Items)
+                            {
+                                <tr>
+                                    <td class="small text-muted">@item.ItemCode</td>
+                                    <td>@item.ItemName</td>
+                                    <td class="small">@item.Unit</td>
+                                    <td class="text-end">@item.QtyOnHand.ToString("N3")</td>
+                                    <td class="text-end">₱@item.AverageCost.ToString("N2")</td>
+                                    <td class="text-end fw-bold">₱@item.InventoryValue.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="5" class="text-end fw-bold">@group.Category Subtotal:</td>
+                                <td class="text-end fw-bold text-primary">₱@group.Subtotal.ToString("N2")</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @if (!Model.Groups.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i>No inventory items found.
+            </div>
+        }
+        else
+        {
+            <div class="border-top pt-3 d-flex justify-content-end gap-4">
+                <div class="text-muted">Total Items: <strong>@Model.Groups.Sum(g => g.Items.Count)</strong></div>
+                <div class="text-muted">Total Qty: <strong>@Model.GrandTotalQty.ToString("N3")</strong></div>
+                <div class="fs-5 fw-bold text-primary">Grand Total: ₱@Model.GrandTotal.ToString("N2")</div>
+            </div>
+        }
+    </div>
+</div>

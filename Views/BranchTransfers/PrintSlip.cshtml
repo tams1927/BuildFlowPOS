@@ -1,0 +1,111 @@
+@model HardwareManagementSystem.Models.BranchTransfer
+@{
+    Layout = "~/Views/Shared/_PrintDoc.cshtml";
+    ViewBag.PrintDocTitle  = "TRANSFER SLIP";
+    ViewBag.PrintDocNumber = Model.TransferNumber;
+    ViewBag.PrintDocDate   = Model.CreatedAtUtc.ToLocalTime().ToString("MMMM dd, yyyy");
+
+    var statusCss = Model.Status switch {
+        "Completed" => "delivered",
+        "Cancelled" => "cancelled",
+        "Approved"  => "accepted",
+        "Pending"   => "pending",
+        _           => "draft"
+    };
+}
+
+@section DocActions {
+    <button onclick="window.print()" class="btn-print">
+        &#128438; Print / Save PDF
+    </button>
+    <a href="@Url.Action("Details", "BranchTransfers", new { id = Model.Id })" class="btn-secondary-print">
+        &#x2190; Back
+    </a>
+}
+
+<!-- Branch info -->
+<div class="doc-info-grid">
+    <div>
+        <div class="info-label">From Branch</div>
+        <div class="info-value">@(Model.FromBranch?.Name ?? "—")</div>
+        @if (!string.IsNullOrWhiteSpace(Model.FromBranch?.Address))
+        {
+            <div class="info-value muted">@Model.FromBranch.Address</div>
+        }
+    </div>
+    <div>
+        <div class="info-label">To Branch</div>
+        <div class="info-value">@(Model.ToBranch?.Name ?? "—")</div>
+        @if (!string.IsNullOrWhiteSpace(Model.ToBranch?.Address))
+        {
+            <div class="info-value muted">@Model.ToBranch.Address</div>
+        }
+    </div>
+    <div>
+        <div class="info-label">Status</div>
+        <div class="info-value"><span class="doc-status @statusCss">@Model.Status</span></div>
+    </div>
+    <div>
+        <div class="info-label">Prepared By</div>
+        <div class="info-value muted">@(Model.CreatedByUserName ?? "—")</div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.Notes))
+    {
+        <div class="full-span">
+            <div class="info-label">Notes</div>
+            <div class="info-value muted">@Model.Notes</div>
+        </div>
+    }
+</div>
+
+<!-- Items table -->
+<div class="doc-section-title">Transfer Items</div>
+
+<table class="doc-table">
+    <thead>
+        <tr>
+            <th style="width:30px">#</th>
+            <th>Product</th>
+            <th>SKU</th>
+            <th class="text-right" style="width:80px">Quantity</th>
+            <th style="width:60px">Unit</th>
+            <th style="width:100px">Received (Qty)</th>
+        </tr>
+    </thead>
+    <tbody>
+        @{int n = 1;}
+        @foreach (var item in Model.BranchTransferItems)
+        {
+            <tr>
+                <td>@(n++)</td>
+                <td><strong>@(item.Product?.ItemName ?? "—")</strong></td>
+                <td style="font-size:10px;color:#888;">@(item.Product?.ItemCode ?? "")</td>
+                <td class="text-right">@item.Quantity.ToString("0.###")</td>
+                <td>@(item.Product?.Unit?.ShortName ?? "")</td>
+                <td></td>
+            </tr>
+        }
+        @if (!Model.BranchTransferItems.Any())
+        {
+            <tr>
+                <td colspan="6" style="text-align:center;color:#888;padding:16px;">No items.</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Signature area -->
+<div class="sig-row three-col">
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Released By</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Received By</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Approved By</div>
+    </div>
+</div>

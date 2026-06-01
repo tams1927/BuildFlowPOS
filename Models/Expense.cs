@@ -1,9 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HardwareManagementSystem.Models.Interfaces;
 
 namespace HardwareManagementSystem.Models
 {
-    public class Expense
+    public class Expense : ITenantEntity
     {
         public int Id { get; set; }
 
@@ -36,6 +37,19 @@ namespace HardwareManagementSystem.Models
 
         [StringLength(100)]
         public string CreatedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Branch this expense belongs to.
+        /// Nullable for backward compatibility with existing records created before multi-branch.
+        /// </summary>
+        public int? BranchId { get; set; }
+
+        public Branch? Branch { get; set; }
+
+        /// <summary>Tenant this expense belongs to. Nullable for backward compatibility.</summary>
+        public int? TenantId { get; set; }
+
+        public Tenant? Tenant { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }

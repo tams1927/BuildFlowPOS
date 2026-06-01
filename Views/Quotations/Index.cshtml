@@ -1,0 +1,140 @@
+@using HardwareManagementSystem.Models
+@model List<HardwareManagementSystem.Models.Quotation>
+@{
+    ViewData["Title"] = "Quotations";
+    int total      = ViewBag.Total ?? 0;
+    int totalPages = ViewBag.TotalPages ?? 1;
+    int pageNumber = ViewBag.PageNumber ?? 1;
+    int pageSize   = ViewBag.PageSize ?? 20;
+    string? searchTerm   = ViewBag.SearchTerm;
+    string? statusFilter = ViewBag.StatusFilter;
+}
+
+<div class="hb-card mb-4">
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Quotations</h2>
+            <div class="hb-section-subtitle">Create and track price quotations for customers</div>
+        </div>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> New Quotation
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- FILTERS -->
+        <form method="get" class="mb-4">
+            <div class="row g-2">
+                <div class="col-lg-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="searchTerm" class="form-control border-start-0"
+                               value="@searchTerm" placeholder="Search quotation no or customer..." />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select name="statusFilter" class="form-select">
+                        <option value="">All Statuses</option>
+                        @foreach (var s in new[] { "Draft", "Sent", "Accepted", "Expired", "Voided" })
+                        {
+                            <option value="@s" selected="@(statusFilter == s)">@s</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary" data-no-disable="true">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary ms-1">Reset</a>
+                </div>
+            </div>
+        </form>
+
+        <!-- TABLE -->
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Quotation #</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Branch</th>
+                        <th>Valid Until</th>
+                        <th class="text-end">Total</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Any())
+                    {
+                        @foreach (var q in Model)
+                        {
+                            var isExpiredNow = q.ValidUntil.HasValue && q.ValidUntil.Value.Date < DateTime.Today && q.Status == "Sent";
+                            <tr>
+                                <td><code class="text-primary fw-semibold">@q.QuotationNo</code></td>
+                                <td class="small text-muted">@q.QuotationDate.ToString("MMM dd, yyyy")</td>
+                                <td>@(q.Customer?.CustomerName ?? q.CustomerName ?? "Walk-in")</td>
+                                <td class="small text-muted">@(q.Branch?.Name ?? "—")</td>
+                                <td class="small @(isExpiredNow ? "text-danger" : "text-muted")">
+                                    @(q.ValidUntil.HasValue ? q.ValidUntil.Value.ToString("MMM dd, yyyy") : "—")
+                                </td>
+                                <td class="text-end fw-semibold">₱@q.TotalAmount.ToString("N2")</td>
+                                <td>
+                                    @{
+                                        var badgeCss = q.Status switch {
+                                            "Draft"    => "badge-soft-secondary",
+                                            "Sent"     => "badge-soft-info",
+                                            "Accepted" => "badge-soft-success",
+                                            "Expired"  => "badge-soft-warning",
+                                            "Voided"   => "badge-soft-danger",
+                                            _          => "badge-soft-secondary"
+                                        };
+                                    }
+                                    <span class="badge @badgeCss">@q.Status</span>
+                                </td>
+                                <td>
+                                    <a asp-action="Details" asp-route-id="@q.Id"
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-file-text fs-1 d-block mb-2"></i>
+                                No quotations found. Create your first one above.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PAGINATION -->
+        @if (totalPages > 1)
+        {
+            <nav class="mt-3">
+                <ul class="pagination pagination-sm justify-content-center">
+                    @for (int p = 1; p <= totalPages; p++)
+                    {
+                        <li class="page-item @(p == pageNumber ? "active" : "")">
+                            <a class="page-link"
+                               asp-action="Index"
+                               asp-route-pageNumber="@p"
+                               asp-route-pageSize="@pageSize"
+                               asp-route-searchTerm="@searchTerm"
+                               asp-route-statusFilter="@statusFilter">@p</a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+
+    </div>
+</div>

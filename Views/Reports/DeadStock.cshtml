@@ -1,0 +1,90 @@
+@model HardwareManagementSystem.ViewModels.DeadStockViewModel
+@{
+    ViewData["Title"] = "Dead Stock";
+    var categories = ViewBag.AllCategories as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+    var allBranches = ViewBag.AllBranches as IEnumerable<HardwareManagementSystem.Models.Branch> ?? Enumerable.Empty<HardwareManagementSystem.Models.Branch>();
+    bool isGlobal = ViewBag.IsGlobalUser == true;
+    var dayOptions = new[] { 30, 60, 90, 180, 365 };
+}
+
+<div class="hb-card">
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title"><i class="bi bi-archive me-2 text-danger"></i>Dead Stock Report</h2>
+            <div class="hb-section-subtitle">No sales in @Model.DaysThreshold+ days — @Model.Rows.Count items · ₱@Model.TotalValue.ToString("N2") at risk</div>
+        </div>
+        <a asp-action="DeadStockPdf" asp-route-days="@Model.DaysThreshold" asp-route-branchId="@Model.BranchId" asp-route-categoryId="@Model.CategoryId"
+           class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+    </div>
+    <div class="hb-card-body">
+
+        <form method="get" asp-action="DeadStock" class="mb-4">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2"><label class="form-label small fw-semibold">Inactivity (days)</label>
+                    <select name="days" class="form-select form-select-sm">
+                        @foreach (var d in dayOptions) { <option value="@d" selected="@(Model.DaysThreshold == d)">@d days</option> }
+                    </select></div>
+                @if (isGlobal)
+                {
+                    <div class="col-md-2"><label class="form-label small fw-semibold">Branch</label>
+                        <select name="branchId" class="form-select form-select-sm">
+                            <option value="">All Branches</option>
+                            @foreach (var b in allBranches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }
+                        </select></div>
+                }
+                <div class="col-md-2"><label class="form-label small fw-semibold">Category</label>
+                    <select name="categoryId" class="form-select form-select-sm">
+                        <option value="">All Categories</option>
+                        @foreach (var c in categories) { <option value="@c.Id" selected="@(Model.CategoryId == (int)c.Id)">@c.CategoryName</option> }
+                    </select></div>
+                <div class="col-md-1"><button type="submit" class="btn btn-primary btn-sm" data-no-disable="true"><i class="bi bi-funnel"></i></button></div>
+            </div>
+        </form>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3"><div class="kpi-card py-3"><div class="kpi-label">Dead Stock Items</div><div class="kpi-value fs-5 text-danger">@Model.Rows.Count</div></div></div>
+            <div class="col-md-3"><div class="kpi-card py-3"><div class="kpi-label">Total Inv. Value</div><div class="kpi-value fs-5 text-danger">₱@Model.TotalValue.ToString("N2")</div></div></div>
+            <div class="col-md-3"><div class="kpi-card py-3"><div class="kpi-label">Critical (360+ days)</div><div class="kpi-value fs-5 text-danger">@Model.Rows.Count(r => r.DaysSinceLastSale < 0 || r.DaysSinceLastSale >= 360)</div></div></div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr>
+                    <th>SKU</th><th>Item Name</th><th>Category</th>
+                    <th class="text-end">Current Stock</th><th class="text-end">Inv. Value</th>
+                    <th>Last Sale</th><th class="text-end">Days Inactive</th><th>Age</th>
+                </tr></thead>
+                <tbody>
+                    @if (Model.Rows.Any())
+                    {
+                        foreach (var r in Model.Rows)
+                        {
+                            var bg = r.AgeColor == "red" ? "table-danger" : r.AgeColor == "orange" ? "table-warning" : "";
+                            <tr class="@bg">
+                                <td class="small text-muted">@r.ItemCode</td>
+                                <td><strong>@r.ItemName</strong></td>
+                                <td class="small">@r.Category</td>
+                                <td class="text-end">@r.CurrentStock.ToString("N3")</td>
+                                <td class="text-end">₱@r.InventoryValue.ToString("N2")</td>
+                                <td class="small">@(r.LastSaleDate.HasValue ? r.LastSaleDate.Value.ToString("MMM dd, yyyy") : "—")</td>
+                                <td class="text-end fw-bold">@(r.DaysSinceLastSale < 0 ? "∞ Never" : r.DaysSinceLastSale.ToString())</td>
+                                <td>
+                                    @{
+                                        var badgeClass = r.AgeColor == "red" ? "badge-soft-danger" : r.AgeColor == "orange" ? "badge-soft-warning" : "badge-soft-warning";
+                                    }
+                                    <span class="badge @badgeClass">@r.AgeColor.ToUpper()</span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-check-circle fs-1 d-block mb-2 text-success"></i>No dead stock detected for the selected criteria.
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

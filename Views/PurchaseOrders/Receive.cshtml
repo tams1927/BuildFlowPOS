@@ -1,0 +1,135 @@
+@model HardwareManagementSystem.Models.PurchaseOrder
+@using HardwareManagementSystem.Models
+
+@{
+    ViewData["Title"] = $"Receive — {Model.PONumber}";
+}
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">
+                <i class="bi bi-box-seam me-2"></i>Receive Stocks — @Model.PONumber
+            </h2>
+            <div class="hb-section-subtitle">
+                Enter the quantity received for each item.
+                @if (Model.Status == "PartiallyReceived")
+                {
+                    <span class="badge badge-soft-warning ms-1">Partial — Some items still pending</span>
+                }
+            </div>
+        </div>
+        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- Supplier info -->
+        <div class="alert alert-light border mb-4 small">
+            <strong>Supplier:</strong> @(Model.Supplier?.SupplierName ?? "—")
+            @if (!string.IsNullOrWhiteSpace(Model.Supplier?.ContactNumber))
+            { <span>&nbsp;·&nbsp; Tel: @Model.Supplier.ContactNumber</span> }
+            @if (Model.Branch != null)
+            { <span>&nbsp;·&nbsp; Branch: <strong>@Model.Branch.Name</strong></span> }
+        </div>
+
+        <form asp-controller="PurchaseOrders" asp-action="Receive" asp-route-id="@Model.Id"
+              method="post" id="receiveForm">
+            @Html.AntiForgeryToken()
+
+            <div class="table-responsive mb-4">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-end">Ordered</th>
+                            <th class="text-end">Already Received</th>
+                            <th class="text-end text-warning">Remaining</th>
+                            <th class="text-end">Unit Cost</th>
+                            <th style="width:150px">Receive Now</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var pi in Model.Items.OrderBy(i => i.Id))
+                        {
+                            var remaining = pi.Quantity - pi.QuantityReceived;
+                            bool complete = remaining <= 0;
+                            <tr class="@(complete ? "table-success" : "")">
+                                <td>
+                                    <input type="hidden" name="poItemIds" value="@pi.Id" />
+                                    <strong>@(pi.Item?.ItemName ?? $"Item #{pi.ItemId}")</strong>
+                                    @if (pi.Item != null)
+                                    { <div class="small text-muted">@pi.Item.ItemCode — @(pi.Item.Unit?.ShortName ?? "")</div> }
+                                </td>
+                                <td class="text-end">@pi.Quantity.ToString("0.###")</td>
+                                <td class="text-end">
+                                    @if (pi.QuantityReceived > 0)
+                                    { <span class="text-success">@pi.QuantityReceived.ToString("0.###")</span> }
+                                    else { <span class="text-muted">0</span> }
+                                </td>
+                                <td class="text-end">
+                                    @if (complete)
+                                    { <span class="badge badge-soft-success">Complete</span> }
+                                    else
+                                    { <span class="fw-semibold text-warning">@remaining.ToString("0.###")</span> }
+                                </td>
+                                <td class="text-end small">₱@pi.UnitCost.ToString("N2")</td>
+                                <td>
+                                    @if (complete)
+                                    {
+                                        <input type="number" name="receivedQtys" class="form-control form-control-sm receive-input"
+                                               value="0" readonly />
+                                    }
+                                    else
+                                    {
+                                        <input type="number" name="receivedQtys"
+                                               class="form-control form-control-sm receive-input"
+                                               value="@remaining.ToString("0.###")"
+                                               min="0" max="@remaining" step="0.001" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="button" id="submitReceiveBtn" class="btn btn-success">
+                    <i class="bi bi-box-seam me-1"></i>Confirm Receipt
+                </button>
+                <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-light">Cancel</a>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('submitReceiveBtn').addEventListener('click', function () {
+        const hasQty = Array.from(document.querySelectorAll('.receive-input'))
+            .some(inp => parseFloat(inp.value) > 0);
+
+        if (!hasQty) {
+            Swal.fire({ icon: 'warning', title: 'No quantities', text: 'Please enter at least one received quantity.', confirmButtonColor: '#1e40af' });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Confirm Receipt?',
+            html: 'This will create a <strong>Stock-In</strong> record and update inventory levels.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Receive',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#64748b'
+        }).then(r => { if (r.isConfirmed) document.getElementById('receiveForm').requestSubmit(); });
+    });
+</script>
+}

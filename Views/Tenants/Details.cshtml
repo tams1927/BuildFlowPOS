@@ -1,0 +1,704 @@
+@using HardwareManagementSystem.Controllers
+@using HardwareManagementSystem.Models
+@using HardwareManagementSystem.Services
+@model HardwareManagementSystem.Models.Tenant
+@{
+    ViewData["Title"] = "Tenant Details";
+    var usage = ViewBag.Usage as TenantUsageSummary ?? new TenantUsageSummary();
+    var users = ViewBag.Users as List<TenantUserVm> ?? new List<TenantUserVm>();
+}
+
+<div class="page-header-row mb-3">
+    <div>
+        <h2 class="page-section-title">@Model.Name</h2>
+        <p class="text-muted mb-0"><span class="badge bg-secondary">@Model.Code</span></p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-1"></i> Edit
+        </a>
+        @if (Model.Status != TenantStatus.Suspended)
+        {
+            <form asp-action="Suspend" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
+                @Html.AntiForgeryToken()
+                <button type="button" class="btn btn-outline-warning"
+                        data-swal-title="Suspend Tenant?"
+                        data-swal-text="All tenant users will be blocked from accessing the system."
+                        data-swal-confirm="Yes, Suspend"
+                        data-swal-cancel="No, Cancel"
+                        data-swal-icon="warning">
+                    <i class="bi bi-pause-circle me-1"></i> Suspend
+                </button>
+            </form>
+        }
+        else
+        {
+            <form asp-action="Reactivate" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
+                @Html.AntiForgeryToken()
+                <button type="button" class="btn btn-outline-success"
+                        data-swal-title="Reactivate Tenant?"
+                        data-swal-text="Tenant users will regain access to the system."
+                        data-swal-confirm="Yes, Reactivate"
+                        data-swal-cancel="No, Cancel"
+                        data-swal-icon="question">
+                    <i class="bi bi-play-circle me-1"></i> Reactivate
+                </button>
+            </form>
+        }
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back
+        </a>
+    </div>
+</div>
+
+<!-- ?? Tenant Info + Usage ???????????????????????????????????? -->
+<div class="row g-3 mb-4">
+    <!-- Info card -->
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-building me-2"></i>Tenant Information
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="text-muted small">Business Name</div>
+                        <div class="fw-semibold">@Model.Name</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Code</div>
+                        <div><span class="badge bg-secondary">@Model.Code</span></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Owner</div>
+                        <div>@(Model.OwnerName ?? "�")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Email</div>
+                        <div>@(Model.Email ?? "�")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Phone</div>
+                        <div>@(Model.Phone ?? "�")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Address</div>
+                        <div>@(Model.Address ?? "�")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Plan</div>
+                        <div>
+                            @if (Model.SubscriptionPlan != null)
+                            {
+                                <span class="badge badge-soft-primary">@Model.SubscriptionPlan.Name</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Custom / No Plan</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Status</div>
+                        <div>
+                            @switch (Model.Status)
+                            {
+                                case TenantStatus.Active:
+                                    <span class="badge badge-soft-success">Active</span>
+                                    break;
+                                case TenantStatus.Trial:
+                                    <span class="badge badge-soft-info">Trial</span>
+                                    break;
+                                case TenantStatus.Suspended:
+                                    <span class="badge badge-soft-danger">Suspended</span>
+                                    break;
+                                case TenantStatus.Expired:
+                                    <span class="badge badge-soft-warning">Expired</span>
+                                    break;
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Expiration</div>
+                        <div>
+                            @if (Model.ExpirationDate.HasValue)
+                            {
+                                <span class="@(Model.IsExpired ? "text-danger fw-semibold" : "")">
+                                    @Model.ExpirationDate.Value.ToString("MMM dd, yyyy")
+                                    @if (Model.IsExpired) { <span class="badge badge-soft-danger ms-1">Expired</span> }
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No expiry</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Created</div>
+                        <div class="small">@Model.CreatedAtUtc.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.Notes))
+                    {
+                        <div class="col-12">
+                            <div class="text-muted small">Notes</div>
+                            <div class="small">@Model.Notes</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Usage card -->
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-bar-chart me-2"></i>Usage &amp; Limits
+            </div>
+            <div class="card-body">
+                <!-- Branches -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="small fw-semibold"><i class="bi bi-building me-1"></i>Branches</span>
+                        <span class="small text-muted">@usage.Branches / @usage.MaxBranches</span>
+                    </div>
+                    <div class="progress" style="height:6px">
+                        <div class="progress-bar @(usage.BranchPct >= 90 ? "bg-danger" : usage.BranchPct >= 70 ? "bg-warning" : "bg-success")"
+                             style="width:@usage.BranchPct%"></div>
+                    </div>
+                </div>
+                <!-- Users -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="small fw-semibold"><i class="bi bi-people me-1"></i>Users</span>
+                        <span class="small text-muted">@usage.Users / @usage.MaxUsers</span>
+                    </div>
+                    <div class="progress" style="height:6px">
+                        <div class="progress-bar @(usage.UserPct >= 90 ? "bg-danger" : usage.UserPct >= 70 ? "bg-warning" : "bg-success")"
+                             style="width:@usage.UserPct%"></div>
+                    </div>
+                </div>
+                <!-- Products -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="small fw-semibold"><i class="bi bi-box-seam me-1"></i>Products</span>
+                        <span class="small text-muted">@usage.Products / @usage.MaxProducts</span>
+                    </div>
+                    <div class="progress" style="height:6px">
+                        <div class="progress-bar @(usage.ProductPct >= 90 ? "bg-danger" : usage.ProductPct >= 70 ? "bg-warning" : "bg-success")"
+                             style="width:@usage.ProductPct%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dedicated Database (Phase 5.0C) -->
+@{
+    var isDedicated   = Model.DatabaseMode == TenantDatabaseMode.Dedicated;
+    var isProvisioned = Model.DatabaseProvisionedAtUtc.HasValue;
+    var hasDbName     = !string.IsNullOrWhiteSpace(Model.DatabaseName);
+}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-hdd-stack me-2"></i>Dedicated Database</span>
+        <a asp-action="DatabaseInfo" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-info-circle me-1"></i> Diagnostics
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="text-muted small">Database Mode</div>
+                <div>
+                    @if (isDedicated)
+                    {
+                        <span class="badge badge-soft-primary"><i class="bi bi-hdd me-1"></i>Dedicated</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-secondary"><i class="bi bi-share me-1"></i>Shared</span>
+                    }
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Database Name</div>
+                <div>@(hasDbName ? Model.DatabaseName : "Shared (default)")</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Provisioned</div>
+                <div>
+                    @if (isProvisioned)
+                    {
+                        <span class="badge badge-soft-success">Provisioned</span>
+                        <div class="small text-muted">@Model.DatabaseProvisionedAtUtc!.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-secondary">Not provisioned</span>
+                    }
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Last Migration</div>
+                <div class="small">@(string.IsNullOrWhiteSpace(Model.LastDatabaseMigration) ? "—" : Model.LastDatabaseMigration)</div>
+            </div>
+
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-2 mt-1">
+                    <!-- Provision -->
+                    @if (isDedicated && hasDbName && !isProvisioned)
+                    {
+                        <form asp-action="Provision" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
+                            @Html.AntiForgeryToken()
+                            <button type="button" class="btn btn-primary"
+                                    data-swal-title="Provision Dedicated Database?"
+                                    data-swal-text="This will create a dedicated SQL database for this tenant.<br><br>The tenant will continue using the shared database.<br><br>No data will be moved.<br><br>Proceed?"
+                                    data-swal-confirm="Yes, Provision"
+                                    data-swal-cancel="Cancel"
+                                    data-swal-icon="question">
+                                <i class="bi bi-database-add me-1"></i> Provision Database
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary" disabled
+                                title="@(!isDedicated ? "Switch the tenant to Dedicated mode first." : !hasDbName ? "Set a database name first." : "Database already provisioned.")">
+                            <i class="bi bi-database-add me-1"></i> Provision Database
+                        </button>
+                    }
+
+                    <!-- Test Connection -->
+                    <form asp-action="TestDatabaseConnection" asp-route-id="@Model.Id" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-secondary">
+                            <i class="bi bi-plug me-1"></i> Test Connection
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-12">
+                @if (!isDedicated)
+                {
+                    <div class="alert alert-secondary mb-0 py-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Tenant is in <strong>Shared</strong> mode. Switch it to <strong>Dedicated</strong> mode (and set a database name) on the Edit page before provisioning.
+                    </div>
+                }
+                else if (!hasDbName)
+                {
+                    <div class="alert alert-warning mb-0 py-2 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        A database name is required before provisioning. Set it on the Edit page.
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info mb-0 py-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Phase 5.0C: the dedicated database is <strong>prepared only</strong>. Routing is NOT active — this tenant still runs on the shared database. No data is moved.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pilot Routing (Phase 5.0D) -->
+@{
+    var dataMigrated   = Model.DataMigrated;
+    var routingEnabled = Model.RoutingEnabled;
+    var routingActive  = Model.RoutingActive;
+    var runtimeDb      = routingActive ? "Dedicated" : "Shared";
+}
+<div class="card mb-4">
+    <div class="card-header fw-semibold">
+        <i class="bi bi-diagram-3 me-2"></i>Pilot Routing
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="text-muted small">Provisioned</div>
+                <div>
+                    @if (isProvisioned) { <span class="badge badge-soft-success">Yes</span> }
+                    else { <span class="badge badge-soft-secondary">No</span> }
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Data Migrated</div>
+                <div>
+                    @if (dataMigrated)
+                    {
+                        <span class="badge badge-soft-success">Yes</span>
+                        <div class="small text-muted">@Model.DataMigratedAtUtc?.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
+                    }
+                    else { <span class="badge badge-soft-secondary">No</span> }
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Routing Enabled</div>
+                <div>
+                    @if (routingEnabled) { <span class="badge badge-soft-success">Yes</span> }
+                    else { <span class="badge badge-soft-secondary">No</span> }
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Current Runtime Database</div>
+                <div>
+                    @if (runtimeDb == "Dedicated")
+                    {
+                        <span class="badge bg-primary"><i class="bi bi-hdd me-1"></i>Dedicated</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary"><i class="bi bi-share me-1"></i>Shared</span>
+                    }
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-2 mt-1">
+                    <!-- Migrate Data -->
+                    @if (isProvisioned && !dataMigrated)
+                    {
+                        <form asp-action="MigrateData" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
+                            @Html.AntiForgeryToken()
+                            <button type="button" class="btn btn-primary"
+                                    data-swal-title="Copy tenant data to dedicated database?"
+                                    data-swal-text="No shared data will be removed.<br><br>Proceed?"
+                                    data-swal-confirm="Yes, Migrate"
+                                    data-swal-cancel="Cancel"
+                                    data-swal-icon="question">
+                                <i class="bi bi-arrow-left-right me-1"></i> Migrate Data
+                            </button>
+                        </form>
+                    }
+
+                    <!-- Enable Routing -->
+                    @if (isProvisioned && dataMigrated && !routingEnabled)
+                    {
+                        <form asp-action="EnableRouting" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
+                            @Html.AntiForgeryToken()
+                            <button type="button" class="btn btn-success"
+                                    data-swal-title="Enable dedicated database routing?"
+                                    data-swal-text="Only this tenant will use the dedicated database.<br><br>Rollback remains available.<br><br>Proceed?"
+                                    data-swal-confirm="Yes, Enable Routing"
+                                    data-swal-cancel="Cancel"
+                                    data-swal-icon="warning">
+                                <i class="bi bi-toggle-on me-1"></i> Enable Routing
+                            </button>
+                        </form>
+                    }
+
+                    <!-- Disable Routing (rollback) -->
+                    @if (routingEnabled)
+                    {
+                        <form asp-action="DisableRouting" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
+                            @Html.AntiForgeryToken()
+                            <button type="button" class="btn btn-outline-danger"
+                                    data-swal-title="Disable dedicated database routing?"
+                                    data-swal-text="This tenant will instantly fall back to the shared database.<br><br>No data will be deleted.<br><br>Proceed?"
+                                    data-swal-confirm="Yes, Disable Routing"
+                                    data-swal-cancel="Cancel"
+                                    data-swal-icon="warning">
+                                <i class="bi bi-toggle-off me-1"></i> Disable Routing
+                            </button>
+                        </form>
+                    }
+                </div>
+            </div>
+
+            <div class="col-12">
+                @if (!isProvisioned)
+                {
+                    <div class="alert alert-secondary mb-0 py-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Provision the dedicated database first (see the card above).
+                    </div>
+                }
+                else if (!dataMigrated)
+                {
+                    <div class="alert alert-info mb-0 py-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Migrate data to copy this tenant's operational rows into the dedicated database. The copy is validated by row counts; the shared database is left untouched.
+                    </div>
+                }
+                else if (!routingEnabled)
+                {
+                    <div class="alert alert-success mb-0 py-2 small">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Data migrated and validated. Enable routing to switch this tenant to its dedicated database. Rollback is one click away.
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-primary mb-0 py-2 small">
+                        <i class="bi bi-hdd-network me-1"></i>
+                        Routing is <strong>ACTIVE</strong> — this tenant runs on its dedicated database. Use <strong>Disable Routing</strong> to roll back instantly. Identity and subscriptions remain shared.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ?? Tenant Users ??????????????????????????????????????????? -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-people me-2"></i>Tenant Users</span>
+        <span class="badge bg-secondary">@users.Count</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Full Name</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in users)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">@u.FullName</div>
+                                @if (u.ForcePasswordChange)
+                                {
+                                    <span class="badge badge-soft-warning small">
+                                        <i class="bi bi-key me-1"></i>Must change password
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-muted">@u.Username</td>
+                            <td class="text-muted small">@u.Email</td>
+                            <td><span class="badge badge-soft-secondary">@u.Role</span></td>
+                            <td>
+                                @if (u.IsActive)
+                                {
+                                    <span class="badge badge-soft-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-soft-danger">Inactive</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end">
+                                    <!-- Activate / Deactivate -->
+                                    @if (u.IsActive)
+                                    {
+                                        <form asp-action="DeactivateUser" method="post"
+                                              asp-route-userId="@u.Id" asp-route-tenantId="@Model.Id"
+                                              class="d-inline user-action-form">
+                                            @Html.AntiForgeryToken()
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    title="Deactivate"
+                                                    data-swal-title="Deactivate User?"
+                                                    data-swal-text="@($"{u.FullName} will no longer be able to log in.")"
+                                                    data-swal-confirm="Yes, Deactivate"
+                                                    data-swal-cancel="No, Cancel"
+                                                    data-swal-icon="warning">
+                                                <i class="bi bi-person-x"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form asp-action="ActivateUser" method="post"
+                                              asp-route-userId="@u.Id" asp-route-tenantId="@Model.Id"
+                                              class="d-inline user-action-form">
+                                            @Html.AntiForgeryToken()
+                                            <button type="button" class="btn btn-sm btn-outline-success"
+                                                    title="Activate"
+                                                    data-swal-title="Activate User?"
+                                                    data-swal-text="@($"{u.FullName} will be allowed to log in again.")"
+                                                    data-swal-confirm="Yes, Activate"
+                                                    data-swal-cancel="No, Cancel"
+                                                    data-swal-icon="question">
+                                                <i class="bi bi-person-check"></i>
+                                            </button>
+                                        </form>
+                                    }
+
+                                    <!-- Reset Password -->
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            title="Reset Password"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#resetPwModal"
+                                            data-userid="@u.Id"
+                                            data-username="@u.Username"
+                                            data-tenantid="@Model.Id">
+                                        <i class="bi bi-key"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!users.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                No users in this tenant yet.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ?? Reset Password Modal ??????????????????????????????????? -->
+<div class="modal fade" id="resetPwModal" tabindex="-1" aria-labelledby="resetPwModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="resetPwForm" asp-action="ResetPassword" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="rpUserId"   name="userId"   value="" />
+                <input type="hidden" id="rpTenantId" name="tenantId" value="@Model.Id" />
+
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resetPwModalLabel">
+                        <i class="bi bi-key me-2"></i>Reset Password
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Resetting password for: <strong id="rpUsername"></strong>.<br />
+                        The user will be required to change their password on next login.
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">New Password <span class="text-danger">*</span></label>
+                        <input type="password" name="newPassword" id="rpNewPassword"
+                               class="form-control" placeholder="Min 6 characters" autocomplete="new-password" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
+                        <input type="password" name="confirmPassword" id="rpConfirmPassword"
+                               class="form-control" placeholder="Repeat new password" autocomplete="new-password" />
+                    </div>
+                    <div id="rpError" class="text-danger small d-none"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="rpConfirmBtn">
+                        <i class="bi bi-key me-1"></i>Reset Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    // ?? Populate Reset Password modal ??????????????????????????
+    document.querySelectorAll('[data-bs-target="#resetPwModal"]').forEach(btn => {
+        btn.addEventListener('click', function () {
+            document.getElementById('rpUserId').value   = this.dataset.userid;
+            document.getElementById('rpTenantId').value = this.dataset.tenantid;
+            document.getElementById('rpUsername').textContent = this.dataset.username;
+            document.getElementById('rpNewPassword').value    = '';
+            document.getElementById('rpConfirmPassword').value = '';
+            document.getElementById('rpError').classList.add('d-none');
+        });
+    });
+
+    // ?? SweetAlert confirmation before submitting Reset Password ??
+    document.getElementById('rpConfirmBtn').addEventListener('click', function () {
+        const pw  = document.getElementById('rpNewPassword').value;
+        const cpw = document.getElementById('rpConfirmPassword').value;
+        const err = document.getElementById('rpError');
+
+        if (!pw || pw.length < 6) {
+            err.textContent = 'Password must be at least 6 characters.';
+            err.classList.remove('d-none');
+            return;
+        }
+        if (pw !== cpw) {
+            err.textContent = 'Passwords do not match.';
+            err.classList.remove('d-none');
+            return;
+        }
+        err.classList.add('d-none');
+
+        const username = document.getElementById('rpUsername').textContent;
+        bootstrap.Modal.getInstance(document.getElementById('resetPwModal')).hide();
+
+        Swal.fire({
+            title: 'Reset User Password?',
+            html: `You are about to reset the password for <strong>${username}</strong>.<br>
+                   The user will be required to change it after login.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, Reset Password',
+            cancelButtonText: 'No, Cancel'
+        }).then(result => {
+            if (result.isConfirmed) {
+                document.getElementById('resetPwForm').submit();
+            }
+        });
+    });
+
+    // ?? SweetAlert for Suspend / Reactivate (tenant actions) ??
+    // Buttons are type="button" � no e.preventDefault() needed.
+    document.querySelectorAll('.tenant-action-form button[data-swal-title]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form  = this.closest('form');
+            var title = this.dataset.swalTitle;
+            var text  = this.dataset.swalText;
+            var conf  = this.dataset.swalConfirm;
+            var can   = this.dataset.swalCancel;
+            var icon  = this.dataset.swalIcon;
+
+            Swal.fire({
+                title: title, html: text, icon: icon,
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: conf,
+                cancelButtonText: can
+            }).then(function (r) { if (r.isConfirmed) form.submit(); });
+        });
+    });
+
+    // ?? SweetAlert for Activate / Deactivate (user actions) ??
+    // Buttons are type="button" � no e.preventDefault() needed.
+    document.querySelectorAll('.user-action-form button[data-swal-title]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form  = this.closest('form');
+            var title = this.dataset.swalTitle;
+            var text  = this.dataset.swalText;
+            var conf  = this.dataset.swalConfirm;
+            var can   = this.dataset.swalCancel;
+            var icon  = this.dataset.swalIcon;
+
+            Swal.fire({
+                title: title, html: text, icon: icon,
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: conf,
+                cancelButtonText: can
+            }).then(function (r) { if (r.isConfirmed) form.submit(); });
+        });
+    });
+})();
+</script>
+}

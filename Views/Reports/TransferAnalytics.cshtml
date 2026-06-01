@@ -1,0 +1,267 @@
+@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.TransferAnalyticsViewModel>
+@using HardwareManagementSystem.ViewModels
+@using HardwareManagementSystem.Models
+
+@{
+    ViewData["Title"] = "Transfer Analytics";
+
+    var allBranches = ViewBag.AllBranches as List<Branch>;
+    var isGlobal = (bool)(ViewBag.IsGlobalUser ?? false);
+    var branchId = ViewBag.BranchId as int?;
+    var statusFilter = ViewBag.Status as string;
+    var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today.AddDays(-30);
+    var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+    int totalTransfers = ViewBag.TotalTransfers ?? 0;
+    int completedTransfers = ViewBag.CompletedTransfers ?? 0;
+    int pendingTransfers = ViewBag.PendingTransfers ?? 0;
+    decimal totalQty = ViewBag.TotalQuantity ?? 0m;
+    var topProducts = ViewBag.TopProducts as List<TransferProductRowViewModel>;
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-arrow-left-right"></i></div>
+            <div class="kpi-label">Total Transfers</div>
+            <div class="kpi-value">@totalTransfers</div>
+            <div class="kpi-trend">In selected period</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-check-circle"></i></div>
+            <div class="kpi-label">Completed</div>
+            <div class="kpi-value text-success">@completedTransfers</div>
+            <div class="kpi-trend">Successfully completed</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-clock"></i></div>
+            <div class="kpi-label">Pending / In Progress</div>
+            <div class="kpi-value text-warning">@pendingTransfers</div>
+            <div class="kpi-trend">Awaiting completion</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-boxes"></i></div>
+            <div class="kpi-label">Total Qty Transferred</div>
+            <div class="kpi-value">@totalQty.ToString("0.###")</div>
+            <div class="kpi-trend">Units moved across branches</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-8">
+        <div class="hb-card h-100">
+
+            <div class="hb-card-header">
+                <div>
+                    <h2 class="hb-section-title">Transfer Transactions</h2>
+                    <div class="hb-section-subtitle">Branch transfer activity log</div>
+                </div>
+
+                <a asp-controller="Reports" asp-action="Index" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left me-1"></i>
+                    Back to Reports
+                </a>
+            </div>
+
+            <div class="hb-card-body">
+
+                <form method="get" asp-controller="Reports" asp-action="TransferAnalytics" class="row g-3 mb-4">
+
+                    <div class="col-lg-3">
+                        <label class="form-label fw-semibold">Date From</label>
+                        <input type="date" name="dateFrom" value="@dateFrom.ToString("yyyy-MM-dd")" class="form-control" />
+                    </div>
+
+                    <div class="col-lg-3">
+                        <label class="form-label fw-semibold">Date To</label>
+                        <input type="date" name="dateTo" value="@dateTo.ToString("yyyy-MM-dd")" class="form-control" />
+                    </div>
+
+                    @if (isGlobal && allBranches != null)
+                    {
+                        <div class="col-lg-3">
+                            <label class="form-label fw-semibold">Branch</label>
+                            <select name="branchId" class="form-select">
+                                <option value="0">All Branches</option>
+                                @foreach (var b in allBranches)
+                                {
+                                    <option value="@b.Id" selected="@(branchId == b.Id)">@b.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else if (branchId.HasValue)
+                    {
+                        <input type="hidden" name="branchId" value="@branchId" />
+                    }
+
+                    <div class="col-lg-2">
+                        <label class="form-label fw-semibold">Status</label>
+                        <select name="status" class="form-select">
+                            <option value="">All</option>
+                            <option value="Draft" selected="@(statusFilter == "Draft")">Draft</option>
+                            <option value="Pending" selected="@(statusFilter == "Pending")">Pending</option>
+                            <option value="Approved" selected="@(statusFilter == "Approved")">Approved</option>
+                            <option value="Completed" selected="@(statusFilter == "Completed")">Completed</option>
+                            <option value="Cancelled" selected="@(statusFilter == "Cancelled")">Cancelled</option>
+                        </select>
+                    </div>
+
+                    <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                    <input type="hidden" name="pageNumber" value="1" />
+
+                    <div class="col-lg-1 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100" data-no-disable="true">
+                            <i class="bi bi-funnel"></i>
+                        </button>
+                    </div>
+
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Transfer #</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th class="text-center">Items</th>
+                                <th class="text-end">Qty</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Days to Complete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Items.Any())
+                            {
+                                foreach (var t in Model.Items)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@t.TransferNumber</strong>
+                                            <div class="text-muted small">by @t.CreatedBy</div>
+                                        </td>
+                                        <td>@t.FromBranch</td>
+                                        <td>@t.ToBranch</td>
+                                        <td class="text-center">@t.ItemCount</td>
+                                        <td class="text-end">@t.TotalQuantity.ToString("0.###")</td>
+                                        <td>
+                                            @if (t.Status == "Completed")
+                                            {
+                                                <span class="badge badge-soft-success">Completed</span>
+                                            }
+                                            else if (t.Status == "Cancelled")
+                                            {
+                                                <span class="badge badge-soft-danger">Cancelled</span>
+                                            }
+                                            else if (t.Status == "Approved")
+                                            {
+                                                <span class="badge badge-soft-primary">Approved</span>
+                                            }
+                                            else if (t.Status == "Pending")
+                                            {
+                                                <span class="badge badge-soft-warning">Pending</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge badge-soft-secondary">@t.Status</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @t.CreatedAt.ToString("MMM dd, yyyy")
+                                            <div class="text-muted small">@t.CreatedAt.ToString("hh:mm tt")</div>
+                                        </td>
+                                        <td class="text-center">
+                                            @if (t.CompletionDays.HasValue)
+                                            {
+                                                <span class="badge @(t.CompletionDays <= 1 ? "badge-soft-success" : t.CompletionDays <= 3 ? "badge-soft-warning" : "badge-soft-danger")">
+                                                    @t.CompletionDays day(s)
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="8" class="text-center py-5">
+                                        <div class="text-muted">
+                                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                            No transfers found.
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Reports", "TransferAnalytics",
+                    new Dictionary<string, string?>
+                    {
+                        ["dateFrom"] = dateFrom.ToString("yyyy-MM-dd"),
+                        ["dateTo"] = dateTo.ToString("yyyy-MM-dd"),
+                        ["status"] = statusFilter,
+                        ["branchId"] = branchId?.ToString()
+                    }))
+
+            </div>
+
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="hb-card h-100">
+            <div class="hb-card-header">
+                <div>
+                    <h2 class="hb-section-title">Top Transferred Products</h2>
+                    <div class="hb-section-subtitle">Most moved items in period</div>
+                </div>
+            </div>
+            <div class="hb-card-body">
+                @if (topProducts != null && topProducts.Any())
+                {
+                    foreach (var p in topProducts)
+                    {
+                        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                            <div>
+                                <strong>@p.ItemName</strong>
+                                <div class="text-muted small">@p.ItemCode &bull; @p.TransferCount transfer(s)</div>
+                            </div>
+                            <div class="text-end">
+                                <strong>@p.TotalQuantityTransferred.ToString("0.###")</strong>
+                                <div class="text-muted small">units</div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                        No data.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+</div>

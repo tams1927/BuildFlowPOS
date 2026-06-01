@@ -96,7 +96,7 @@
             <input type="hidden" name="pageNumber" value="1" />
 
             <div class="col-lg-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100" type="submit">
+                <button class="btn btn-primary w-100" type="submit" data-no-disable="true"> 
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
@@ -114,12 +114,14 @@
                         <th>Adjustment #</th>
                         <th>Date</th>
                         <th>Type</th>
+                        <th>Branch</th>
                         <th>Item</th>
                         <th>Qty</th>
                         <th>Before</th>
                         <th>After</th>
                         <th>Reason</th>
                         <th>Created By</th>
+                        <th></th>
                     </tr>
                 </thead>
 
@@ -156,6 +158,19 @@
                                 </td>
 
                                 <td>
+                                    @if (adjustment.Branch != null)
+                                    {
+                                        <span class="badge badge-soft-secondary">
+                                            <i class="bi bi-building me-1"></i>@adjustment.Branch.Name
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">—</span>
+                                    }
+                                </td>
+
+                                <td>
                                     <strong>@(detail?.Item?.ItemName ?? "N/A")</strong>
                                     <div class="text-muted small">
                                         @(detail?.Item?.ItemCode ?? "")
@@ -182,13 +197,21 @@
                                     @(adjustment.CreatedBy ?? "Unknown")
                                 </td>
 
+                                <td>
+                                    <a asp-action="PrintSlip" asp-route-id="@adjustment.Id"
+                                       target="_blank" class="btn btn-sm btn-outline-secondary"
+                                       title="Print Slip">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                </td>
+
                             </tr>
                         }
                     }
                     else
                     {
                         <tr>
-                            <td colspan="9" class="text-center py-5">
+                            <td colspan="11" class="text-center py-5">
                                 <div class="text-muted">
                                     <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                     No stock adjustments found.

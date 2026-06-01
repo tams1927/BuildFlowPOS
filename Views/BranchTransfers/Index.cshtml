@@ -1,0 +1,166 @@
+@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.BranchTransfer>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Branch Transfers";
+    var statusFilter = ViewBag.StatusFilter as string;
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-arrow-left-right"></i></div>
+            <div class="kpi-label">Total Transfers</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
+            <div class="kpi-trend">All transfer records</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+            <div class="kpi-label">Pending</div>
+            <div class="kpi-value">@Model.Items.Count(t => t.Status == "Pending")</div>
+            <div class="kpi-trend">Awaiting approval</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-check-circle"></i></div>
+            <div class="kpi-label">Approved</div>
+            <div class="kpi-value">@Model.Items.Count(t => t.Status == "Approved")</div>
+            <div class="kpi-trend">Ready to complete</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-box-arrow-right"></i></div>
+            <div class="kpi-label">Completed</div>
+            <div class="kpi-value">@Model.Items.Count(t => t.Status == "Completed")</div>
+            <div class="kpi-trend">Stock moved</div>
+        </div>
+    </div>
+</div>
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Branch Transfers</h2>
+            <div class="hb-section-subtitle">Move inventory between branches with approval workflow</div>
+        </div>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>New Transfer
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get" asp-controller="BranchTransfers" asp-action="Index">
+            <div class="row g-3 mb-4">
+                <div class="col-lg-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="searchTerm" class="form-control border-start-0"
+                               value="@Model.SearchTerm" placeholder="Search number, branch, user..." />
+                    </div>
+                </div>
+                <div class="col-lg-3">
+                    <select name="statusFilter" class="form-select">
+                        <option value="all">All Status</option>
+                        <option value="Pending" selected="@(statusFilter == "Pending")">Pending</option>
+                        <option value="Approved" selected="@(statusFilter == "Approved")">Approved</option>
+                        <option value="Completed" selected="@(statusFilter == "Completed")">Completed</option>
+                        <option value="Cancelled" selected="@(statusFilter == "Cancelled")">Cancelled</option>
+                    </select>
+                </div>
+                <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                <input type="hidden" name="pageNumber" value="1" />
+                <div class="col-lg-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" type="submit" data-no-disable="true">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Transfer #</th>
+                        <th>From Branch</th>
+                        <th>To Branch</th>
+                        <th>Items</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Created By</th>
+                        <th width="100">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var t in Model.Items)
+                        {
+                            <tr>
+                                <td><code class="text-primary fw-semibold">@t.TransferNumber</code></td>
+                                <td>
+                                    <span class="badge badge-soft-secondary">
+                                        <i class="bi bi-building me-1"></i>@t.FromBranch?.Name
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge badge-soft-primary">
+                                        <i class="bi bi-building me-1"></i>@t.ToBranch?.Name
+                                    </span>
+                                </td>
+                                <td>@t.BranchTransferItems.Count product(s)</td>
+                                <td>
+                                    @switch (t.Status)
+                                    {
+                                        case "Pending":
+                                            <span class="badge badge-soft-warning">Pending</span>
+                                            break;
+                                        case "Approved":
+                                            <span class="badge badge-soft-primary">Approved</span>
+                                            break;
+                                        case "Completed":
+                                            <span class="badge badge-soft-success">Completed</span>
+                                            break;
+                                        case "Cancelled":
+                                            <span class="badge badge-soft-danger">Cancelled</span>
+                                            break;
+                                        default:
+                                            <span class="badge badge-soft-secondary">@t.Status</span>
+                                            break;
+                                    }
+                                </td>
+                                <td class="small text-muted">@t.CreatedAtUtc.ToLocalTime().ToString("MMM dd, yyyy")</td>
+                                <td class="small">@t.CreatedByUserName</td>
+                                <td>
+                                    <a asp-action="Details" asp-route-id="@t.Id"
+                                       class="btn btn-sm btn-outline-secondary" title="View">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-arrow-left-right fs-1 d-block mb-2"></i>
+                                No transfers found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "BranchTransfers", "Index",
+            new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["statusFilter"] = statusFilter }))
+
+    </div>
+</div>

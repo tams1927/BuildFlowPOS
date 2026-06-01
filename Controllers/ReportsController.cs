@@ -1,5 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
+using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.Services.TenantDatabases;
 using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,29 +14,71 @@ namespace HardwareManagementSystem.Controllers
 {
     [Authorize]
     [PermissionAuthorize("Reports", "View")]
-    public class ReportsController : Controller
+    public partial class ReportsController : OperationalDbController
     {
-        private readonly ApplicationDbContext _context;
+        // Shared platform context — used ONLY for platform-owned reads (e.g. Tenants),
+        // which never live in a tenant's dedicated database.
+        private readonly ApplicationDbContext _platformDb;
         private readonly ReportPdfService _reportPdfService;
+        private readonly BranchService _branchService;
+        private readonly ITenantContext _tenantContext;
+        private readonly TenantGuard _tenantGuard;
+        private readonly AuditService _auditService;
 
-
-        public ReportsController(ApplicationDbContext context, ReportPdfService reportPdfService)
+        public ReportsController(
+            ITenantOperationalContextProvider ctxProvider,
+            ApplicationDbContext platformDb,
+            ReportPdfService reportPdfService,
+            BranchService branchService,
+            ITenantContext tenantContext,
+            TenantGuard tenantGuard,
+            AuditService auditService)
+            : base(ctxProvider)
         {
-            _context = context;
+            _platformDb = platformDb;
             _reportPdfService = reportPdfService;
+            _branchService = branchService;
+            _tenantContext = tenantContext;
+            _tenantGuard = tenantGuard;
+            _auditService = auditService;
         }
 
-        public async Task<IActionResult> Index(DateTime? dateFrom, DateTime? dateTo)
+        public async Task<IActionResult> Index(DateTime? dateFrom, DateTime? dateTo, int? branchId)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today;
             var to = dateTo?.Date ?? DateTime.Today;
 
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var salesQuery = _context.SalesHeaders
-                .AsNoTracking()
+            // Branch resolution
+            var isGlobal = _branchService.IsGlobalUser(User);
+            var allBranches = await _branchService.GetAllActiveBranchesAsync();
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+
+            // Non-global users always locked to their branch
+            int? effectiveBranchId = isGlobal
+                ? (branchId.HasValue && branchId > 0 ? branchId : null)
+                : currentBranch?.Id;
+
+            string? effectiveBranchName = effectiveBranchId.HasValue
+                ? allBranches.FirstOrDefault(b => b.Id == effectiveBranchId)?.Name
+                : null;
+
+            ViewBag.BranchId = effectiveBranchId;
+            ViewBag.BranchName = effectiveBranchName;
+            ViewBag.AllBranches = allBranches;
+            ViewBag.IsGlobalUser = isGlobal;
+
+            var salesQuery = ApplyTenantScope(
+                    _context.SalesHeaders.AsNoTracking(),
+                    tenantId)
                 .Where(s => s.SalesDate >= startDate && s.SalesDate < endDate);
+
+            if (effectiveBranchId.HasValue)
+                salesQuery = salesQuery.Where(s => s.BranchId == effectiveBranchId);
 
             var completedSales = salesQuery
                 .Where(s => s.Status == "Completed");
@@ -42,21 +86,25 @@ namespace HardwareManagementSystem.Controllers
             var voidedSales = salesQuery
                 .Where(s => s.Status == "Voided");
 
-            var collectionsQuery = _context.CustomerLedgers
-                .AsNoTracking()
+            var collectionsQuery = ApplyTenantScope(
+                    _context.CustomerLedgers.AsNoTracking(),
+                    tenantId)
                 .Where(l =>
                     l.TransactionType == "PAYMENT" &&
                     l.TransactionDate >= startDate &&
                     l.TransactionDate < endDate);
 
-            var returnsQuery = _context.SalesReturnHeaders
-                .AsNoTracking()
+            var returnsQuery = ApplyTenantScope(
+                    _context.SalesReturnHeaders.AsNoTracking(),
+                    tenantId)
                 .Where(r => r.ReturnDate >= startDate && r.ReturnDate < endDate);
 
             var model = new ReportsDashboardViewModel
             {
                 DateFrom = from,
                 DateTo = to,
+                BranchId = effectiveBranchId,
+                BranchName = effectiveBranchName,
 
                 GrossSales = await completedSales.SumAsync(s => s.SubTotal),
                 TotalDiscounts = await completedSales.SumAsync(s => s.DiscountAmount),
@@ -79,23 +127,26 @@ namespace HardwareManagementSystem.Controllers
                 Returns = await returnsQuery.SumAsync(r => r.RefundAmount),
                 VoidedSales = await voidedSales.SumAsync(s => s.TotalAmount),
 
-                OutstandingCustomerBalance = await _context.CustomerLedgers
-                    .AsNoTracking()
+                OutstandingCustomerBalance = await ApplyTenantScope(
+                        _context.CustomerLedgers.AsNoTracking(),
+                        tenantId)
                     .GroupBy(l => l.CustomerId)
                     .Select(g => g.OrderByDescending(x => x.Id)
                         .Select(x => x.RunningBalance)
                         .FirstOrDefault())
                     .SumAsync(),
 
-                LowStockCount = await _context.Items
-                    .AsNoTracking()
+                LowStockCount = await ApplyTenantScope(
+                        _context.Items.AsNoTracking(),
+                        tenantId)
                     .CountAsync(i =>
                         i.Status == "Active" &&
                         i.CurrentStock > 0 &&
                         i.CurrentStock <= i.ReorderLevel),
 
-                OutOfStockCount = await _context.Items
-                    .AsNoTracking()
+                OutOfStockCount = await ApplyTenantScope(
+                        _context.Items.AsNoTracking(),
+                        tenantId)
                     .CountAsync(i =>
                         i.Status == "Active" &&
                         i.CurrentStock <= 0)
@@ -112,8 +163,9 @@ namespace HardwareManagementSystem.Controllers
                 .OrderByDescending(x => x.TotalAmount)
                 .ToListAsync();
 
-            model.TopSellingItems = await _context.SalesDetails
-                .AsNoTracking()
+            model.TopSellingItems = await ApplyTenantScope(
+                    _context.SalesDetails.AsNoTracking(),
+                    tenantId)
                 .Include(d => d.Item)
                 .Include(d => d.SalesHeader)
                 .Where(d =>
@@ -132,8 +184,9 @@ namespace HardwareManagementSystem.Controllers
                 .Take(10)
                 .ToListAsync();
 
-            model.CustomerBalances = await _context.CustomerLedgers
-                .AsNoTracking()
+            model.CustomerBalances = await ApplyTenantScope(
+                    _context.CustomerLedgers.AsNoTracking(),
+                    tenantId)
                 .Include(l => l.Customer)
                 .GroupBy(l => new
                 {
@@ -161,6 +214,8 @@ namespace HardwareManagementSystem.Controllers
     DateTime? dateTo,
     string reportType = "All")
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today;
             var to = dateTo?.Date ?? DateTime.Today;
 
@@ -179,8 +234,9 @@ namespace HardwareManagementSystem.Controllers
 
             if (reportType == "Sales" || reportType == "All")
             {
-                var sales = await _context.SalesHeaders
-                    .AsNoTracking()
+                var sales = await ApplyTenantScope(
+                        _context.SalesHeaders.AsNoTracking(),
+                        tenantId)
                     .Where(s => s.SalesDate >= startDate &&
                                 s.SalesDate < endDate)
                     .OrderByDescending(s => s.SalesDate)
@@ -247,8 +303,9 @@ namespace HardwareManagementSystem.Controllers
 
             if (reportType == "Payments" || reportType == "All")
             {
-                var payments = await _context.SalesHeaders
-                    .AsNoTracking()
+                var payments = await ApplyTenantScope(
+                        _context.SalesHeaders.AsNoTracking(),
+                        tenantId)
                     .Where(s =>
                         s.Status == "Completed" &&
                         s.SalesDate >= startDate &&
@@ -299,8 +356,9 @@ namespace HardwareManagementSystem.Controllers
 
             if (reportType == "TopSelling" || reportType == "All")
             {
-                var topSelling = await _context.SalesDetails
-                    .AsNoTracking()
+                var topSelling = await ApplyTenantScope(
+                        _context.SalesDetails.AsNoTracking(),
+                        tenantId)
                     .Include(d => d.Item)
                     .Include(d => d.SalesHeader)
                     .Where(d =>
@@ -358,8 +416,9 @@ namespace HardwareManagementSystem.Controllers
 
             if (reportType == "CustomerBalances" || reportType == "All")
             {
-                var balances = await _context.CustomerLedgers
-                    .AsNoTracking()
+                var balances = await ApplyTenantScope(
+                        _context.CustomerLedgers.AsNoTracking(),
+                        tenantId)
                     .Include(l => l.Customer)
                     .GroupBy(l => new
                     {
@@ -415,8 +474,9 @@ namespace HardwareManagementSystem.Controllers
 
             if (reportType == "Inventory" || reportType == "All")
             {
-                var inventory = await _context.Items
-                    .AsNoTracking()
+                var inventory = await ApplyTenantScope(
+                        _context.Items.AsNoTracking(),
+                        tenantId)
                     .Where(i => i.Status == "Active")
                     .OrderBy(i => i.ItemName)
                     .ToListAsync();
@@ -476,6 +536,8 @@ namespace HardwareManagementSystem.Controllers
     DateTime? dateFrom,
     DateTime? dateTo)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today;
             var to = dateTo?.Date ?? DateTime.Today;
 
@@ -487,48 +549,48 @@ namespace HardwareManagementSystem.Controllers
                 DateFrom = from,
                 DateTo = to,
 
-                GrossSales = await _context.SalesHeaders
+                GrossSales = await ApplyTenantScope(_context.SalesHeaders, tenantId)
                     .Where(s =>
                         s.Status == "Completed" &&
                         s.SalesDate >= startDate &&
                         s.SalesDate < endDate)
                     .SumAsync(s => s.SubTotal),
 
-                TotalDiscounts = await _context.SalesHeaders
+                TotalDiscounts = await ApplyTenantScope(_context.SalesHeaders, tenantId)
                     .Where(s =>
                         s.Status == "Completed" &&
                         s.SalesDate >= startDate &&
                         s.SalesDate < endDate)
                     .SumAsync(s => s.DiscountAmount),
 
-                NetSales = await _context.SalesHeaders
+                NetSales = await ApplyTenantScope(_context.SalesHeaders, tenantId)
                     .Where(s =>
                         s.Status == "Completed" &&
                         s.SalesDate >= startDate &&
                         s.SalesDate < endDate)
                     .SumAsync(s => s.TotalAmount),
 
-                TransactionCount = await _context.SalesHeaders
+                TransactionCount = await ApplyTenantScope(_context.SalesHeaders, tenantId)
                     .Where(s =>
                         s.Status == "Completed" &&
                         s.SalesDate >= startDate &&
                         s.SalesDate < endDate)
                     .CountAsync(),
 
-                Collections = await _context.CustomerLedgers
+                Collections = await ApplyTenantScope(_context.CustomerLedgers, tenantId)
                     .Where(l =>
                         l.TransactionType == "PAYMENT" &&
                         l.TransactionDate >= startDate &&
                         l.TransactionDate < endDate)
                     .SumAsync(l => l.CreditAmount),
 
-                Returns = await _context.SalesReturnHeaders
+                Returns = await ApplyTenantScope(_context.SalesReturnHeaders, tenantId)
                     .Where(r =>
                         r.ReturnDate >= startDate &&
                         r.ReturnDate < endDate)
                     .SumAsync(r => r.RefundAmount),
 
-                VoidedSales = await _context.SalesHeaders
+                VoidedSales = await ApplyTenantScope(_context.SalesHeaders, tenantId)
                     .Where(s =>
                         s.Status == "Voided" &&
                         s.SalesDate >= startDate &&
@@ -545,9 +607,12 @@ namespace HardwareManagementSystem.Controllers
     string? searchTerm = null,
     string? paymentMethod = null,
     string? status = null,
+    int? branchId = null,
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
             var from = dateFrom?.Date ?? DateTime.Today;
@@ -556,12 +621,28 @@ namespace HardwareManagementSystem.Controllers
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var query = _context.SalesHeaders
-                .AsNoTracking()
+            // Branch resolution
+            var isGlobal = _branchService.IsGlobalUser(User);
+            var allBranches = await _branchService.GetAllActiveBranchesAsync();
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+            int? effectiveBranchId = isGlobal
+                ? (branchId.HasValue && branchId > 0 ? branchId : null)
+                : currentBranch?.Id;
+
+            ViewBag.AllBranches = allBranches;
+            ViewBag.IsGlobalUser = isGlobal;
+            ViewBag.BranchId = effectiveBranchId;
+
+            var query = ApplyTenantScope(
+                    _context.SalesHeaders.AsNoTracking(),
+                    tenantId)
                 .Include(s => s.Customer)
                 .Where(s => s.SalesDate >= startDate &&
                             s.SalesDate < endDate)
                 .AsQueryable();
+
+            if (effectiveBranchId.HasValue)
+                query = query.Where(s => s.BranchId == effectiveBranchId);
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -631,6 +712,8 @@ namespace HardwareManagementSystem.Controllers
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
             var from = dateFrom?.Date ?? DateTime.Today;
@@ -639,8 +722,9 @@ namespace HardwareManagementSystem.Controllers
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var query = _context.CustomerLedgers
-                .AsNoTracking()
+            var query = ApplyTenantScope(
+                    _context.CustomerLedgers.AsNoTracking(),
+                    tenantId)
                 .Include(l => l.Customer)
                 .Where(l =>
                     l.TransactionType == "PAYMENT" &&
@@ -711,10 +795,13 @@ namespace HardwareManagementSystem.Controllers
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
-            var query = _context.Customers
-                .AsNoTracking()
+            var query = ApplyCustomerTenantScope(
+                    _context.Customers.AsNoTracking(),
+                    tenantId)
                 .Where(c => c.IsActive)
                 .AsQueryable();
 
@@ -740,21 +827,21 @@ namespace HardwareManagementSystem.Controllers
                     CustomerType = c.CustomerType,
                     ContactNumber = c.ContactNumber,
 
-                    TotalCharges = _context.CustomerLedgers
+                    TotalCharges = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l => l.CustomerId == c.Id)
                         .Sum(l => l.DebitAmount),
 
-                    TotalPayments = _context.CustomerLedgers
+                    TotalPayments = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l => l.CustomerId == c.Id)
                         .Sum(l => l.CreditAmount),
 
-                    OutstandingBalance = _context.CustomerLedgers
+                    OutstandingBalance = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l => l.CustomerId == c.Id)
                         .OrderByDescending(l => l.Id)
                         .Select(l => l.RunningBalance)
                         .FirstOrDefault(),
 
-                    LastTransactionDate = _context.CustomerLedgers
+                    LastTransactionDate = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l => l.CustomerId == c.Id)
                         .OrderByDescending(l => l.Id)
                         .Select(l => (DateTime?)l.TransactionDate)
@@ -792,10 +879,13 @@ namespace HardwareManagementSystem.Controllers
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
-            var query = _context.Items
-                .AsNoTracking()
+            var query = ApplyTenantScope(
+                    _context.Items.AsNoTracking(),
+                    tenantId)
                 .Include(i => i.Category)
                 .Include(i => i.Unit)
                 .Where(i => i.Status == "Active")
@@ -880,6 +970,8 @@ namespace HardwareManagementSystem.Controllers
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
             var from = dateFrom?.Date ?? DateTime.Today;
@@ -897,8 +989,9 @@ namespace HardwareManagementSystem.Controllers
             if (string.IsNullOrWhiteSpace(reportType) ||
                 reportType == "RETURN")
             {
-                var returns = await _context.SalesReturnHeaders
-                    .AsNoTracking()
+                var returns = await ApplyTenantScope(
+                        _context.SalesReturnHeaders.AsNoTracking(),
+                        tenantId)
                     .Include(r => r.SalesHeader)
                     .Where(r =>
                         r.ReturnDate >= startDate &&
@@ -936,8 +1029,9 @@ namespace HardwareManagementSystem.Controllers
             if (string.IsNullOrWhiteSpace(reportType) ||
                 reportType == "VOID")
             {
-                var voids = await _context.SalesHeaders
-                    .AsNoTracking()
+                var voids = await ApplyTenantScope(
+                        _context.SalesHeaders.AsNoTracking(),
+                        tenantId)
                     .Where(s =>
                         s.Status == "Voided" &&
                         s.SalesDate >= startDate &&
@@ -1012,9 +1106,12 @@ namespace HardwareManagementSystem.Controllers
     DateTime? dateFrom,
     DateTime? dateTo,
     string? searchTerm = null,
+    int? branchId = null,
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
             var from = dateFrom?.Date ?? DateTime.Today;
@@ -1023,8 +1120,21 @@ namespace HardwareManagementSystem.Controllers
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var query = _context.SalesDetails
-                .AsNoTracking()
+            // Branch resolution
+            var isGlobal = _branchService.IsGlobalUser(User);
+            var allBranches = await _branchService.GetAllActiveBranchesAsync();
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+            int? effectiveBranchId = isGlobal
+                ? (branchId.HasValue && branchId > 0 ? branchId : null)
+                : currentBranch?.Id;
+
+            ViewBag.AllBranches = allBranches;
+            ViewBag.IsGlobalUser = isGlobal;
+            ViewBag.BranchId = effectiveBranchId;
+
+            var query = ApplyTenantScope(
+                    _context.SalesDetails.AsNoTracking(),
+                    tenantId)
                 .Include(d => d.SalesHeader)
                 .Include(d => d.Item)
                 .Where(d =>
@@ -1033,6 +1143,9 @@ namespace HardwareManagementSystem.Controllers
                     d.SalesHeader.SalesDate >= startDate &&
                     d.SalesHeader.SalesDate < endDate)
                 .AsQueryable();
+
+            if (effectiveBranchId.HasValue)
+                query = query.Where(d => d.SalesHeader!.BranchId == effectiveBranchId);
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -1096,6 +1209,8 @@ namespace HardwareManagementSystem.Controllers
     DateTime? dateFrom,
     DateTime? dateTo)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today.AddDays(-30);
             var to = dateTo?.Date ?? DateTime.Today;
 
@@ -1106,8 +1221,9 @@ namespace HardwareManagementSystem.Controllers
             // SALES DATA
             // ============================================
 
-            var sales = await _context.SalesHeaders
-                .AsNoTracking()
+            var sales = await ApplyTenantScope(
+                    _context.SalesHeaders.AsNoTracking(),
+                    tenantId)
                 .Where(s =>
                     s.Status == "Completed" &&
                     s.SalesDate >= startDate &&
@@ -1145,8 +1261,9 @@ namespace HardwareManagementSystem.Controllers
             // TOP SELLING ITEMS
             // ============================================
 
-            var topItems = await _context.SalesDetails
-            .AsNoTracking()
+            var topItems = await ApplyTenantScope(
+                    _context.SalesDetails.AsNoTracking(),
+                    tenantId)
             .Include(x => x.Item)
             .Include(x => x.SalesHeader)
             .Where(x =>
@@ -1204,90 +1321,26 @@ namespace HardwareManagementSystem.Controllers
             return View();
         }
 
-        public async Task<IActionResult> FastSlowMoving(
-        DateTime? dateFrom,
-        DateTime? dateTo,
-        string movementType = "FAST",
-        int pageNumber = 1,
-        int pageSize = 10)
-            {
-                pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+        /// <summary>
+        /// Legacy route — redirects to the Phase 4.6 split reports.
+        /// FastMovingItems and SlowMovingItems are the canonical replacements.
+        /// Kept so that any bookmarked /Reports/FastSlowMoving URLs remain functional.
+        /// </summary>
+        public IActionResult FastSlowMoving(
+            DateTime? dateFrom,
+            DateTime? dateTo,
+            string movementType = "FAST",
+            int? branchId = null,
+            int pageNumber = 1,
+            int pageSize = 10)
+        {
+            if (movementType?.ToUpperInvariant() == "SLOW")
+                return RedirectToAction(nameof(SlowMovingItems),
+                    new { branchId, thresholdDays = 90 });
 
-                var from = dateFrom?.Date ?? DateTime.Today.AddDays(-30);
-                var to = dateTo?.Date ?? DateTime.Today;
-
-                var startDate = from;
-                var endDate = to.AddDays(1);
-
-                var items = await _context.SalesDetails
-                    .AsNoTracking()
-                    .Include(x => x.Item)
-                    .Include(x => x.SalesHeader)
-                    .Where(x =>
-                        x.SalesHeader != null &&
-                        x.SalesHeader.Status == "Completed" &&
-                        x.SalesHeader.SalesDate >= startDate &&
-                        x.SalesHeader.SalesDate < endDate)
-                    .GroupBy(x => new
-                    {
-                        x.ItemId,
-                        ItemName = x.Item != null
-                            ? x.Item.ItemName
-                            : "Unknown",
-                        CurrentStock = x.Item != null
-                            ? x.Item.CurrentStock
-                            : 0
-                    })
-                    .Select(g => new FastSlowMovingViewModel
-                    {
-                        ItemId = g.Key.ItemId,
-                        ItemName = g.Key.ItemName,
-                        QuantitySold = g.Sum(x => x.Quantity),
-                        SalesAmount = g.Sum(x => x.LineTotal),
-                        CurrentStock = g.Key.CurrentStock,
-                        LastSoldDate = g.Max(x => x.SalesHeader!.SalesDate)
-                    })
-                    .ToListAsync();
-
-                if (movementType == "FAST")
-                {
-                    items = items
-                        .OrderByDescending(x => x.QuantitySold)
-                        .ToList();
-                }
-                else
-                {
-                    items = items
-                        .OrderBy(x => x.QuantitySold)
-                        .ToList();
-                }
-
-                var totalRecords = items.Count;
-
-                pageNumber = PagedResult<object>.ValidatePageNumber(
-                    pageNumber,
-                    (int)Math.Ceiling(totalRecords / (double)pageSize));
-
-                var pagedItems = items
-                    .Skip((pageNumber - 1) * pageSize)
-                    .Take(pageSize)
-                    .ToList();
-
-                ViewBag.DateFrom = from;
-                ViewBag.DateTo = to;
-                ViewBag.MovementType = movementType;
-
-                ViewBag.TotalQty = items.Sum(x => x.QuantitySold);
-                ViewBag.TotalSales = items.Sum(x => x.SalesAmount);
-
-                return View(new PagedResult<FastSlowMovingViewModel>
-                {
-                    Items = pagedItems,
-                    PageNumber = pageNumber,
-                    PageSize = pageSize,
-                    TotalRecords = totalRecords
-                });
-            }
+            return RedirectToAction(nameof(FastMovingItems),
+                new { branchId, dateFrom, dateTo });
+        }
 
         public async Task<IActionResult> CashierPerformance(
     DateTime? dateFrom,
@@ -1296,6 +1349,8 @@ namespace HardwareManagementSystem.Controllers
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
             var from = dateFrom?.Date ?? DateTime.Today;
@@ -1304,8 +1359,9 @@ namespace HardwareManagementSystem.Controllers
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var query = _context.SalesHeaders
-                .AsNoTracking()
+            var query = ApplyTenantScope(
+                    _context.SalesHeaders.AsNoTracking(),
+                    tenantId)
                 .Where(s =>
                     s.SalesDate >= startDate &&
                     s.SalesDate < endDate)
@@ -1396,12 +1452,15 @@ namespace HardwareManagementSystem.Controllers
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
             var today = DateTime.Today;
 
-            var query = _context.Customers
-                .AsNoTracking()
+            var query = ApplyCustomerTenantScope(
+                    _context.Customers.AsNoTracking(),
+                    tenantId)
                 .Where(c => c.IsActive)
                 .AsQueryable();
 
@@ -1419,20 +1478,20 @@ namespace HardwareManagementSystem.Controllers
                 {
                     CustomerName = c.CustomerName,
 
-                    TotalBalance = _context.CustomerLedgers
+                    TotalBalance = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l => l.CustomerId == c.Id)
                         .OrderByDescending(l => l.Id)
                         .Select(l => l.RunningBalance)
                         .FirstOrDefault(),
 
-                    CurrentBalance = _context.CustomerLedgers
+                    CurrentBalance = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l =>
                             l.CustomerId == c.Id &&
                             l.TransactionType == "CHARGE" &&
                             EF.Functions.DateDiffDay(l.TransactionDate, today) <= 30)
                         .Sum(l => l.DebitAmount),
 
-                    Days30 = _context.CustomerLedgers
+                    Days30 = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l =>
                             l.CustomerId == c.Id &&
                             l.TransactionType == "CHARGE" &&
@@ -1440,7 +1499,7 @@ namespace HardwareManagementSystem.Controllers
                             EF.Functions.DateDiffDay(l.TransactionDate, today) <= 60)
                         .Sum(l => l.DebitAmount),
 
-                    Days60 = _context.CustomerLedgers
+                    Days60 = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l =>
                             l.CustomerId == c.Id &&
                             l.TransactionType == "CHARGE" &&
@@ -1448,14 +1507,14 @@ namespace HardwareManagementSystem.Controllers
                             EF.Functions.DateDiffDay(l.TransactionDate, today) <= 90)
                         .Sum(l => l.DebitAmount),
 
-                    Over90Days = _context.CustomerLedgers
+                    Over90Days = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l =>
                             l.CustomerId == c.Id &&
                             l.TransactionType == "CHARGE" &&
                             EF.Functions.DateDiffDay(l.TransactionDate, today) > 90)
                         .Sum(l => l.DebitAmount),
 
-                    LastTransactionDate = _context.CustomerLedgers
+                    LastTransactionDate = ApplyTenantScope(_context.CustomerLedgers, tenantId)
                         .Where(l => l.CustomerId == c.Id)
                         .OrderByDescending(l => l.Id)
                         .Select(l => (DateTime?)l.TransactionDate)
@@ -1509,6 +1568,8 @@ namespace HardwareManagementSystem.Controllers
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
             var from = dateFrom?.Date ?? DateTime.Today.AddMonths(-1);
@@ -1518,8 +1579,9 @@ namespace HardwareManagementSystem.Controllers
             var endDate = to.AddDays(1);
             var today = DateTime.Today;
 
-            var query = _context.StockInHeaders
-                .AsNoTracking()
+            var query = ApplyTenantScope(
+                    _context.StockInHeaders.AsNoTracking(),
+                    tenantId)
                 .Include(s => s.Supplier)
                 .Where(s =>
                     s.DateReceived >= startDate &&
@@ -1604,6 +1666,8 @@ namespace HardwareManagementSystem.Controllers
     int pageNumber = 1,
     int pageSize = 10)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
             var from = dateFrom?.Date ?? DateTime.Today.AddMonths(-1);
@@ -1612,8 +1676,9 @@ namespace HardwareManagementSystem.Controllers
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var query = _context.SupplierPayments
-                .AsNoTracking()
+            var query = ApplyTenantScope(
+                    _context.SupplierPayments.AsNoTracking(),
+                    tenantId)
                 .Include(p => p.Supplier)
                 .Include(p => p.StockInHeader)
                 .Where(p =>
@@ -1683,23 +1748,46 @@ namespace HardwareManagementSystem.Controllers
 
         public async Task<IActionResult> ExpenseVsProfit(
     DateTime? dateFrom,
-    DateTime? dateTo)
+    DateTime? dateTo,
+    int? branchId = null)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today;
             var to = dateTo?.Date ?? DateTime.Today;
 
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var completedSales = _context.SalesHeaders
-                .AsNoTracking()
+            // Branch resolution
+            var isGlobal = _branchService.IsGlobalUser(User);
+            var allBranches = await _branchService.GetAllActiveBranchesAsync();
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+            int? effectiveBranchId = isGlobal
+                ? (branchId.HasValue && branchId > 0 ? branchId : null)
+                : currentBranch?.Id;
+
+            string? effectiveBranchName = effectiveBranchId.HasValue
+                ? allBranches.FirstOrDefault(b => b.Id == effectiveBranchId)?.Name
+                : null;
+
+            ViewBag.AllBranches = allBranches;
+            ViewBag.IsGlobalUser = isGlobal;
+
+            var completedSales = ApplyTenantScope(
+                    _context.SalesHeaders.AsNoTracking(),
+                    tenantId)
                 .Where(s =>
                     s.Status == "Completed" &&
                     s.SalesDate >= startDate &&
                     s.SalesDate < endDate);
 
-            var salesDetails = _context.SalesDetails
-                .AsNoTracking()
+            if (effectiveBranchId.HasValue)
+                completedSales = completedSales.Where(s => s.BranchId == effectiveBranchId);
+
+            var salesDetails = ApplyTenantScope(
+                    _context.SalesDetails.AsNoTracking(),
+                    tenantId)
                 .Include(d => d.SalesHeader)
                 .Include(d => d.Item)
                 .Where(d =>
@@ -1708,8 +1796,20 @@ namespace HardwareManagementSystem.Controllers
                     d.SalesHeader.SalesDate >= startDate &&
                     d.SalesHeader.SalesDate < endDate);
 
-            var grossSales = await completedSales
-                .SumAsync(s => s.TotalAmount);
+            if (effectiveBranchId.HasValue)
+                salesDetails = salesDetails.Where(d => d.SalesHeader!.BranchId == effectiveBranchId);
+
+            var expensesQuery = ApplyTenantScope(
+                    _context.Expenses.AsNoTracking(),
+                    tenantId)
+                .Where(e =>
+                    e.ExpenseDate >= startDate &&
+                    e.ExpenseDate < endDate);
+
+            if (effectiveBranchId.HasValue)
+                expensesQuery = expensesQuery.Where(e => e.BranchId == effectiveBranchId);
+
+            var grossSales = await completedSales.SumAsync(s => s.TotalAmount);
 
             var costOfGoods = await salesDetails
                 .SumAsync(d =>
@@ -1718,18 +1818,13 @@ namespace HardwareManagementSystem.Controllers
                         : 0);
 
             var grossProfit = grossSales - costOfGoods;
-
-            var operatingExpenses = await _context.Expenses
-                .AsNoTracking()
-                .Where(e =>
-                    e.ExpenseDate >= startDate &&
-                    e.ExpenseDate < endDate)
-                .SumAsync(e => e.Amount);
-
+            var operatingExpenses = await expensesQuery.SumAsync(e => e.Amount);
             var netProfit = grossProfit - operatingExpenses;
 
             var model = new ExpenseVsProfitReportViewModel
             {
+                BranchId = effectiveBranchId,
+                BranchName = effectiveBranchName,
                 GrossSales = grossSales,
                 CostOfGoods = costOfGoods,
                 GrossProfit = grossProfit,
@@ -1750,6 +1845,8 @@ namespace HardwareManagementSystem.Controllers
     DateTime? dateFrom,
     DateTime? dateTo)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today;
             var to = dateTo?.Date ?? DateTime.Today;
 
@@ -1758,12 +1855,14 @@ namespace HardwareManagementSystem.Controllers
 
             var settings = await _context.SystemSettings
                 .AsNoTracking()
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId)
+                ?? new SystemSetting();
 
-            var taxMode = settings?.TaxMode ?? "VAT";
+            var taxMode = settings.TaxMode;
 
-            var sales = await _context.SalesHeaders
-                .AsNoTracking()
+            var sales = await ApplyTenantScope(
+                    _context.SalesHeaders.AsNoTracking(),
+                    tenantId)
                 .Where(s =>
                     s.Status == "Completed" &&
                     s.SalesDate >= startDate &&
@@ -1800,6 +1899,8 @@ namespace HardwareManagementSystem.Controllers
             DateTime? dateFrom,
             DateTime? dateTo)
                 {
+                    var tenantId = await GetReportTenantIdAsync();
+
                     var from = dateFrom?.Date ?? DateTime.Today;
                     var to = dateTo?.Date ?? DateTime.Today;
 
@@ -1808,12 +1909,14 @@ namespace HardwareManagementSystem.Controllers
 
                     var settings = await _context.SystemSettings
                         .AsNoTracking()
-                        .FirstOrDefaultAsync();
+                        .FirstOrDefaultAsync(s => s.TenantId == tenantId)
+                        ?? new SystemSetting();
 
                     var taxMode = settings?.TaxMode ?? "VAT";
 
-                    var sales = await _context.SalesHeaders
-                        .AsNoTracking()
+                    var sales = await ApplyTenantScope(
+                            _context.SalesHeaders.AsNoTracking(),
+                            tenantId)
                         .Where(s =>
                             s.Status == "Completed" &&
                             s.SalesDate >= startDate &&
@@ -1861,14 +1964,17 @@ namespace HardwareManagementSystem.Controllers
             string? paymentMethod = null,
             string? status = null)
                 {
+                    var tenantId = await GetReportTenantIdAsync();
+
                     var from = dateFrom?.Date ?? DateTime.Today;
                     var to = dateTo?.Date ?? DateTime.Today;
 
                     var startDate = from;
                     var endDate = to.AddDays(1);
 
-                    var query = _context.SalesHeaders
-                        .AsNoTracking()
+                    var query = ApplyTenantScope(
+                            _context.SalesHeaders.AsNoTracking(),
+                            tenantId)
                         .Include(s => s.Customer)
                         .Where(s =>
                             s.SalesDate >= startDate &&
@@ -1944,14 +2050,17 @@ namespace HardwareManagementSystem.Controllers
     DateTime? dateTo,
     string? searchTerm = null)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today;
             var to = dateTo?.Date ?? DateTime.Today;
 
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var query = _context.SalesDetails
-                .AsNoTracking()
+            var query = ApplyTenantScope(
+                    _context.SalesDetails.AsNoTracking(),
+                    tenantId)
                 .Include(d => d.SalesHeader)
                 .Include(d => d.Item)
                 .Where(d =>
@@ -2022,14 +2131,17 @@ namespace HardwareManagementSystem.Controllers
     DateTime? dateTo,
     string? searchTerm = null)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today;
             var to = dateTo?.Date ?? DateTime.Today;
 
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var query = _context.SalesHeaders
-                .AsNoTracking()
+            var query = ApplyTenantScope(
+                    _context.SalesHeaders.AsNoTracking(),
+                    tenantId)
                 .Where(s =>
                     s.SalesDate >= startDate &&
                     s.SalesDate < endDate);
@@ -2103,6 +2215,8 @@ namespace HardwareManagementSystem.Controllers
     string? searchTerm = null,
     string? paymentStatus = null)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today.AddMonths(-1);
             var to = dateTo?.Date ?? DateTime.Today;
 
@@ -2110,8 +2224,9 @@ namespace HardwareManagementSystem.Controllers
             var endDate = to.AddDays(1);
             var today = DateTime.Today;
 
-            var query = _context.StockInHeaders
-                .AsNoTracking()
+            var query = ApplyTenantScope(
+                    _context.StockInHeaders.AsNoTracking(),
+                    tenantId)
                 .Include(s => s.Supplier)
                 .Where(s =>
                     s.DateReceived >= startDate &&
@@ -2202,14 +2317,17 @@ namespace HardwareManagementSystem.Controllers
     string? searchTerm = null,
     string? paymentMethod = null)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today.AddMonths(-1);
             var to = dateTo?.Date ?? DateTime.Today;
 
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var query = _context.SupplierPayments
-                .AsNoTracking()
+            var query = ApplyTenantScope(
+                    _context.SupplierPayments.AsNoTracking(),
+                    tenantId)
                 .Include(p => p.Supplier)
                 .Include(p => p.StockInHeader)
                 .Where(p =>
@@ -2289,21 +2407,25 @@ namespace HardwareManagementSystem.Controllers
     DateTime? dateFrom,
     DateTime? dateTo)
         {
+            var tenantId = await GetReportTenantIdAsync();
+
             var from = dateFrom?.Date ?? DateTime.Today;
             var to = dateTo?.Date ?? DateTime.Today;
 
             var startDate = from;
             var endDate = to.AddDays(1);
 
-            var completedSales = _context.SalesHeaders
-                .AsNoTracking()
+            var completedSales = ApplyTenantScope(
+                    _context.SalesHeaders.AsNoTracking(),
+                    tenantId)
                 .Where(s =>
                     s.Status == "Completed" &&
                     s.SalesDate >= startDate &&
                     s.SalesDate < endDate);
 
-            var salesDetails = _context.SalesDetails
-                .AsNoTracking()
+            var salesDetails = ApplyTenantScope(
+                    _context.SalesDetails.AsNoTracking(),
+                    tenantId)
                 .Include(d => d.SalesHeader)
                 .Include(d => d.Item)
                 .Where(d =>
@@ -2323,8 +2445,9 @@ namespace HardwareManagementSystem.Controllers
 
             var grossProfit = grossSales - costOfGoods;
 
-            var operatingExpenses = await _context.Expenses
-                .AsNoTracking()
+            var operatingExpenses = await ApplyTenantScope(
+                    _context.Expenses.AsNoTracking(),
+                    tenantId)
                 .Where(e =>
                     e.ExpenseDate >= startDate &&
                     e.ExpenseDate < endDate)
@@ -2362,6 +2485,429 @@ namespace HardwareManagementSystem.Controllers
                 pdfBytes,
                 "application/pdf",
                 $"ExpenseVsProfit_{DateTime.Now:yyyyMMddHHmmss}.pdf");
+        }
+
+        // =====================================================
+        // INVENTORY VALUATION (STOCK STATUS REPORT)
+        // Branch-aware paged list with Excel export.
+        // For WAC category-grouped PDF see InventoryValuationReport.
+        // =====================================================
+
+        [PermissionAuthorize("InventoryValuation", "View")]
+        public async Task<IActionResult> InventoryValuation(
+            string? searchTerm = null,
+            string? stockStatus = null,
+            int? branchId = null,
+            int pageNumber = 1,
+            int pageSize = 25)
+        {
+            var tenantId = await GetReportTenantIdAsync();
+
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var isGlobal = _branchService.IsGlobalUser(User);
+            var allBranches = await _branchService.GetAllActiveBranchesAsync();
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+            int? effectiveBranchId = isGlobal
+                ? (branchId.HasValue && branchId > 0 ? branchId : null)
+                : currentBranch?.Id;
+
+            string? effectiveBranchName = effectiveBranchId.HasValue
+                ? allBranches.FirstOrDefault(b => b.Id == effectiveBranchId)?.Name
+                : null;
+
+            ViewBag.AllBranches = allBranches;
+            ViewBag.IsGlobalUser = isGlobal;
+            ViewBag.BranchId = effectiveBranchId;
+            ViewBag.StockStatus = stockStatus;
+
+            List<InventoryValuationViewModel> rows;
+
+            if (effectiveBranchId.HasValue)
+            {
+                // Branch-aware: use BranchProductStocks
+                var branchStockQuery = ApplyTenantScope(
+                        _context.BranchProductStocks.AsNoTracking(),
+                        tenantId)
+                    .Include(s => s.Product)
+                        .ThenInclude(p => p!.Category)
+                    .Include(s => s.Product)
+                        .ThenInclude(p => p!.Unit)
+                    .Where(s => s.BranchId == effectiveBranchId && s.Product != null && s.Product.Status == "Active");
+
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    var term = searchTerm.Trim().ToLower();
+                    branchStockQuery = branchStockQuery.Where(s =>
+                        s.Product!.ItemCode.ToLower().Contains(term) ||
+                        s.Product!.ItemName.ToLower().Contains(term) ||
+                        (s.Product.Category != null && s.Product.Category.CategoryName.ToLower().Contains(term)));
+                }
+
+                if (!string.IsNullOrWhiteSpace(stockStatus))
+                {
+                    if (stockStatus == "out")
+                        branchStockQuery = branchStockQuery.Where(s => s.Quantity <= 0);
+                    else if (stockStatus == "low")
+                        branchStockQuery = branchStockQuery.Where(s => s.Quantity > 0 && s.Quantity <= (s.ReorderLevel ?? s.Product!.ReorderLevel));
+                    else if (stockStatus == "normal")
+                        branchStockQuery = branchStockQuery.Where(s => s.Quantity > (s.ReorderLevel ?? s.Product!.ReorderLevel));
+                }
+
+                var totalRecords = await branchStockQuery.CountAsync();
+                pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber, (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+                var branchData = await branchStockQuery
+                    .OrderBy(s => s.Product!.ItemName)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                rows = branchData.Select(s => new InventoryValuationViewModel
+                {
+                    ItemId = s.ProductId,
+                    ItemCode = s.Product?.ItemCode ?? "",
+                    ItemName = s.Product?.ItemName ?? "",
+                    CategoryName = s.Product?.Category?.CategoryName ?? "N/A",
+                    UnitName = s.Product?.Unit?.ShortName ?? "",
+                    Quantity = s.Quantity,
+                    CostPrice = s.Product?.CostPrice ?? 0,
+                    SellingPrice = s.Product?.SellingPrice ?? 0,
+                    CostValue = s.Quantity * (s.Product?.CostPrice ?? 0),
+                    SellingValue = s.Quantity * (s.Product?.SellingPrice ?? 0),
+                    ReorderLevel = s.ReorderLevel ?? s.Product?.ReorderLevel ?? 0,
+                    StockStatus = s.Quantity <= 0 ? "Out of Stock"
+                        : s.Quantity <= (s.ReorderLevel ?? s.Product?.ReorderLevel ?? 0) ? "Low Stock"
+                        : "Normal",
+                    BranchId = effectiveBranchId,
+                    BranchName = effectiveBranchName
+                }).ToList();
+
+                var allCostValue = await ApplyTenantScope(
+                        _context.BranchProductStocks.AsNoTracking(),
+                        tenantId)
+                    .Where(s => s.BranchId == effectiveBranchId && s.Product != null)
+                    .SumAsync(s => s.Quantity * s.Product!.CostPrice);
+
+                var allSellingValue = await ApplyTenantScope(
+                        _context.BranchProductStocks.AsNoTracking(),
+                        tenantId)
+                    .Where(s => s.BranchId == effectiveBranchId && s.Product != null)
+                    .SumAsync(s => s.Quantity * s.Product!.SellingPrice);
+
+                ViewBag.TotalCostValue = allCostValue;
+                ViewBag.TotalSellingValue = allSellingValue;
+                ViewBag.TotalRecordsAll = totalRecords;
+
+                return View(new PagedResult<InventoryValuationViewModel>
+                {
+                    Items = rows,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    TotalRecords = totalRecords,
+                    SearchTerm = searchTerm
+                });
+            }
+            else
+            {
+                // Global fallback: CurrentStock on Items
+                var itemQuery = ApplyTenantScope(
+                        _context.Items.AsNoTracking(),
+                        tenantId)
+                    .Include(i => i.Category)
+                    .Include(i => i.Unit)
+                    .Where(i => i.Status == "Active");
+
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    var term = searchTerm.Trim().ToLower();
+                    itemQuery = itemQuery.Where(i =>
+                        i.ItemCode.ToLower().Contains(term) ||
+                        i.ItemName.ToLower().Contains(term) ||
+                        (i.Category != null && i.Category.CategoryName.ToLower().Contains(term)));
+                }
+
+                if (!string.IsNullOrWhiteSpace(stockStatus))
+                {
+                    if (stockStatus == "out")
+                        itemQuery = itemQuery.Where(i => i.CurrentStock <= 0);
+                    else if (stockStatus == "low")
+                        itemQuery = itemQuery.Where(i => i.CurrentStock > 0 && i.CurrentStock <= i.ReorderLevel);
+                    else if (stockStatus == "normal")
+                        itemQuery = itemQuery.Where(i => i.CurrentStock > i.ReorderLevel);
+                }
+
+                var totalRecords = await itemQuery.CountAsync();
+                pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber, (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+                rows = await itemQuery
+                    .OrderBy(i => i.ItemName)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(i => new InventoryValuationViewModel
+                    {
+                        ItemId = i.Id,
+                        ItemCode = i.ItemCode,
+                        ItemName = i.ItemName,
+                        CategoryName = i.Category != null ? i.Category.CategoryName : "N/A",
+                        UnitName = i.Unit != null ? i.Unit.ShortName : "",
+                        Quantity = i.CurrentStock,
+                        CostPrice = i.CostPrice,
+                        SellingPrice = i.SellingPrice,
+                        CostValue = i.CurrentStock * i.CostPrice,
+                        SellingValue = i.CurrentStock * i.SellingPrice,
+                        ReorderLevel = i.ReorderLevel,
+                        StockStatus = i.CurrentStock <= 0 ? "Out of Stock"
+                            : i.CurrentStock <= i.ReorderLevel ? "Low Stock"
+                            : "Normal"
+                    })
+                    .ToListAsync();
+
+                ViewBag.TotalCostValue = await ApplyTenantScope(
+                        _context.Items.AsNoTracking(),
+                        tenantId)
+                    .Where(i => i.Status == "Active")
+                    .SumAsync(i => i.CurrentStock * i.CostPrice);
+
+                ViewBag.TotalSellingValue = await ApplyTenantScope(
+                        _context.Items.AsNoTracking(),
+                        tenantId)
+                    .Where(i => i.Status == "Active")
+                    .SumAsync(i => i.CurrentStock * i.SellingPrice);
+
+                return View(new PagedResult<InventoryValuationViewModel>
+                {
+                    Items = rows,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    TotalRecords = totalRecords,
+                    SearchTerm = searchTerm
+                });
+            }
+        }
+
+        [PermissionAuthorize("InventoryValuation", "Export")]
+        public async Task<IActionResult> ExportInventoryValuationExcel(
+            string? stockStatus = null,
+            int? branchId = null)
+        {
+            var tenantId = await GetReportTenantIdAsync();
+
+            var isGlobal = _branchService.IsGlobalUser(User);
+            var allBranches = await _branchService.GetAllActiveBranchesAsync();
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+            int? effectiveBranchId = isGlobal
+                ? (branchId.HasValue && branchId > 0 ? branchId : null)
+                : currentBranch?.Id;
+
+            string branchLabel = effectiveBranchId.HasValue
+                ? allBranches.FirstOrDefault(b => b.Id == effectiveBranchId)?.Name ?? "Branch"
+                : "All Branches";
+
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("Inventory Valuation");
+
+            ws.Cell(1, 1).Value = "Inventory Valuation Report";
+            ws.Range(1, 1, 1, 8).Merge();
+            ws.Range(1, 1, 1, 8).Style.Font.Bold = true;
+            ws.Range(1, 1, 1, 8).Style.Font.FontSize = 16;
+
+            ws.Cell(2, 1).Value = $"Branch: {branchLabel}  |  Generated: {DateTime.Now:MMM dd, yyyy hh:mm tt}";
+            ws.Range(2, 1, 2, 8).Merge();
+
+            ws.Cell(4, 1).Value = "Code";
+            ws.Cell(4, 2).Value = "Product Name";
+            ws.Cell(4, 3).Value = "Category";
+            ws.Cell(4, 4).Value = "Unit";
+            ws.Cell(4, 5).Value = "Quantity";
+            ws.Cell(4, 6).Value = "Cost Price";
+            ws.Cell(4, 7).Value = "Cost Value";
+            ws.Cell(4, 8).Value = "Selling Value";
+
+            var header = ws.Range(4, 1, 4, 8);
+            header.Style.Font.Bold = true;
+            header.Style.Fill.BackgroundColor = XLColor.LightBlue;
+
+            var row = 5;
+
+            if (effectiveBranchId.HasValue)
+            {
+                var branchStocks = await ApplyTenantScope(
+                        _context.BranchProductStocks.AsNoTracking(),
+                        tenantId)
+                    .Include(s => s.Product).ThenInclude(p => p!.Category)
+                    .Include(s => s.Product).ThenInclude(p => p!.Unit)
+                    .Where(s => s.BranchId == effectiveBranchId && s.Product != null && s.Product.Status == "Active")
+                    .OrderBy(s => s.Product!.ItemName)
+                    .ToListAsync();
+
+                foreach (var s in branchStocks)
+                {
+                    ws.Cell(row, 1).Value = s.Product?.ItemCode ?? "";
+                    ws.Cell(row, 2).Value = s.Product?.ItemName ?? "";
+                    ws.Cell(row, 3).Value = s.Product?.Category?.CategoryName ?? "N/A";
+                    ws.Cell(row, 4).Value = s.Product?.Unit?.ShortName ?? "";
+                    ws.Cell(row, 5).Value = s.Quantity;
+                    ws.Cell(row, 6).Value = s.Product?.CostPrice ?? 0;
+                    ws.Cell(row, 7).Value = s.Quantity * (s.Product?.CostPrice ?? 0);
+                    ws.Cell(row, 8).Value = s.Quantity * (s.Product?.SellingPrice ?? 0);
+                    row++;
+                }
+            }
+            else
+            {
+                var items = await ApplyTenantScope(
+                        _context.Items.AsNoTracking(),
+                        tenantId)
+                    .Include(i => i.Category)
+                    .Include(i => i.Unit)
+                    .Where(i => i.Status == "Active")
+                    .OrderBy(i => i.ItemName)
+                    .ToListAsync();
+
+                foreach (var item in items)
+                {
+                    ws.Cell(row, 1).Value = item.ItemCode;
+                    ws.Cell(row, 2).Value = item.ItemName;
+                    ws.Cell(row, 3).Value = item.Category?.CategoryName ?? "N/A";
+                    ws.Cell(row, 4).Value = item.Unit?.ShortName ?? "";
+                    ws.Cell(row, 5).Value = item.CurrentStock;
+                    ws.Cell(row, 6).Value = item.CostPrice;
+                    ws.Cell(row, 7).Value = item.CurrentStock * item.CostPrice;
+                    ws.Cell(row, 8).Value = item.CurrentStock * item.SellingPrice;
+                    row++;
+                }
+            }
+
+            ws.Columns().AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            return File(
+                stream.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"InventoryValuation_{DateTime.Now:yyyyMMdd}.xlsx");
+        }
+
+        // =====================================================
+        // TRANSFER ANALYTICS
+        // =====================================================
+
+        public async Task<IActionResult> TransferAnalytics(
+            DateTime? dateFrom,
+            DateTime? dateTo,
+            string? status = null,
+            int? branchId = null,
+            int pageNumber = 1,
+            int pageSize = 25)
+        {
+            var tenantId = await GetReportTenantIdAsync();
+
+            pageSize = PagedResult<object>.ValidatePageSize(pageSize);
+
+            var from = dateFrom?.Date ?? DateTime.Today.AddDays(-30);
+            var to = dateTo?.Date ?? DateTime.Today;
+            var startDate = from;
+            var endDate = to.AddDays(1);
+
+            var isGlobal = _branchService.IsGlobalUser(User);
+            var allBranches = await _branchService.GetAllActiveBranchesAsync();
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+            int? effectiveBranchId = isGlobal
+                ? (branchId.HasValue && branchId > 0 ? branchId : null)
+                : currentBranch?.Id;
+
+            ViewBag.AllBranches = allBranches;
+            ViewBag.IsGlobalUser = isGlobal;
+            ViewBag.BranchId = effectiveBranchId;
+            ViewBag.Status = status;
+            ViewBag.DateFrom = from;
+            ViewBag.DateTo = to;
+
+            var query = ApplyTenantScope(
+                    _context.BranchTransfers.AsNoTracking(),
+                    tenantId)
+                .Include(t => t.FromBranch)
+                .Include(t => t.ToBranch)
+                .Include(t => t.BranchTransferItems)
+                .Where(t => t.CreatedAtUtc >= startDate.ToUniversalTime() && t.CreatedAtUtc < endDate.ToUniversalTime());
+
+            if (effectiveBranchId.HasValue)
+                query = query.Where(t => t.FromBranchId == effectiveBranchId || t.ToBranchId == effectiveBranchId);
+
+            if (!string.IsNullOrWhiteSpace(status))
+                query = query.Where(t => t.Status == status);
+
+            var totalRecords = await query.CountAsync();
+            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber, (int)Math.Ceiling(totalRecords / (double)pageSize));
+
+            var transfers = await query
+                .OrderByDescending(t => t.CreatedAtUtc)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var rows = transfers.Select(t => new TransferAnalyticsViewModel
+            {
+                TransferNumber = t.TransferNumber,
+                FromBranch = t.FromBranch?.Name ?? "N/A",
+                ToBranch = t.ToBranch?.Name ?? "N/A",
+                Status = t.Status,
+                CreatedAt = t.CreatedAtUtc.ToLocalTime(),
+                CompletedAt = t.CompletedAtUtc?.ToLocalTime(),
+                ItemCount = t.BranchTransferItems.Count,
+                TotalQuantity = t.BranchTransferItems.Sum(i => i.Quantity),
+                CreatedBy = t.CreatedByUserName ?? "Unknown"
+            }).ToList();
+
+            // KPI summary
+            var allForPeriod = await ApplyTenantScope(
+                    _context.BranchTransfers.AsNoTracking(),
+                    tenantId)
+                .Include(t => t.BranchTransferItems)
+                .Where(t => t.CreatedAtUtc >= startDate.ToUniversalTime() && t.CreatedAtUtc < endDate.ToUniversalTime())
+                .ToListAsync();
+
+            if (effectiveBranchId.HasValue)
+                allForPeriod = allForPeriod.Where(t => t.FromBranchId == effectiveBranchId || t.ToBranchId == effectiveBranchId).ToList();
+
+            ViewBag.TotalTransfers = allForPeriod.Count;
+            ViewBag.CompletedTransfers = allForPeriod.Count(t => t.Status == "Completed");
+            ViewBag.PendingTransfers = allForPeriod.Count(t => t.Status is "Pending" or "Draft" or "Approved");
+            ViewBag.TotalQuantity = allForPeriod.Sum(t => t.BranchTransferItems.Sum(i => i.Quantity));
+
+            // Top transferred products
+            var topProducts = await ApplyTenantScope(
+                    _context.BranchTransferItems.AsNoTracking(),
+                    tenantId)
+                .Include(i => i.Product)
+                .Include(i => i.BranchTransfer)
+                .Where(i =>
+                    i.BranchTransfer != null &&
+                    i.BranchTransfer.CreatedAtUtc >= startDate.ToUniversalTime() &&
+                    i.BranchTransfer.CreatedAtUtc < endDate.ToUniversalTime())
+                .GroupBy(i => new { i.ProductId, ItemCode = i.Product != null ? i.Product.ItemCode : "N/A", ItemName = i.Product != null ? i.Product.ItemName : "N/A" })
+                .Select(g => new TransferProductRowViewModel
+                {
+                    ItemCode = g.Key.ItemCode,
+                    ItemName = g.Key.ItemName,
+                    TotalQuantityTransferred = g.Sum(x => x.Quantity),
+                    TransferCount = g.Count()
+                })
+                .OrderByDescending(x => x.TotalQuantityTransferred)
+                .Take(10)
+                .ToListAsync();
+
+            ViewBag.TopProducts = topProducts;
+
+            return View(new PagedResult<TransferAnalyticsViewModel>
+            {
+                Items = rows,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalRecords = totalRecords
+            });
         }
     }
 }

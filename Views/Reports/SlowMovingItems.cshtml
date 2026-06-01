@@ -1,0 +1,85 @@
+@model HardwareManagementSystem.ViewModels.SlowMovingItemsViewModel
+@{
+    ViewData["Title"] = "Slow Moving Items";
+    var categories = ViewBag.AllCategories as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+    var allBranches = ViewBag.AllBranches as IEnumerable<HardwareManagementSystem.Models.Branch> ?? Enumerable.Empty<HardwareManagementSystem.Models.Branch>();
+    bool isGlobal = ViewBag.IsGlobalUser == true;
+    var thresholds = new[] { 30, 60, 90, 180, 365 };
+}
+
+<div class="hb-card">
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title"><i class="bi bi-graph-down me-2 text-warning"></i>Slow Moving Items</h2>
+            <div class="hb-section-subtitle">Items with low sales activity in the last @Model.ThresholdDays days@(Model.BranchName != null ? $" · {Model.BranchName}" : "")</div>
+        </div>
+        <a asp-action="SlowMovingItemsPdf" asp-route-branchId="@Model.BranchId" asp-route-categoryId="@Model.CategoryId" asp-route-thresholdDays="@Model.ThresholdDays"
+           class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+    </div>
+    <div class="hb-card-body">
+
+        <form method="get" asp-action="SlowMovingItems" class="mb-4">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2"><label class="form-label small fw-semibold">Threshold (days)</label>
+                    <select name="thresholdDays" class="form-select form-select-sm">
+                        @foreach (var t in thresholds) { <option value="@t" selected="@(Model.ThresholdDays == t)">@t days</option> }
+                    </select></div>
+                @if (isGlobal)
+                {
+                    <div class="col-md-2"><label class="form-label small fw-semibold">Branch</label>
+                        <select name="branchId" class="form-select form-select-sm">
+                            <option value="">All Branches</option>
+                            @foreach (var b in allBranches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }
+                        </select></div>
+                }
+                <div class="col-md-2"><label class="form-label small fw-semibold">Category</label>
+                    <select name="categoryId" class="form-select form-select-sm">
+                        <option value="">All Categories</option>
+                        @foreach (var c in categories) { <option value="@c.Id" selected="@(Model.CategoryId == (int)c.Id)">@c.CategoryName</option> }
+                    </select></div>
+                <div class="col-md-1"><button type="submit" class="btn btn-primary btn-sm" data-no-disable="true"><i class="bi bi-funnel"></i></button></div>
+            </div>
+        </form>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3"><div class="kpi-card py-3"><div class="kpi-label">Slow Items</div><div class="kpi-value fs-5 text-warning">@Model.Rows.Count</div></div></div>
+            <div class="col-md-3"><div class="kpi-card py-3"><div class="kpi-label">Total Value at Risk</div><div class="kpi-value fs-5">₱@Model.Rows.Sum(r => r.InventoryValue).ToString("N2")</div></div></div>
+            <div class="col-md-3"><div class="kpi-card py-3"><div class="kpi-label">Avg Days Inactive</div><div class="kpi-value fs-5">@(Model.Rows.Any() ? Model.Rows.Average(r => r.DaysSinceLastSale == -1 ? 999 : r.DaysSinceLastSale).ToString("N0") : "—")</div></div></div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr>
+                    <th>SKU</th><th>Item Name</th><th>Category</th>
+                    <th class="text-end">Current Stock</th><th class="text-end">Inv. Value</th>
+                    <th class="text-end">Qty Sold (Period)</th><th>Last Sold</th><th class="text-end">Days Inactive</th>
+                </tr></thead>
+                <tbody>
+                    @if (Model.Rows.Any())
+                    {
+                        foreach (var r in Model.Rows)
+                        {
+                            var rowClass = r.DaysSinceLastSale > 365 || r.DaysSinceLastSale == -1 ? "table-danger" : r.DaysSinceLastSale > 180 ? "table-warning" : "";
+                            <tr class="@rowClass">
+                                <td class="small text-muted">@r.ItemCode</td>
+                                <td><strong>@r.ItemName</strong></td>
+                                <td class="small">@r.Category</td>
+                                <td class="text-end">@r.CurrentStock.ToString("N3")</td>
+                                <td class="text-end">₱@r.InventoryValue.ToString("N2")</td>
+                                <td class="text-end">@r.QtySold.ToString("N3")</td>
+                                <td class="small">@(r.LastSoldDate.HasValue ? r.LastSoldDate.Value.ToString("MMM dd, yyyy") : "<span class='badge badge-soft-danger'>Never</span>")</td>
+                                <td class="text-end fw-bold">@(r.DaysSinceLastSale == -1 ? "∞" : r.DaysSinceLastSale.ToString())</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-check-circle fs-1 d-block mb-2 text-success"></i>All items are moving well.
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

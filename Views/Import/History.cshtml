@@ -1,0 +1,96 @@
+@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.ImportBatch>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Import History";
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Import History</h2>
+            <div class="hb-section-subtitle">All past Excel import batches</div>
+        </div>
+        <a asp-action="Index" class="btn btn-primary">
+            <i class="bi bi-upload me-1"></i>
+            New Import
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Import Type</th>
+                        <th>File Name</th>
+                        <th>Total</th>
+                        <th>Success</th>
+                        <th>Failed</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th width="100">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var batch in Model.Items)
+                        {
+                            <tr>
+                                <td class="text-muted small">@batch.Id</td>
+                                <td><span class="badge badge-soft-primary">@batch.ImportType</span></td>
+                                <td class="small">@batch.FileName</td>
+                                <td>@batch.TotalRows</td>
+                                <td class="text-success fw-semibold">@batch.SuccessRows</td>
+                                <td class="@(batch.FailedRows > 0 ? "text-danger fw-semibold" : "")">@batch.FailedRows</td>
+                                <td>
+                                    @switch (batch.Status)
+                                    {
+                                        case "Completed":
+                                            <span class="badge badge-soft-success">Completed</span>
+                                            break;
+                                        case "Processing":
+                                            <span class="badge badge-soft-warning">Processing</span>
+                                            break;
+                                        case "Failed":
+                                            <span class="badge badge-soft-danger">Failed</span>
+                                            break;
+                                        default:
+                                            <span class="badge badge-soft-secondary">@batch.Status</span>
+                                            break;
+                                    }
+                                </td>
+                                <td class="small text-muted">@batch.CreatedAtUtc.ToLocalTime().ToString("MMM dd, yyyy hh:mm tt")</td>
+                                <td>
+                                    <a asp-action="Details" asp-route-batchId="@batch.Id"
+                                       class="btn btn-sm btn-outline-primary" title="View Details">
+                                        <i class="bi bi-list-ul"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No import batches yet.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Import", "History", new Dictionary<string, string?>()))
+
+    </div>
+
+</div>

@@ -1,9 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HardwareManagementSystem.Models.Interfaces;
 
 namespace HardwareManagementSystem.Models
 {
-    public class Item
+    public class Item : ITenantEntity
     {
         public int Id { get; set; }
 
@@ -27,6 +28,13 @@ namespace HardwareManagementSystem.Models
         [Column(TypeName = "decimal(18,3)")]
         public decimal ReorderLevel { get; set; }
 
+        /// <summary>
+        /// Maximum desired stock level. Used for reorder quantity calculation.
+        /// When null, suggested reorder qty falls back to avg monthly sales × 2.
+        /// </summary>
+        [Column(TypeName = "decimal(18,3)")]
+        public decimal? MaxStockLevel { get; set; }
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal CostPrice { get; set; }
 
@@ -39,7 +47,16 @@ namespace HardwareManagementSystem.Models
         [StringLength(250)]
         public string? Description { get; set; }
 
+        /// <summary>Barcode / EAN / UPC. Used for POS barcode scanner input.</summary>
+        [StringLength(100)]
+        public string? Barcode { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        /// <summary>Tenant this product belongs to. Nullable for backward compatibility.</summary>
+        public int? TenantId { get; set; }
+
+        public Tenant? Tenant { get; set; }
 
         public Category? Category { get; set; }
 

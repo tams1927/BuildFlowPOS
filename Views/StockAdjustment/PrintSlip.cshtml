@@ -1,0 +1,105 @@
+@model HardwareManagementSystem.Models.StockAdjustmentHeader
+@{
+    Layout = "~/Views/Shared/_PrintDoc.cshtml";
+    ViewBag.PrintDocTitle  = $"STOCK ADJUSTMENT — {Model.AdjustmentType.ToUpper()}";
+    ViewBag.PrintDocNumber = Model.AdjustmentNumber;
+    ViewBag.PrintDocDate   = Model.AdjustmentDate.ToString("MMMM dd, yyyy");
+}
+
+@section DocActions {
+    <button onclick="window.print()" class="btn-print">
+        &#128438; Print / Save PDF
+    </button>
+    <a href="@Url.Action("Index", "StockAdjustment")" class="btn-secondary-print">
+        &#x2190; Back
+    </a>
+}
+
+<!-- Adjustment Info -->
+<div class="doc-info-grid">
+    <div>
+        <div class="info-label">Type</div>
+        <div class="info-value">
+            <span class="doc-status @(Model.AdjustmentType == "Increase" ? "delivered" : "cancelled")">
+                @Model.AdjustmentType
+            </span>
+        </div>
+    </div>
+    <div>
+        <div class="info-label">Date</div>
+        <div class="info-value">@Model.AdjustmentDate.ToString("MMMM dd, yyyy")</div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.CreatedBy))
+    {
+        <div>
+            <div class="info-label">Created By</div>
+            <div class="info-value muted">@Model.CreatedBy</div>
+        </div>
+    }
+    @if (Model.Branch != null)
+    {
+        <div>
+            <div class="info-label">Branch</div>
+            <div class="info-value muted">@Model.Branch.Name</div>
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.Reason))
+    {
+        <div class="full-span">
+            <div class="info-label">Reason</div>
+            <div class="info-value muted">@Model.Reason</div>
+        </div>
+    }
+</div>
+
+<!-- Items table -->
+<div class="doc-section-title">Adjusted Items</div>
+
+<table class="doc-table">
+    <thead>
+        <tr>
+            <th style="width:30px">#</th>
+            <th>Product</th>
+            <th>SKU</th>
+            <th class="text-right" style="width:80px">Qty Adj.</th>
+            <th class="text-right" style="width:80px">Before</th>
+            <th class="text-right" style="width:80px">After</th>
+            <th style="width:60px">Unit</th>
+        </tr>
+    </thead>
+    <tbody>
+        @{int n = 1;}
+        @foreach (var detail in Model.StockAdjustmentDetails)
+        {
+            <tr>
+                <td>@(n++)</td>
+                <td><strong>@(detail.Item?.ItemName ?? "—")</strong></td>
+                <td style="font-size:10px;color:#888;">@(detail.Item?.ItemCode ?? "")</td>
+                <td class="text-right">
+                    @(Model.AdjustmentType == "Increase" ? "+" : "-")@detail.Quantity.ToString("0.###")
+                </td>
+                <td class="text-right" style="color:#888;">@detail.StockBefore.ToString("0.###")</td>
+                <td class="text-right" style="font-weight:700;color:#1e3a5f;">@detail.StockAfter.ToString("0.###")</td>
+                <td>@(detail.Item?.Unit?.ShortName ?? "")</td>
+            </tr>
+        }
+        @if (!Model.StockAdjustmentDetails.Any())
+        {
+            <tr>
+                <td colspan="7" style="text-align:center;color:#888;padding:16px;">No items.</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Signature area -->
+<div class="sig-row two-col">
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Prepared By</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Authorized By</div>
+    </div>
+</div>

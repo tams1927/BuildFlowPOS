@@ -6,6 +6,10 @@
 
         public DateTime DateTo { get; set; }
 
+        public int? BranchId { get; set; }
+
+        public string? BranchName { get; set; }
+
         public decimal GrossSales { get; set; }
 
         public decimal TotalDiscounts { get; set; }

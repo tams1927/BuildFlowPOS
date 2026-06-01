@@ -1,0 +1,126 @@
+@{
+    ViewData["Title"] = "Excel Import";
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Excel Import</h2>
+            <div class="hb-section-subtitle">
+                Import existing data from Excel files � Products, Stock, Customers, Suppliers
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="History" class="btn btn-outline-primary">
+                <i class="bi bi-clock-history me-1"></i>
+                Import History
+            </a>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- STEP INDICATOR -->
+        <div class="d-flex align-items-center gap-2 mb-4">
+            <span class="badge bg-primary px-3 py-2">1 Upload</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-secondary px-3 py-2">2 Mapping</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-secondary px-3 py-2">3 Preview</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-secondary px-3 py-2">4 Confirm</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-secondary px-3 py-2">5 Result</span>
+        </div>
+
+        <div class="row g-4">
+
+            <!-- UPLOAD FORM -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm rounded-3 h-100">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold mb-1"><i class="bi bi-upload me-2 text-primary"></i>Upload Excel File</h5>
+                        <p class="text-muted small mb-4">Select your import type and upload the Excel file (.xlsx)</p>
+
+                        <form asp-action="Upload" method="post" enctype="multipart/form-data">
+                            @Html.AntiForgeryToken()
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Import Type <span class="text-danger">*</span></label>
+                                <select name="importType" class="form-select" id="importTypeSelect" required>
+                                    <option value="">-- Select Type --</option>
+                                    <option value="Products">Products / Items</option>
+                                    <option value="OpeningStock">Opening Stock</option>
+                                    <option value="Customers">Customers</option>
+                                    <option value="Suppliers">Suppliers</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Excel File <span class="text-danger">*</span></label>
+                                <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required />
+                                <div class="form-text">Supported: .xlsx, .xls � Max 10MB</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-upload me-1"></i>
+                                Upload & Continue
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DOWNLOAD TEMPLATES -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm rounded-3 h-100">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold mb-1"><i class="bi bi-file-earmark-excel me-2 text-success"></i>Download Templates</h5>
+                        <p class="text-muted small mb-4">Use these templates to ensure your data matches the required format.</p>
+
+                        <div class="d-grid gap-2">
+                            <a asp-action="DownloadTemplate" asp-route-importType="Products"
+                               class="btn btn-outline-success">
+                                <i class="bi bi-file-earmark-excel me-1"></i>
+                                Products Template
+                            </a>
+                            <a asp-action="DownloadTemplate" asp-route-importType="OpeningStock"
+                               class="btn btn-outline-success">
+                                <i class="bi bi-file-earmark-excel me-1"></i>
+                                Opening Stock Template
+                            </a>
+                            <a asp-action="DownloadTemplate" asp-route-importType="Customers"
+                               class="btn btn-outline-success">
+                                <i class="bi bi-file-earmark-excel me-1"></i>
+                                Customers Template
+                            </a>
+                            <a asp-action="DownloadTemplate" asp-route-importType="Suppliers"
+                               class="btn btn-outline-success">
+                                <i class="bi bi-file-earmark-excel me-1"></i>
+                                Suppliers Template
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IMPORT NOTES -->
+            <div class="col-12">
+                <div class="alert alert-info border-0 rounded-3 mb-0">
+                    <h6 class="fw-bold mb-2"><i class="bi bi-info-circle me-1"></i>Import Notes</h6>
+                    <ul class="mb-0 small">
+                        <li>Row 1 must contain column headers. Data starts from row 2.</li>
+                        <li><strong>Products:</strong> Item Name, Unit, and Selling Price are required. Units, Categories, and Suppliers must already exist in the system.</li>
+                        <li><strong>Opening Stock:</strong> Adds quantity to existing products matched by Item Name or Item Code.</li>
+                        <li><strong>Customers / Suppliers:</strong> Duplicates (same name) are detected and skipped.</li>
+                        <li>Invalid rows are logged and skipped � they do not block valid rows from importing.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

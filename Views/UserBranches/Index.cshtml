@@ -1,0 +1,212 @@
+@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.UserBranchListVm>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "User Branch Assignments";
+    var allBranches = ViewBag.AllBranches as List<HardwareManagementSystem.Models.Branch> ?? new();
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">User Branch Assignments</h2>
+            <div class="hb-section-subtitle">
+                Assign users to allowed branches � Admin and TenantAdmin have global access
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get" asp-controller="UserBranches" asp-action="Index" class="mb-4">
+            <div class="row g-3">
+                <div class="col-lg-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" name="searchTerm" class="form-control border-start-0"
+                               value="@Model.SearchTerm" placeholder="Search user name..." />
+                    </div>
+                </div>
+                <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                <input type="hidden" name="pageNumber" value="1" />
+                <div class="col-auto">
+                    <button class="btn btn-primary" type="submit" data-no-disable="true">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Assigned Branches</th>
+                        <th>Access Level</th>
+                        <th width="130">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var vm in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@vm.FullName</strong>
+                                    <div class="text-muted small">@vm.UserName</div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-soft-secondary">@vm.Role</span>
+                                </td>
+                                <td>
+                                    @if (vm.IsGlobal)
+                                    {
+                                        <span class="badge badge-soft-primary">
+                                            <i class="bi bi-globe me-1"></i>All Branches
+                                        </span>
+                                    }
+                                    else if (!vm.AssignedBranches.Any())
+                                    {
+                                        <span class="text-muted small fst-italic">No branches assigned</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var ub in vm.AssignedBranches)
+                                            {
+                                                <span class="badge badge-soft-success d-inline-flex align-items-center gap-1">
+                                                    <i class="bi bi-building" style="font-size:.75rem;"></i>
+                                                    @ub.Branch?.Name
+                                                    <form asp-controller="UserBranches" asp-action="Remove"
+                                                          method="post" class="d-inline mb-0">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@ub.Id" />
+                                                        <button type="button" class="btn-close btn-close-white"
+                                                                style="font-size:.5rem; opacity:.8;"
+                                                                title="Remove branch"
+                                                                onclick="confirmRemoveBranch(this, '@(ub.Branch?.Name?.Replace("'","\\'")??"")','@vm.FullName.Replace("'","\\'")' )">
+                                                        </button>
+                                                    </form>
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    @if (vm.IsGlobal)
+                                    {
+                                        <span class="badge badge-soft-primary">Global</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-secondary">Branch-locked</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!vm.IsGlobal && allBranches.Any())
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary"
+                                                title="Assign Branch"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#assignModal"
+                                                data-userid="@vm.UserId"
+                                                data-username="@vm.FullName">
+                                            <i class="bi bi-plus-circle me-1"></i>Assign
+                                        </button>
+                                    }
+                                    else if (vm.IsGlobal)
+                                    {
+                                        <span class="text-muted small">N/A</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-people fs-1 d-block mb-2"></i>
+                                No users found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "UserBranches", "Index",
+            new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm }))
+
+    </div>
+</div>
+
+<!-- ASSIGN BRANCH MODAL -->
+<div class="modal fade" id="assignModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold">Assign Branch</h5>
+                    <div class="text-muted small" id="assignModalSubtitle">Select a branch to assign</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form asp-controller="UserBranches" asp-action="Assign" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="assignUserId" name="userId" />
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">Branch <span class="text-danger">*</span></label>
+                    <select name="branchId" class="form-select" required>
+                        <option value="">Select Branch</option>
+                        @foreach (var b in allBranches)
+                        {
+                            <option value="@b.Id">
+                                @b.Name (@b.Code)@(b.IsMainBranch ? " ?" : "")
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-1"></i>Assign Branch
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById('assignModal').addEventListener('show.bs.modal', function (e) {
+            const btn = e.relatedTarget;
+            document.getElementById('assignUserId').value = btn.dataset.userid;
+            document.getElementById('assignModalSubtitle').textContent = 'Assigning branch to: ' + btn.dataset.username;
+        });
+
+        function confirmRemoveBranch(btn, branchName, userName) {
+            Swal.fire({
+                title: 'Remove Branch?',
+                html: `Remove <strong>${branchName}</strong> from <strong>${userName}</strong>?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Remove',
+                cancelButtonText: 'Cancel'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    btn.closest('form').requestSubmit();
+                }
+            });
+        }
+    </script>
+}

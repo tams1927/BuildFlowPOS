@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.Services.TenantDatabases;
 using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,17 +11,26 @@ namespace HardwareManagementSystem.Controllers
 {
     [Authorize]
     [PermissionAuthorize("CustomerCollections", "View")]
-    public class CustomerCollectionsController : Controller
+    public class CustomerCollectionsController : OperationalDbController
     {
-        private readonly ApplicationDbContext _context;
+        // Shared platform context — used ONLY for platform-owned reads (e.g. Tenants).
+        private readonly ApplicationDbContext _platformDb;
         private readonly AuditService _auditService;
+        private readonly ITenantContext _tenantContext;
+        private readonly TenantGuard _tenantGuard;
 
         public CustomerCollectionsController(
-            ApplicationDbContext context,
-            AuditService auditService)
+            ITenantOperationalContextProvider ctxProvider,
+            ApplicationDbContext platformDb,
+            AuditService auditService,
+            ITenantContext tenantContext,
+            TenantGuard tenantGuard)
+            : base(ctxProvider)
         {
-            _context = context;
+            _platformDb = platformDb;
             _auditService = auditService;
+            _tenantContext = tenantContext;
+            _tenantGuard = tenantGuard;
         }
 
         public async Task<IActionResult> Index(
@@ -30,9 +40,20 @@ namespace HardwareManagementSystem.Controllers
         {
             pageSize = PagedResult<CustomerLedger>.ValidatePageSize(pageSize);
 
-            ViewBag.Customers = await _context.Customers
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
+            var customersQuery = _context.Customers
                 .AsNoTracking()
-                .Where(c => c.IsActive)
+                .Where(c => c.IsActive);
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                customersQuery = customersQuery.Where(c =>
+                    c.TenantId == tenantId ||
+                    c.TenantId == null);
+            }
+
+            ViewBag.Customers = await customersQuery
                 .OrderBy(c => c.CustomerName)
                 .ToListAsync();
 
@@ -47,6 +68,21 @@ namespace HardwareManagementSystem.Controllers
                     PageSize = pageSize,
                     TotalRecords = 0
                 });
+            }
+
+            var customer = await _context.Customers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == customerId.Value);
+
+            if (customer == null)
+            {
+                TempData["ErrorMessage"] = "Customer not found.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (!await _tenantGuard.CanAccessTenantAsync(customer.TenantId))
+            {
+                return Forbid();
             }
 
             var query = _context.CustomerLedgers
@@ -67,9 +103,14 @@ namespace HardwareManagementSystem.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
-            // Aggregate totals across all records (not just current page)
             var allLedger = await query
-                .Select(l => new { l.DebitAmount, l.CreditAmount, l.RunningBalance, l.Id })
+                .Select(l => new
+                {
+                    l.DebitAmount,
+                    l.CreditAmount,
+                    l.RunningBalance,
+                    l.Id
+                })
                 .ToListAsync();
 
             ViewBag.TotalCharges = allLedger.Sum(l => l.DebitAmount);
@@ -89,13 +130,16 @@ namespace HardwareManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermissionAuthorize("CustomerCollections", "Create")]
         public async Task<IActionResult> CollectPayment(
-    int customerId,
-    decimal paymentAmount,
-    string paymentMethod,
-    string? referenceNumber,
-    string? remarks)
+            int customerId,
+            decimal paymentAmount,
+            string paymentMethod,
+            string? referenceNumber,
+            string? remarks)
         {
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             if (customerId <= 0)
             {
                 TempData["ErrorMessage"] = "Customer is required.";
@@ -121,8 +165,17 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Index), new { customerId });
             }
 
-            var customer = await _context.Customers
-                .FirstOrDefaultAsync(c => c.Id == customerId && c.IsActive);
+            var customerQuery = _context.Customers
+                .Where(c => c.Id == customerId && c.IsActive);
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                customerQuery = customerQuery.Where(c =>
+                    c.TenantId == tenantId ||
+                    c.TenantId == null);
+            }
+
+            var customer = await customerQuery.FirstOrDefaultAsync();
 
             if (customer == null)
             {
@@ -130,63 +183,118 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var previousBalance = await _context.CustomerLedgers
-                .Where(l => l.CustomerId == customerId)
-                .OrderByDescending(l => l.Id)
-                .Select(l => l.RunningBalance)
-                .FirstOrDefaultAsync();
-
-            if (previousBalance <= 0)
+            if (!await _tenantGuard.CanAccessTenantAsync(customer.TenantId))
             {
-                TempData["ErrorMessage"] = "Customer has no outstanding balance.";
-                return RedirectToAction(nameof(Index), new { customerId });
+                return Forbid();
             }
 
-            if (paymentAmount > previousBalance)
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
             {
-                TempData["ErrorMessage"] = "Payment cannot exceed outstanding balance.";
-                return RedirectToAction(nameof(Index), new { customerId });
+                customer = await customerQuery.FirstOrDefaultAsync();
+
+                if (customer == null)
+                {
+                    await transaction.RollbackAsync();
+                    TempData["ErrorMessage"] = "Customer not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                if (!customer.TenantId.HasValue && tenantId.HasValue)
+                {
+                    customer.TenantId = tenantId;
+                }
+
+                var previousBalance = await _context.CustomerLedgers
+                    .Where(l => l.CustomerId == customerId)
+                    .OrderByDescending(l => l.Id)
+                    .Select(l => l.RunningBalance)
+                    .FirstOrDefaultAsync();
+
+                if (previousBalance <= 0)
+                {
+                    await transaction.RollbackAsync();
+
+                    await _auditService.LogAsync(
+                        User,
+                        "CustomerCollections",
+                        "PAYMENT REJECTED",
+                        $"Payment rejected for customer '{customer.CustomerName}': no outstanding balance (concurrent payment may have cleared it).",
+                        "Customer",
+                        customerId.ToString(),
+                        HttpContext.Connection.RemoteIpAddress?.ToString());
+
+                    TempData["ErrorMessage"] =
+                        "Customer has no outstanding balance. Another payment may have already been applied.";
+                    return RedirectToAction(nameof(Index), new { customerId });
+                }
+
+                if (paymentAmount > previousBalance)
+                {
+                    await transaction.RollbackAsync();
+
+                    await _auditService.LogAsync(
+                        User,
+                        "CustomerCollections",
+                        "PAYMENT REJECTED",
+                        $"Payment rejected for customer '{customer.CustomerName}': amount {paymentAmount:N2} exceeds latest balance {previousBalance:N2}.",
+                        "Customer",
+                        customerId.ToString(),
+                        HttpContext.Connection.RemoteIpAddress?.ToString());
+
+                    TempData["ErrorMessage"] =
+                        "Payment cannot exceed the current outstanding balance. Please refresh and try again.";
+                    return RedirectToAction(nameof(Index), new { customerId });
+                }
+
+                var collectionNumber = await GenerateCollectionNumberAsync();
+                var newBalance = previousBalance - paymentAmount;
+
+                var ledger = new CustomerLedger
+                {
+                    CustomerId = customerId,
+                    TransactionType = "PAYMENT",
+                    ReferenceNumber = collectionNumber,
+                    DebitAmount = 0,
+                    CreditAmount = paymentAmount,
+                    BalanceBefore = previousBalance,
+                    RunningBalance = newBalance,
+                    PaymentMethod = paymentMethod,
+                    PaymentReferenceNumber = referenceNumber,
+                    Remarks = string.IsNullOrWhiteSpace(remarks)
+                        ? $"Collection payment via {paymentMethod}"
+                        : remarks,
+                    TransactionDate = DateTime.Now,
+                    CreatedBy = User.Identity?.Name ?? "Unknown",
+                    CreatedAt = DateTime.Now
+                };
+
+                _context.CustomerLedgers.Add(ledger);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                await _auditService.LogAsync(
+                    User,
+                    "CustomerCollections",
+                    "PAYMENT COLLECTED",
+                    $"Payment collected. Customer: {customer.CustomerName}, Amount: {paymentAmount:N2}, Previous Balance: {previousBalance:N2}, Remaining Balance: {newBalance:N2}, Method: {paymentMethod}",
+                    "CustomerLedger",
+                    ledger.Id.ToString(),
+                    HttpContext.Connection.RemoteIpAddress?.ToString()
+                );
+
+                TempData["SuccessMessage"] =
+                    $"Payment collected successfully. Ref: {collectionNumber}";
+
+                return RedirectToAction(nameof(Receipt), new { id = ledger.Id });
             }
-
-            var collectionNumber = await GenerateCollectionNumberAsync();
-            var newBalance = previousBalance - paymentAmount;
-
-            var ledger = new CustomerLedger
+            catch
             {
-                CustomerId = customerId,
-                TransactionType = "PAYMENT",
-                ReferenceNumber = collectionNumber,
-                DebitAmount = 0,
-                CreditAmount = paymentAmount,
-                BalanceBefore = previousBalance,
-                RunningBalance = newBalance,
-                PaymentMethod = paymentMethod,
-                PaymentReferenceNumber = referenceNumber,
-                Remarks = string.IsNullOrWhiteSpace(remarks)
-                    ? $"Collection payment via {paymentMethod}"
-                    : remarks,
-                TransactionDate = DateTime.Now,
-                CreatedBy = User.Identity?.Name ?? "Unknown",
-                CreatedAt = DateTime.Now
-            };
-
-            _context.CustomerLedgers.Add(ledger);
-
-            await _context.SaveChangesAsync();
-
-            await _auditService.LogAsync(
-                User,
-                "CustomerCollections",
-                "PAYMENT COLLECTED",
-                $"Payment collected. Customer: {customer.CustomerName}, Amount: {paymentAmount:N2}, Previous Balance: {previousBalance:N2}, Remaining Balance: {newBalance:N2}, Method: {paymentMethod}",
-                "CustomerLedger",
-                ledger.Id.ToString(),
-                HttpContext.Connection.RemoteIpAddress?.ToString()
-            );
-
-            TempData["SuccessMessage"] = $"Payment collected successfully. Ref: {collectionNumber}";
-
-            return RedirectToAction(nameof(Receipt), new { id = ledger.Id });
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<IActionResult> Receipt(int id)
@@ -194,13 +302,32 @@ namespace HardwareManagementSystem.Controllers
             var ledger = await _context.CustomerLedgers
                 .Include(l => l.Customer)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(l => l.Id == id && l.TransactionType == "PAYMENT");
+                .FirstOrDefaultAsync(l =>
+                    l.Id == id &&
+                    l.TransactionType == "PAYMENT");
 
             if (ledger == null)
             {
                 TempData["ErrorMessage"] = "Collection receipt not found.";
                 return RedirectToAction(nameof(Index));
             }
+
+            if (ledger.Customer != null &&
+                !await _tenantGuard.CanAccessTenantAsync(ledger.Customer.TenantId))
+            {
+                return Forbid();
+            }
+
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+            var settings = await _context.SystemSettings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId)
+                ?? new SystemSetting();
+            Tenant? tenant = tenantId.HasValue
+                ? await _platformDb.Tenants.FindAsync(tenantId.Value)
+                : null;
+
+            ViewBag.PrintSettings = settings;
+            ViewBag.PrintTenant   = tenant;
 
             return View(ledger);
         }

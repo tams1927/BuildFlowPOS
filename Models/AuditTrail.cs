@@ -1,8 +1,14 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using HardwareManagementSystem.Models.Interfaces;
 
 namespace HardwareManagementSystem.Models
 {
-    public class AuditTrail
+    /// <remarks>
+    /// TRANSITION TABLE — Phase 5.0: classified as ITenantEntity pending design decision.
+    /// TenantId = null rows are SuperAdmin/platform audit entries.
+    /// See docs/Phase50A_TableClassification.md §C for details.
+    /// </remarks>
+    public class AuditTrail : ITenantEntity
     {
         public int Id { get; set; }
 
@@ -39,6 +45,9 @@ namespace HardwareManagementSystem.Models
         public string? DeviceType { get; set; }
 
         public string? UserAgent { get; set; }
+
+        /// <summary>Tenant context for this audit log entry. Nullable for backward compatibility.</summary>
+        public int? TenantId { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }

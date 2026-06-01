@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.Services.TenantDatabases;
 using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,15 +11,22 @@ namespace HardwareManagementSystem.Controllers
 {
     [Authorize]
     [PermissionAuthorize("Units", "View")]
-    public class UnitsController : Controller
+    public class UnitsController : OperationalDbController
     {
-        private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
+        private readonly ITenantContext _tenantContext;
+        private readonly TenantGuard _tenantGuard;
 
-        public UnitsController(ApplicationDbContext context, AuditService auditService)
+        public UnitsController(
+            ITenantOperationalContextProvider ctxProvider,
+            AuditService auditService,
+            ITenantContext tenantContext,
+            TenantGuard tenantGuard)
+            : base(ctxProvider)
         {
-            _context = context;
             _auditService = auditService;
+            _tenantContext = tenantContext;
+            _tenantGuard = tenantGuard;
         }
 
         public async Task<IActionResult> Index(
@@ -29,17 +37,28 @@ namespace HardwareManagementSystem.Controllers
         {
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             var query = _context.Units
                 .AsNoTracking()
                 .AsQueryable();
 
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                query = query.Where(u =>
+                    u.TenantId == tenantId ||
+                    u.TenantId == null);
+            }
+
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 var term = searchTerm.Trim().ToLower();
+
                 query = query.Where(u =>
                     u.UnitName.ToLower().Contains(term) ||
                     u.ShortName.ToLower().Contains(term) ||
-                    (u.UnitType != null && u.UnitType.ToLower().Contains(term)));
+                    (u.UnitType != null &&
+                     u.UnitType.ToLower().Contains(term)));
             }
 
             if (!string.IsNullOrWhiteSpace(statusFilter))
@@ -50,7 +69,8 @@ namespace HardwareManagementSystem.Controllers
 
             var totalRecords = await query.CountAsync();
 
-            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+            pageNumber = PagedResult<object>.ValidatePageNumber(
+                pageNumber,
                 (int)Math.Ceiling(totalRecords / (double)pageSize));
 
             var units = await query
@@ -73,27 +93,54 @@ namespace HardwareManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(string unitName, string shortName, string? unitType, string? description, bool allowsDecimal)
+        [PermissionAuthorize("Units", "Create")]
+        public async Task<IActionResult> Create(
+            string unitName,
+            string shortName,
+            string? unitType,
+            string? description,
+            bool allowsDecimal)
         {
-            if (string.IsNullOrWhiteSpace(unitName) || string.IsNullOrWhiteSpace(shortName))
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
+            if (string.IsNullOrWhiteSpace(unitName) ||
+                string.IsNullOrWhiteSpace(shortName))
             {
-                TempData["ErrorMessage"] = "Unit name and short name are required.";
+                TempData["ErrorMessage"] =
+                    "Unit name and short name are required.";
+
                 return RedirectToAction(nameof(Index));
             }
 
-            var exists = await _context.Units.AnyAsync(u =>
-                u.UnitName == unitName.Trim() || u.ShortName == shortName.Trim());
+            var name = unitName.Trim();
+            var shortCode = shortName.Trim();
+
+            var duplicateQuery = _context.Units.AsQueryable();
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                duplicateQuery = duplicateQuery.Where(u =>
+                    u.TenantId == tenantId ||
+                    u.TenantId == null);
+            }
+
+            var exists = await duplicateQuery.AnyAsync(u =>
+                u.UnitName == name ||
+                u.ShortName == shortCode);
 
             if (exists)
             {
-                TempData["ErrorMessage"] = "Unit name or short name already exists.";
+                TempData["ErrorMessage"] =
+                    "Unit name or short name already exists.";
+
                 return RedirectToAction(nameof(Index));
             }
 
             var unit = new Unit
             {
-                UnitName = unitName.Trim(),
-                ShortName = shortName.Trim(),
+                TenantId = tenantId,
+                UnitName = name,
+                ShortName = shortCode,
                 UnitType = unitType,
                 Description = description,
                 AllowsDecimal = allowsDecimal,
@@ -102,7 +149,9 @@ namespace HardwareManagementSystem.Controllers
             };
 
             _context.Units.Add(unit);
+
             await _context.SaveChangesAsync();
+
             await _auditService.LogAsync(
                 User,
                 "Units",
@@ -114,12 +163,21 @@ namespace HardwareManagementSystem.Controllers
             );
 
             TempData["SuccessMessage"] = "Unit added successfully.";
+
             return RedirectToAction(nameof(Index));
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, string unitName, string shortName, string? unitType, string? description, bool allowsDecimal, bool isActive)
+        [PermissionAuthorize("Units", "Edit")]
+        public async Task<IActionResult> Edit(
+            int id,
+            string unitName,
+            string shortName,
+            string? unitType,
+            string? description,
+            bool allowsDecimal,
+            bool isActive)
         {
             var unit = await _context.Units.FindAsync(id);
 
@@ -129,45 +187,78 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            if (string.IsNullOrWhiteSpace(unitName) || string.IsNullOrWhiteSpace(shortName))
+            if (!await _tenantGuard.CanAccessTenantAsync(unit.TenantId))
             {
-                TempData["ErrorMessage"] = "Unit name and short name are required.";
+                return Forbid();
+            }
+
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
+            if (string.IsNullOrWhiteSpace(unitName) ||
+                string.IsNullOrWhiteSpace(shortName))
+            {
+                TempData["ErrorMessage"] =
+                    "Unit name and short name are required.";
+
                 return RedirectToAction(nameof(Index));
             }
 
-            var exists = await _context.Units.AnyAsync(u =>
-                u.Id != id &&
-                (u.UnitName == unitName.Trim() || u.ShortName == shortName.Trim()));
+            var name = unitName.Trim();
+            var shortCode = shortName.Trim();
 
-            if (exists)
+            var duplicateQuery = _context.Units
+                .Where(u =>
+                    u.Id != id &&
+                    (u.UnitName == name ||
+                     u.ShortName == shortCode));
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
             {
-                TempData["ErrorMessage"] = "Unit name or short name already exists.";
+                duplicateQuery = duplicateQuery.Where(u =>
+                    u.TenantId == tenantId ||
+                    u.TenantId == null);
+            }
+
+            if (await duplicateQuery.AnyAsync())
+            {
+                TempData["ErrorMessage"] =
+                    "Unit name or short name already exists.";
+
                 return RedirectToAction(nameof(Index));
             }
 
-            unit.UnitName = unitName.Trim();
-            unit.ShortName = shortName.Trim();
+            unit.UnitName = name;
+            unit.ShortName = shortCode;
             unit.UnitType = unitType;
             unit.Description = description;
             unit.AllowsDecimal = allowsDecimal;
             unit.IsActive = isActive;
 
+            if (!unit.TenantId.HasValue && tenantId.HasValue)
+            {
+                unit.TenantId = tenantId;
+            }
+
             await _context.SaveChangesAsync();
+
             await _auditService.LogAsync(
                 User,
                 "Units",
                 "UPDATED",
-                $"Unit deactivated. Name: {unit.UnitName}",
+                $"Unit updated. Name: {unit.UnitName}",
                 "Unit",
                 unit.Id.ToString(),
                 HttpContext.Connection.RemoteIpAddress?.ToString()
             );
+
             TempData["SuccessMessage"] = "Unit updated successfully.";
+
             return RedirectToAction(nameof(Index));
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermissionAuthorize("Units", "Delete")]
         public async Task<IActionResult> Deactivate(int id)
         {
             var unit = await _context.Units.FindAsync(id);
@@ -178,8 +269,22 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            if (!await _tenantGuard.CanAccessTenantAsync(unit.TenantId))
+            {
+                return Forbid();
+            }
+
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             unit.IsActive = false;
+
+            if (!unit.TenantId.HasValue && tenantId.HasValue)
+            {
+                unit.TenantId = tenantId;
+            }
+
             await _context.SaveChangesAsync();
+
             await _auditService.LogAsync(
                 User,
                 "Units",
@@ -191,6 +296,7 @@ namespace HardwareManagementSystem.Controllers
             );
 
             TempData["SuccessMessage"] = "Unit deactivated successfully.";
+
             return RedirectToAction(nameof(Index));
         }
     }

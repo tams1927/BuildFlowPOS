@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.Services.TenantDatabases;
 using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,17 +11,25 @@ namespace HardwareManagementSystem.Controllers
 {
     [Authorize]
     [PermissionAuthorize("Expenses", "View")]
-    public class ExpensesController : Controller
+    public class ExpensesController : OperationalDbController
     {
-        private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
+        private readonly BranchService _branchService;
+        private readonly ITenantContext _tenantContext;
+        private readonly TenantGuard _tenantGuard;
 
         public ExpensesController(
-            ApplicationDbContext context,
-            AuditService auditService)
+            ITenantOperationalContextProvider ctxProvider,
+            AuditService auditService,
+            BranchService branchService,
+            ITenantContext tenantContext,
+            TenantGuard tenantGuard)
+            : base(ctxProvider)
         {
-            _context = context;
             _auditService = auditService;
+            _branchService = branchService;
+            _tenantContext = tenantContext;
+            _tenantGuard = tenantGuard;
         }
 
         public async Task<IActionResult> Index(
@@ -31,9 +40,17 @@ namespace HardwareManagementSystem.Controllers
         {
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             var query = _context.Expenses
                 .AsNoTracking()
+                .Include(e => e.Branch)
                 .AsQueryable();
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                query = query.Where(e => e.TenantId == tenantId || e.TenantId == null);
+            }
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -43,7 +60,8 @@ namespace HardwareManagementSystem.Controllers
                     e.ExpenseNumber.ToLower().Contains(term) ||
                     e.Description.ToLower().Contains(term) ||
                     (e.ReferenceNumber != null && e.ReferenceNumber.ToLower().Contains(term)) ||
-                    (e.CreatedBy != null && e.CreatedBy.ToLower().Contains(term)));
+                    (e.CreatedBy != null && e.CreatedBy.ToLower().Contains(term)) ||
+                    (e.Branch != null && e.Branch.Name.ToLower().Contains(term)));
             }
 
             if (!string.IsNullOrWhiteSpace(categoryFilter))
@@ -65,6 +83,15 @@ namespace HardwareManagementSystem.Controllers
                 .ToListAsync();
 
             ViewBag.CategoryFilter = categoryFilter;
+
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+
+            if (currentBranch != null && !await _tenantGuard.CanAccessTenantAsync(currentBranch.TenantId))
+            {
+                return Forbid();
+            }
+
+            ViewBag.CurrentBranch = currentBranch;
 
             return View(new PagedResult<Expense>
             {
@@ -88,6 +115,8 @@ namespace HardwareManagementSystem.Controllers
             string? referenceNumber,
             string? remarks)
         {
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             if (string.IsNullOrWhiteSpace(category))
             {
                 TempData["ErrorMessage"] = "Expense category is required.";
@@ -121,10 +150,18 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var expenseNumber = await GenerateExpenseNumberAsync();
+            var expenseNumber = await GenerateExpenseNumberAsync(tenantId);
+
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+
+            if (currentBranch != null && !await _tenantGuard.CanAccessTenantAsync(currentBranch.TenantId))
+            {
+                return Forbid();
+            }
 
             var expense = new Expense
             {
+                TenantId = tenantId,
                 ExpenseNumber = expenseNumber,
                 ExpenseDate = expenseDate == default ? DateTime.Now : expenseDate,
                 Category = category,
@@ -134,6 +171,7 @@ namespace HardwareManagementSystem.Controllers
                 ReferenceNumber = referenceNumber,
                 Remarks = remarks,
                 CreatedBy = User.Identity?.Name ?? "Unknown",
+                BranchId = currentBranch?.Id,
                 CreatedAt = DateTime.Now
             };
 
@@ -156,14 +194,15 @@ namespace HardwareManagementSystem.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        private async Task<string> GenerateExpenseNumberAsync()
+        private async Task<string> GenerateExpenseNumberAsync(int? tenantId)
         {
-            var today = DateTime.Now;
-            var prefix = $"EXP-{today:yyyyMMdd}-";
+            var prefix = $"EXP-{DateTime.Now:yyyyMMdd}-";
 
-            var countToday = await _context.Expenses
-                .CountAsync(e => e.ExpenseNumber.StartsWith(prefix));
+            var query = _context.Expenses.Where(e => e.ExpenseNumber.StartsWith(prefix));
+            if (tenantId.HasValue)
+                query = query.Where(e => e.TenantId == tenantId);
 
+            var countToday = await query.CountAsync();
             return $"{prefix}{(countToday + 1):0000}";
         }
     }

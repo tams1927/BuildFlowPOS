@@ -1,0 +1,215 @@
+@model HardwareManagementSystem.Models.PurchaseOrder
+@using HardwareManagementSystem.Models
+
+@{
+    ViewData["Title"] = $"PO — {Model.PONumber}";
+    var settings = ViewBag.Settings as SystemSetting;
+    var currency = settings?.CurrencySymbol ?? "₱";
+
+    var statusBadge = Model.Status switch
+    {
+        "Draft"             => "badge-soft-secondary",
+        "Sent"              => "badge-soft-primary",
+        "PartiallyReceived" => "badge-soft-warning",
+        "Received"          => "badge-soft-success",
+        "Cancelled"         => "badge-soft-danger",
+        _                   => "badge-soft-secondary"
+    };
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">
+                <i class="bi bi-file-earmark-text me-2"></i>@Model.PONumber
+            </h2>
+            <div class="hb-section-subtitle d-flex align-items-center gap-2">
+                <span class="badge @statusBadge">@Model.Status</span>
+                <span class="text-muted small">Created by @(Model.CreatedBy ?? "—") on @Model.CreatedAtUtc.ToLocalTime().ToString("MMM dd, yyyy hh:mm tt")</span>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+            <a asp-action="Print" asp-route-id="@Model.Id"
+               class="btn btn-outline-info btn-sm" target="_blank">
+                <i class="bi bi-printer me-1"></i>Print
+            </a>
+            <a asp-action="DownloadPdf" asp-route-id="@Model.Id"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </a>
+            @if (Model.IsEditable)
+            {
+                <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </a>
+            }
+            @if (Model.CanBeSent)
+            {
+                <button type="button" class="btn btn-primary btn-sm" id="sendPoBtn">
+                    <i class="bi bi-send me-1"></i>Send to Supplier
+                </button>
+                <form id="sendPoForm" asp-action="SendPO" asp-route-id="@Model.Id" method="post" class="d-none">
+                    @Html.AntiForgeryToken()
+                </form>
+            }
+            @if (Model.CanBeReceived)
+            {
+                <a asp-action="Receive" asp-route-id="@Model.Id" class="btn btn-success btn-sm">
+                    <i class="bi bi-box-seam me-1"></i>Receive Stocks
+                </a>
+            }
+            @if (Model.CanBeCancelled)
+            {
+                <button type="button" class="btn btn-outline-danger btn-sm" id="cancelPoBtn">
+                    <i class="bi bi-x-circle me-1"></i>Cancel PO
+                </button>
+                <form id="cancelPoForm" asp-action="CancelPO" asp-route-id="@Model.Id" method="post" class="d-none">
+                    @Html.AntiForgeryToken()
+                </form>
+            }
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-4 mb-4">
+
+            <div class="col-md-4">
+                <div class="p-3 rounded bg-body-secondary">
+                    <div class="text-muted small fw-semibold mb-2">SUPPLIER</div>
+                    <div class="fw-bold">@(Model.Supplier?.SupplierName ?? "—")</div>
+                    @if (!string.IsNullOrWhiteSpace(Model.Supplier?.ContactNumber))
+                    { <div class="small text-muted">Tel: @Model.Supplier.ContactNumber</div> }
+                    @if (!string.IsNullOrWhiteSpace(Model.Supplier?.Email))
+                    { <div class="small text-muted">@Model.Supplier.Email</div> }
+                    @if (!string.IsNullOrWhiteSpace(Model.Supplier?.Address))
+                    { <div class="small text-muted">@Model.Supplier.Address</div> }
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="p-3 rounded bg-body-secondary">
+                    <div class="text-muted small fw-semibold mb-2">PO DETAILS</div>
+                    <div class="row g-1 small">
+                        <div class="col-5 text-muted">PO Number</div>
+                        <div class="col-7 fw-semibold">@Model.PONumber</div>
+                        <div class="col-5 text-muted">PO Date</div>
+                        <div class="col-7">@Model.PODate.ToString("MMM dd, yyyy")</div>
+                        <div class="col-5 text-muted">Expected Delivery</div>
+                        <div class="col-7">@(Model.ExpectedDeliveryDate?.ToString("MMM dd, yyyy") ?? "—")</div>
+                        <div class="col-5 text-muted">Branch</div>
+                        <div class="col-7">@(Model.Branch?.Name ?? "Global")</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="p-3 rounded bg-body-secondary">
+                    <div class="text-muted small fw-semibold mb-2">NOTES</div>
+                    <div class="small">@(string.IsNullOrWhiteSpace(Model.Notes) ? "—" : Model.Notes)</div>
+                </div>
+            </div>
+
+        </div>
+
+        <h5 class="fw-semibold mb-3"><i class="bi bi-list-ul me-2"></i>Ordered Items</h5>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Item</th>
+                        <th>Unit</th>
+                        <th class="text-end">Ordered Qty</th>
+                        <th class="text-end">Received Qty</th>
+                        <th class="text-end">Remaining</th>
+                        <th class="text-end">Unit Cost</th>
+                        <th class="text-end">Total Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{int lineNo = 1;}
+                    @foreach (var pi in Model.Items.OrderBy(i => i.Id))
+                    {
+                        var remaining = pi.Quantity - pi.QuantityReceived;
+                        <tr>
+                            <td class="text-muted small">@lineNo</td>
+                            <td>
+                                <strong>@(pi.Item?.ItemName ?? $"Item #{pi.ItemId}")</strong>
+                                @if (pi.Item != null)
+                                { <div class="small text-muted">@pi.Item.ItemCode</div> }
+                            </td>
+                            <td class="small text-muted">@(pi.Item?.Unit?.ShortName ?? "—")</td>
+                            <td class="text-end">@pi.Quantity.ToString("0.###")</td>
+                            <td class="text-end">
+                                @if (pi.QuantityReceived > 0)
+                                {
+                                    <span class="text-success fw-semibold">@pi.QuantityReceived.ToString("0.###")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                @if (remaining > 0)
+                                {
+                                    <span class="badge badge-soft-warning">@remaining.ToString("0.###")</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-soft-success">Complete</span>
+                                }
+                            </td>
+                            <td class="text-end">@currency@pi.UnitCost.ToString("N2")</td>
+                            <td class="text-end fw-semibold">@currency@pi.TotalCost.ToString("N2")</td>
+                        </tr>
+                        lineNo++;
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="table-light">
+                        <td colspan="7" class="text-end fw-semibold">Total Amount:</td>
+                        <td class="text-end fw-bold fs-5">@currency@Model.TotalAmount.ToString("N2")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('sendPoBtn')?.addEventListener('click', function () {
+        Swal.fire({
+            title: 'Send PO to Supplier?',
+            html: 'This will change the status to <strong>Sent</strong>.<br><small class="text-muted">The PO will no longer be editable.</small>',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Send',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#64748b'
+        }).then(r => { if (r.isConfirmed) document.getElementById('sendPoForm').requestSubmit(); });
+    });
+
+    document.getElementById('cancelPoBtn')?.addEventListener('click', function () {
+        Swal.fire({
+            title: 'Cancel this PO?',
+            text: 'This action cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Cancel PO',
+            cancelButtonText: 'No, Keep It',
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b'
+        }).then(r => { if (r.isConfirmed) document.getElementById('cancelPoForm').requestSubmit(); });
+    });
+</script>
+}

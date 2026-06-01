@@ -1,5 +1,7 @@
-﻿@inject HardwareManagementSystem.Services.PermissionService PermissionService
+﻿@using System.Text.Json
+@inject HardwareManagementSystem.Services.PermissionService PermissionService
 @inject HardwareManagementSystem.Services.NotificationService NotificationService
+@inject HardwareManagementSystem.Services.ITenantContext TenantCtx
 
 <!DOCTYPE html>
 <html lang="en">
@@ -27,11 +29,31 @@
         currentController == "Sales" ||
         currentController == "SalesReturn" ||
         currentController == "CustomerCollections" ||
-        currentController == "Expenses";
-    var isInventoryMenu = currentController == "Inventory" || currentController == "StockIn" || currentController == "StockAdjustment" || currentController == "Suppliers" || currentController == "Categories" || currentController == "Units";
+        currentController == "Expenses" ||
+        currentController == "Quotations" ||
+        currentController == "DeliveryReceipts";
+    var isInventoryMenu = currentController == "Inventory" || currentController == "Products" || currentController == "StockIn" || currentController == "StockAdjustment" || currentController == "Suppliers" || currentController == "Categories" || currentController == "Units" || currentController == "Import" || currentController == "BranchTransfers" || currentController == "InventoryMovement";
     var isCustomersMenu = currentController == "Customers";
     var isReportsMenu = currentController == "Reports" || currentController == "AuditTrail";
-    var isAdminMenu = currentController == "Users" || currentController == "Roles" || currentController == "RolePermissions" || currentController == "Settings";
+    var isSuperAdmin = User.IsInRole("SuperAdmin");
+    var isAdminMenu = !isSuperAdmin && (currentController == "Users" || currentController == "Roles" || currentController == "RolePermissions" || currentController == "Settings" || currentController == "Branches" || currentController == "UserBranches");
+    // SaaS Management menu is only active for SuperAdmin
+    var isSaasMenu  = isSuperAdmin && (
+                        currentController == "Tenants" ||
+                        currentController == "SuperAdmin" ||
+                        currentController == "SubscriptionPlans" ||
+                        currentController == "AuditTrail");
+    var isQuotationsMenu = currentController == "Quotations";
+    // For SuperAdmin: AuditTrail lives under SaaS Management, not Reports
+    var isReportsMenuEffective = !isSuperAdmin && isReportsMenu;
+
+    string? tenantDisplayName = null;
+    if (User.Identity?.IsAuthenticated == true && !User.IsInRole("SuperAdmin"))
+    {
+        var tenantService = Context.RequestServices.GetRequiredService<HardwareManagementSystem.Services.TenantService>();
+        var currentTenant = await tenantService.GetCurrentTenantAsync();
+        tenantDisplayName = currentTenant?.Name;
+    }
 
     var canDashboard = await PermissionService.HasPermissionAsync(User, "Dashboard");
     var canPOS = await PermissionService.HasPermissionAsync(User, "POS");
@@ -49,21 +71,45 @@
     var canSalesReturn = await PermissionService.HasPermissionAsync(User, "SalesReturn");
     var canCustomerCollections = await PermissionService.HasPermissionAsync(User, "CustomerCollections");
     var canExpenses = await PermissionService.HasPermissionAsync(User, "Expenses");
+    var canProducts = await PermissionService.HasPermissionAsync(User, "Products");
+    var canImport = await PermissionService.HasPermissionAsync(User, "Import");
+    var canBranches = await PermissionService.HasPermissionAsync(User, "Branches");
+    var canBranchTransfers = await PermissionService.HasPermissionAsync(User, "BranchTransfers");
+    var canUserBranches = await PermissionService.HasPermissionAsync(User, "UserBranches");
 
 
     List<HardwareManagementSystem.Models.Notification> notifications = new();
     int unreadCount = 0;
     string themeCss = "dark-blue";
 
+    HardwareManagementSystem.Models.Branch? currentBranch = null;
+    List<HardwareManagementSystem.Models.Branch> availableBranches = new();
+
     if (User.Identity?.IsAuthenticated == true)
     {
         notifications = await NotificationService.GetForUserAsync(User, 12);
         unreadCount = await NotificationService.GetUnreadCountAsync(User);
 
-        var dbContext = Context.RequestServices.GetRequiredService<HardwareManagementSystem.Data.ApplicationDbContext>();
+        var opContextProvider = Context.RequestServices.GetRequiredService<HardwareManagementSystem.Services.TenantDatabases.ITenantOperationalContextProvider>();
+        var opDbContext = await opContextProvider.GetContextAsync();
+        var tenantCtx = Context.RequestServices.GetRequiredService<HardwareManagementSystem.Services.ITenantContext>();
+        var layoutTenantId = tenantCtx.CurrentTenantId;
         var setting = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
-            dbContext.SystemSettings);
+            opDbContext.SystemSettings.Where(s => s.TenantId == layoutTenantId));
         themeCss = setting?.ThemeColor ?? "dark-blue";
+
+        var branchService = Context.RequestServices.GetRequiredService<HardwareManagementSystem.Services.BranchService>();
+        currentBranch = await branchService.GetCurrentBranchAsync(User);
+
+        if (branchService.IsGlobalUser(User))
+        {
+            availableBranches = await branchService.GetAllActiveBranchesAsync();
+        }
+        else
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+            availableBranches = await branchService.GetAssignedBranchesAsync(userId);
+        }
     }
 }
 
@@ -93,8 +139,8 @@
 
     <nav class="sidebar-nav">
 
-    <!-- DASHBOARD -->
-    @if (canDashboard)
+    <!-- DASHBOARD — hidden for SuperAdmin -->
+    @if (canDashboard && !isSuperAdmin)
     {
         <div class="sidebar-group">
 
@@ -132,8 +178,8 @@
         </div>
     }
 
-    <!-- OPERATIONS -->
-    @if (canPOS || canSales || canSalesReturn || canCustomerCollections || canExpenses)
+    <!-- OPERATIONS — hidden for SuperAdmin -->
+    @if (!isSuperAdmin && (canPOS || canSales || canSalesReturn || canCustomerCollections || canExpenses))
     {
         <div class="sidebar-group">
 
@@ -210,6 +256,22 @@
                         </a>
                     }
 
+                    <a class="sidebar-link @(currentController == "Quotations" ? "active" : "")"
+                       asp-controller="Quotations"
+                       asp-action="Index">
+
+                        Quotations
+
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "DeliveryReceipts" ? "active" : "")"
+                       asp-controller="DeliveryReceipts"
+                       asp-action="Index">
+
+                        Delivery Receipts
+
+                    </a>
+
                 </div>
 
             </div>
@@ -217,8 +279,8 @@
         </div>
     }
 
-    <!-- INVENTORY -->
-    @if (canInventory || canStockIn || canStockAdjustment || canSuppliers || canCategories || canUnits)
+    <!-- INVENTORY — hidden for SuperAdmin -->
+    @if (!isSuperAdmin && (canInventory || canProducts || canStockIn || canStockAdjustment || canSuppliers || canCategories || canUnits || canImport || canBranchTransfers))
     {
         <div class="sidebar-group">
 
@@ -248,6 +310,39 @@
                            asp-action="Index">
 
                             Inventory
+
+                        </a>
+                    }
+
+                    @if (canProducts)
+                    {
+                        <a class="sidebar-link @(currentController == "Products" ? "active" : "")"
+                           asp-controller="Products"
+                           asp-action="Index">
+
+                            Products
+
+                        </a>
+                    }
+
+                    @if (canCategories)
+                    {
+                        <a class="sidebar-link @(currentController == "Categories" ? "active" : "")"
+                           asp-controller="Categories"
+                           asp-action="Index">
+
+                            Categories
+
+                        </a>
+                    }
+
+                    @if (canUnits)
+                    {
+                        <a class="sidebar-link @(currentController == "Units" ? "active" : "")"
+                           asp-controller="Units"
+                           asp-action="Index">
+
+                            Units
 
                         </a>
                     }
@@ -285,24 +380,35 @@
                         </a>
                     }
 
-                    @if (canCategories)
+                    @if (canImport)
                     {
-                        <a class="sidebar-link @(currentController == "Categories" ? "active" : "")"
-                           asp-controller="Categories"
+                        <a class="sidebar-link @(currentController == "Import" ? "active" : "")"
+                           asp-controller="Import"
                            asp-action="Index">
 
-                            Categories
+                            Excel Import
 
                         </a>
                     }
 
-                    @if (canUnits)
+                    @if (canBranchTransfers)
                     {
-                        <a class="sidebar-link @(currentController == "Units" ? "active" : "")"
-                           asp-controller="Units"
+                        <a class="sidebar-link @(currentController == "BranchTransfers" ? "active" : "")"
+                           asp-controller="BranchTransfers"
                            asp-action="Index">
 
-                            Units
+                            Branch Transfers
+
+                        </a>
+                    }
+
+                    @if (canInventory)
+                    {
+                        <a class="sidebar-link @(currentController == "InventoryMovement" ? "active" : "")"
+                           asp-controller="InventoryMovement"
+                           asp-action="Index">
+
+                            Movement History
 
                         </a>
                     }
@@ -314,8 +420,8 @@
         </div>
     }
 
-    <!-- CUSTOMERS -->
-    @if (canCustomers)
+    <!-- CUSTOMERS — hidden for SuperAdmin -->
+    @if (canCustomers && !isSuperAdmin)
     {
         <div class="sidebar-group">
 
@@ -353,8 +459,8 @@
         </div>
     }
 
-    <!-- REPORTS -->
-    @if (canReports)
+    <!-- REPORTS — hidden for SuperAdmin (SA uses Global Audit in SaaS menu) -->
+    @if (canReports && !isSuperAdmin)
     {
         <div class="sidebar-group">
 
@@ -392,11 +498,11 @@
                         Analytics
 
                     </a>
-                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "FastSlowMoving" ? "active" : "")"
+                    <a class="sidebar-link @(currentController == "Reports" && currentAction == "FastMovingItems" ? "active" : "")"
                        asp-controller="Reports"
-                       asp-action="FastSlowMoving">
+                       asp-action="FastMovingItems">
 
-                        Fast / Slow Moving
+                        Fast Moving Items
 
                     </a>
 
@@ -497,8 +603,8 @@
         </div>
     }
 
-    <!-- ADMINISTRATION -->
-    @if (canUsers || canSettings)
+    <!-- ADMINISTRATION — hidden for SuperAdmin -->
+    @if (!isSuperAdmin && (canUsers || canSettings || canBranches || canUserBranches))
     {
         <div class="sidebar-group">
 
@@ -521,7 +627,7 @@
 
                 <div class="sidebar-submenu">
 
-                    @if (canUsers && User.IsInRole("Admin"))
+                    @if (canUsers && User.IsInRole("TenantAdmin"))
                     {
                         <a class="sidebar-link @(currentController == "Users" ? "active" : "")"
                            asp-controller="Users"
@@ -559,12 +665,91 @@
                         </a>
                     }
 
+                    @if (canBranches)
+                    {
+                        <a class="sidebar-link @(currentController == "Branches" ? "active" : "")"
+                           asp-controller="Branches"
+                           asp-action="Index">
+
+                            Branches
+
+                        </a>
+                    }
+
+                    @if (canUserBranches)
+                    {
+                        <a class="sidebar-link @(currentController == "UserBranches" ? "active" : "")"
+                           asp-controller="UserBranches"
+                           asp-action="Index">
+
+                            User Branches
+
+                        </a>
+                    }
+
+
                 </div>
 
             </div>
 
         </div>
     }
+
+    <!-- SAAS MANAGEMENT — SuperAdmin only -->
+    @if (User.IsInRole("SuperAdmin"))
+    {
+        <div class="sidebar-group">
+
+            <a class="sidebar-group-toggle"
+               data-bs-toggle="collapse"
+               href="#menuSaaS"
+               aria-expanded="@(isSaasMenu.ToString().ToLower())">
+
+                <div>
+                    <i class="bi bi-buildings"></i>
+                    <span>SaaS Management</span>
+                </div>
+
+                <i class="bi bi-chevron-down"></i>
+
+            </a>
+
+            <div class="collapse @(isSaasMenu ? "show" : "")"
+                 id="menuSaaS">
+
+                <div class="sidebar-submenu">
+
+                    <a class="sidebar-link @(currentController == "SuperAdmin" ? "active" : "")"
+                       asp-controller="SuperAdmin"
+                       asp-action="Dashboard">
+                        SA Dashboard
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "Tenants" ? "active" : "")"
+                       asp-controller="Tenants"
+                       asp-action="Index">
+                        Tenants
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "SubscriptionPlans" ? "active" : "")"
+                       asp-controller="SubscriptionPlans"
+                       asp-action="Index">
+                        Subscription Plans
+                    </a>
+
+                    <a class="sidebar-link @(currentController == "AuditTrail" ? "active" : "")"
+                       asp-controller="AuditTrail"
+                       asp-action="Index">
+                        Global Audit Trail
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+    }
+
 
 </nav>
 
@@ -587,6 +772,72 @@
                 </div>
 
                 <div class="topbar-actions">
+
+                <!-- BRANCH SELECTOR -->
+                    @if (User.Identity?.IsAuthenticated == true && availableBranches.Count > 0)
+                    {
+                        @if (!string.IsNullOrEmpty(tenantDisplayName))
+                        {
+                            <span class="badge bg-primary me-1 d-none d-md-inline-flex align-items-center gap-1" style="font-size:.75rem;">
+                                <i class="bi bi-building-fill"></i> @tenantDisplayName
+                            </span>
+                        }
+                        <div class="dropdown me-2">
+                            <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                                    title="Switch Branch">
+                                <i class="bi bi-building"></i>
+                                <span class="d-none d-md-inline">
+                                    @(currentBranch?.Name ?? "Select Branch")
+                                </span>
+                                <i class="bi bi-chevron-down" style="font-size:.7rem;"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:220px;">
+                                <li class="px-3 py-1">
+                                    <small class="text-muted fw-semibold text-uppercase" style="font-size:.7rem;">
+                                        Switch Branch
+                                    </small>
+                                </li>
+                                <li><hr class="dropdown-divider my-1"></li>
+                                @foreach (var b in availableBranches)
+                                {
+                                    <li>
+                                        <form asp-controller="Branches" asp-action="SwitchBranch" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="branchId" value="@b.Id" />
+                                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                            <button type="submit"
+                                                    class="dropdown-item d-flex align-items-center gap-2 @(currentBranch?.Id == b.Id ? "fw-bold text-primary" : "")">
+                                                @if (b.IsMainBranch)
+                                                {
+                                                    <i class="bi bi-star-fill text-warning" style="font-size:.8rem;"></i>
+                                                }
+                                                else
+                                                {
+                                                    <i class="bi bi-building text-muted" style="font-size:.8rem;"></i>
+                                                }
+                                                <span>@b.Name</span>
+                                                @if (currentBranch?.Id == b.Id)
+                                                {
+                                                    <i class="bi bi-check2 ms-auto text-primary"></i>
+                                                }
+                                            </button>
+                                        </form>
+                                    </li>
+                                }
+                                @if (canBranches)
+                                {
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    <li>
+                                        <a asp-controller="Branches" asp-action="Index"
+                                           class="dropdown-item small text-muted">
+                                            <i class="bi bi-gear me-1"></i>Manage Branches
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
 
                     <div class="dropdown">
                         <button class="btn btn-outline-primary btn-sm position-relative"
@@ -701,9 +952,17 @@
                                     @User.Identity?.Name
                                 </div>
 
-                                @if (User.IsInRole("Admin"))
+                                @if (User.IsInRole("SuperAdmin"))
                                 {
-                                    <div class="user-role">Administrator</div>
+                                    <div class="user-role">Super Administrator</div>
+                                }
+                else if (User.IsInRole("TenantAdmin"))
+                {
+                    <div class="user-role">Tenant Admin</div>
+                }
+                                else if (User.IsInRole("BranchManager"))
+                                {
+                                    <div class="user-role">Branch Manager</div>
                                 }
                                 else if (User.IsInRole("Cashier"))
                                 {
@@ -785,35 +1044,46 @@
 
     <script src="~/js/site.js" asp-append-version="true"></script>
 
-    @if (TempData["SuccessMessage"] != null)
-    {
-        <script>
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'success',
-                title: '@TempData["SuccessMessage"]',
-                showConfirmButton: false,
-                timer: 2500,
-                timerProgressBar: true
-            });
-        </script>
+@{
+    var successMessage = TempData["SuccessMessage"]?.ToString() ?? "";
+    var errorMessage = TempData["ErrorMessage"]?.ToString() ?? "";
+}
+
+<div id="layout-toast-data"
+     data-success="@successMessage"
+     data-error="@errorMessage"
+     class="d-none"></div>
+
+<script>
+    const toastData = document.getElementById('layout-toast-data');
+
+    const successMessage = toastData?.dataset.success || '';
+    const errorMessage = toastData?.dataset.error || '';
+
+    if (successMessage) {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: successMessage,
+            showConfirmButton: false,
+            timer: 2500,
+            timerProgressBar: true
+        });
     }
 
-    @if (TempData["ErrorMessage"] != null)
-    {
-        <script>
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'error',
-                title: '@TempData["ErrorMessage"]',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true
-            });
-        </script>
+    if (errorMessage) {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'error',
+            title: errorMessage,
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
     }
+</script>
 
     @await RenderSectionAsync("Scripts", required: false)
 

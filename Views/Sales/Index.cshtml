@@ -130,7 +130,7 @@
             <input type="hidden" name="pageNumber" value="1" />
 
             <div class="col-lg-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100" type="submit">
+                <button class="btn btn-primary w-100" type="submit" data-no-disable="true">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
@@ -705,7 +705,7 @@
                         cancelButtonColor: '#64748b'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            form.submit();
+                            form.requestSubmit();
                         }
                     });
                 });

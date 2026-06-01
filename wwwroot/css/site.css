@@ -1,5 +1,5 @@
 /* ============================================
-   DEFAULT THEME (dark-blue) — base :root
+   DEFAULT THEME (dark-blue) ï¿½ base :root
    ============================================ */
 :root {
     --hb-primary: #1e40af;
@@ -515,24 +515,40 @@ a {
     color: var(--hb-muted);
 }
 
+/* badge-soft-* ï¿½ readable on any light background (table rows, cards, modals) */
 .badge-soft-primary {
-    background: rgba(30, 64, 175, 0.3);
-    color: #93c5fd;
+    background: #dbeafe;
+    color: #1e40af;
 }
 
 .badge-soft-success {
-    background: rgba(34, 197, 94, 0.15);
-    color: #4ade80;
+    background: #dcfce7;
+    color: #166534;
 }
 
 .badge-soft-warning {
-    background: rgba(245, 158, 11, 0.15);
-    color: #fbbf24;
+    background: #fef3c7;
+    color: #92400e;
 }
 
 .badge-soft-danger {
-    background: rgba(239, 68, 68, 0.15);
-    color: #f87171;
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-soft-info {
+    background: #e0f2fe;
+    color: #0c4a6e;
+}
+
+.badge-soft-secondary {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.badge-soft-dark {
+    background: #e2e8f0;
+    color: #1e293b;
 }
 
 .dropdown-menu {
@@ -1084,10 +1100,15 @@ body.theme-white-blue .badge-soft-danger {
 
 body.theme-white-blue .badge-soft-dark {
     background: #e2e8f0;
-    color: #334155;
+    color: #1e293b;
 }
 
 body.theme-white-blue .badge-soft-secondary {
-    background: #e2e8f0;
-    color: #475569;
+    background: #f1f5f9;
+    color: #334155;
+}
+
+body.theme-white-blue .badge-soft-info {
+    background: #e0f2fe;
+    color: #0c4a6e;
 }

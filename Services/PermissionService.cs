@@ -32,6 +32,10 @@ namespace HardwareManagementSystem.Services
             if (!_cachedRoleNames.Any())
                 return false;
 
+            // SuperAdmin bypasses all permission checks — full access to every module
+            if (_cachedRoleNames.Contains("SuperAdmin"))
+                return true;
+
             if (_cachedPermissions == null)
             {
                 _cachedPermissions = await _context.RolePermissions

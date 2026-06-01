@@ -11,6 +11,13 @@
 
     var defaultVatPercent =
         Convert.ToDecimal(ViewBag.DefaultVatPercent ?? 0);
+
+    var currentBranch = ViewBag.CurrentBranch as HardwareManagementSystem.Models.Branch;
+    var branchStockMap = ViewBag.BranchStockMap as Dictionary<int, decimal>;
+
+    // Returns branch-specific stock when branch is resolved; falls back to global Item.CurrentStock (LEGACY)
+    decimal GetStock(HardwareManagementSystem.Models.Item item) =>
+        branchStockMap != null && branchStockMap.TryGetValue(item.Id, out var q) ? q : item.CurrentStock;
 }
 <div class="row g-4">
 
@@ -26,7 +33,13 @@
                     </h2>
 
                     <div class="hb-section-subtitle">
-                        Hardware & construction supply checkout
+                        Hardware &amp; construction supply checkout
+                        @if (currentBranch != null)
+                        {
+                            <span class="badge badge-soft-primary ms-2">
+                                <i class="bi bi-building me-1"></i>@currentBranch.Name
+                            </span>
+                        }
                     </div>
                 </div>
 
@@ -78,7 +91,7 @@
                             <input type="text"
                                    id="itemSearchInput"
                                    class="form-control border-start-0"
-                                   placeholder="Search item..." />
+                                   placeholder="Search by name, SKU, or barcode..." />
 
                         </div>
 
@@ -104,7 +117,7 @@
 
                             @foreach (var item in Model)
                             {
-                                <tr class="inventory-item-row">
+                                <tr class="inventory-item-row" data-barcode="@item.Barcode" data-code="@item.ItemCode">
 
                                     <td>
                                         <strong>
@@ -113,6 +126,10 @@
 
                                         <div class="text-muted small">
                                             @item.ItemCode
+                                            @if (!string.IsNullOrWhiteSpace(item.Barcode))
+                                            {
+                                                <span class="ms-2 text-muted"><i class="bi bi-upc"></i> @item.Barcode</span>
+                                            }
                                         </div>
                                     </td>
 
@@ -123,7 +140,7 @@
                                     <td>
 
                                         <strong>
-                                            @item.CurrentStock.ToString("0.###")
+                                            @GetStock(item).ToString("0.###")
                                         </strong>
 
                                         <span class="text-muted small">
@@ -144,7 +161,7 @@
                                                 data-name="@item.ItemName"
                                                 data-unit="@(item.Unit?.ShortName ?? "")"
                                                 data-price="@item.SellingPrice"
-                                                data-stock="@item.CurrentStock">
+                                                data-stock="@GetStock(item)">
 
                                             <i class="bi bi-plus-circle"></i>
 
@@ -934,17 +951,20 @@
         document.getElementById('itemSearchInput')
             .addEventListener('input', function () {
 
-                const value =
-                    this.value.toLowerCase();
+                const value = this.value.toLowerCase().trim();
 
                 document.querySelectorAll('.inventory-item-row')
                     .forEach(row => {
+                        const barcode = (row.dataset.barcode || '').toLowerCase();
+                        const code    = (row.dataset.code || '').toLowerCase();
+                        const text    = row.innerText.toLowerCase();
 
-                        row.style.display =
-                            row.innerText.toLowerCase().includes(value)
-                                ? ''
-                                : 'none';
+                        // Barcode exact-match first (for scanner input), then fuzzy text search
+                        const matches = barcode === value ||
+                                        code === value    ||
+                                        text.includes(value);
 
+                        row.style.display = matches ? '' : 'none';
                     });
 
             });
@@ -1022,7 +1042,7 @@
 
                     if (result.isConfirmed) {
 
-                        form.submit();
+                        form.requestSubmit();
 
                     }
 

@@ -1,0 +1,111 @@
+@*
+    Shared standalone layout for all printable documents.
+    Usage in any print view:
+        @{ Layout = "~/Views/Shared/_PrintDoc.cshtml"; }
+        @section DocActions { ... buttons ... }
+    ViewBag expected:
+        PrintDocTitle   — document type label (e.g. "QUOTATION")
+        PrintDocNumber  — document number
+        PrintDocDate    — optional date string override
+        PrintSettings   — SystemSetting?
+        PrintTenant     — Tenant?
+        PrintBranch     — Branch?
+        ThermalSize     — "58mm" | "80mm" | null (A4 if null)
+*@
+@{
+    var settings    = ViewBag.PrintSettings as HardwareManagementSystem.Models.SystemSetting;
+    var tenant      = ViewBag.PrintTenant   as HardwareManagementSystem.Models.Tenant;
+    var branch      = ViewBag.PrintBranch   as HardwareManagementSystem.Models.Branch;
+    var thermalSize = ViewBag.ThermalSize   as string;
+
+    string bizName    = tenant?.Name ?? settings?.BusinessName ?? "HardBuild POS";
+    string bizAddress = branch?.Address ?? tenant?.Address ?? settings?.BusinessAddress ?? "";
+    string bizPhone   = branch?.ContactNumber ?? tenant?.Phone ?? settings?.ContactNumber ?? "";
+    string docTitle   = (ViewBag.PrintDocTitle as string) ?? "DOCUMENT";
+    string docNumber  = (ViewBag.PrintDocNumber as string) ?? "";
+    string docDate    = (ViewBag.PrintDocDate as string) ?? DateTime.Now.ToString("MMMM dd, yyyy");
+    string bodyClass  = thermalSize == "58mm" ? "thermal-58" : thermalSize == "80mm" ? "thermal-80" : "";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@docTitle — @docNumber</title>
+    <link rel="stylesheet" href="~/css/print.css" asp-append-version="true" />
+</head>
+<body class="@bodyClass">
+
+    <div class="doc-page">
+
+        <!-- STANDARD DOCUMENT HEADER -->
+        <div class="doc-header">
+            <div class="doc-header-left">
+                @if (!string.IsNullOrWhiteSpace(settings?.LogoPath))
+                {
+                    <img src="@settings.LogoPath"
+                         alt="Company Logo"
+                         style="max-height:60px; max-width:160px; object-fit:contain; display:block; margin-bottom:6px;" />
+                }
+                <h1>@bizName</h1>
+                <div class="sub">
+                    @if (!string.IsNullOrWhiteSpace(bizAddress))
+                    {
+                        <div>@bizAddress</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(bizPhone))
+                    {
+                        <div>Tel: @bizPhone</div>
+                    }
+                    @if (branch != null && !string.IsNullOrWhiteSpace(branch.Name))
+                    {
+                        <div>Branch: @branch.Name</div>
+                    }
+                </div>
+            </div>
+            <div class="doc-header-right">
+                <div class="doc-type">@docTitle</div>
+                @if (!string.IsNullOrWhiteSpace(docNumber))
+                {
+                    <div class="doc-no">No: @docNumber</div>
+                }
+                <div class="doc-date">@docDate</div>
+                <div class="doc-date" style="margin-top:4px;font-size:9px;color:#aaa;">
+                    Printed: @DateTime.Now.ToString("MMM dd, yyyy hh:mm tt")
+                </div>
+            </div>
+        </div>
+
+        @RenderBody()
+
+        <!-- DOCUMENT FOOTER -->
+        <div class="doc-footer">
+            @(settings?.ReceiptFooter ?? "Thank you for your business.")
+            &nbsp;·&nbsp; @bizName
+            @if (!string.IsNullOrWhiteSpace(bizPhone))
+            {
+                <span>&nbsp;·&nbsp; @bizPhone</span>
+            }
+        </div>
+
+    </div>
+
+    <!-- PRINT ACTION BUTTONS (hidden when printing) -->
+    <div class="print-actions no-print">
+        @if (IsSectionDefined("DocActions"))
+        {
+            @RenderSection("DocActions")
+        }
+        else
+        {
+            <button onclick="window.print()" class="btn-print">
+                &#128438; Print / Save PDF
+            </button>
+            <button onclick="window.close()" class="btn-secondary-print">
+                &#x2715; Close
+            </button>
+        }
+    </div>
+
+</body>
+</html>

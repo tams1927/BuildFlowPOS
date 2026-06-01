@@ -1,8 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using HardwareManagementSystem.Models.Interfaces;
 
 namespace HardwareManagementSystem.Models
 {
-    public class StockAdjustmentHeader
+    public class StockAdjustmentHeader : ITenantEntity
     {
         public int Id { get; set; }
 
@@ -21,6 +22,16 @@ namespace HardwareManagementSystem.Models
 
         [StringLength(150)]
         public string? CreatedBy { get; set; }
+
+        /// <summary>Branch this adjustment belongs to. Nullable for backward compatibility.</summary>
+        public int? BranchId { get; set; }
+
+        public Branch? Branch { get; set; }
+
+        /// <summary>Tenant this adjustment belongs to. Nullable for backward compatibility.</summary>
+        public int? TenantId { get; set; }
+
+        public Tenant? Tenant { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 

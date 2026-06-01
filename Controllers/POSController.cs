@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.Services.TenantDatabases;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,55 +12,126 @@ namespace HardwareManagementSystem.Controllers
 {
     [Authorize]
     [PermissionAuthorize("POS", "View")]
-    public class POSController : Controller
+    public class POSController : OperationalDbController
     {
-        private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
         private readonly NotificationService _notificationService;
         private readonly IMemoryCache _cache;
+        private readonly BranchService _branchService;
+        private readonly ITenantContext _tenantContext;
+        private readonly TenantGuard _tenantGuard;
 
         public POSController(
-            ApplicationDbContext context,
+            ITenantOperationalContextProvider ctxProvider,
             AuditService auditService,
             NotificationService notificationService,
-            IMemoryCache cache)
+            IMemoryCache cache,
+            BranchService branchService,
+            ITenantContext tenantContext,
+            TenantGuard tenantGuard)
+            : base(ctxProvider)
         {
-            _context = context;
             _auditService = auditService;
             _notificationService = notificationService;
             _cache = cache;
+            _branchService = branchService;
+            _tenantContext = tenantContext;
+            _tenantGuard = tenantGuard;
         }
 
         public async Task<IActionResult> Index()
         {
-            ViewBag.Customers = await _context.Customers
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
+            var customersQuery = _context.Customers
                 .AsNoTracking()
-                .Where(c => c.IsActive)
+                .Where(c => c.IsActive);
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                customersQuery = customersQuery.Where(c => c.TenantId == tenantId || c.TenantId == null);
+            }
+
+            ViewBag.Customers = await customersQuery
                 .OrderBy(c => c.CustomerName)
                 .ToListAsync();
 
-            var items = await _context.Items
-                .AsNoTracking()
-                .Include(i => i.Category)
-                .Include(i => i.Unit)
-                .Where(i => i.Status == "Active" && i.CurrentStock > 0)
-                .OrderBy(i => i.ItemName)
-                .ToListAsync();
+            var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+
+            if (currentBranch != null && !await _tenantGuard.CanAccessTenantAsync(currentBranch.TenantId))
+            {
+                return Forbid();
+            }
+
+            ViewBag.CurrentBranch = currentBranch;
+
+            List<Item> items;
+
+            if (currentBranch != null)
+            {
+                var branchStockQuery = _context.BranchProductStocks
+                    .AsNoTracking()
+                    .Where(s => s.BranchId == currentBranch.Id && s.Quantity > 0);
+
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                {
+                    branchStockQuery = branchStockQuery.Where(s => s.TenantId == tenantId || s.TenantId == null);
+                }
+
+                var branchStockMap = await branchStockQuery
+                    .ToDictionaryAsync(s => s.ProductId, s => s.Quantity);
+
+                var activeIds = branchStockMap.Keys.ToList();
+
+                var itemsQuery = _context.Items
+                    .AsNoTracking()
+                    .Include(i => i.Category)
+                    .Include(i => i.Unit)
+                    .Where(i => i.Status == "Active" && activeIds.Contains(i.Id));
+
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                {
+                    itemsQuery = itemsQuery.Where(i => i.TenantId == tenantId || i.TenantId == null);
+                }
+
+                items = await itemsQuery
+                    .OrderBy(i => i.ItemName)
+                    .ToListAsync();
+
+                ViewBag.BranchStockMap = branchStockMap;
+            }
+            else
+            {
+                var itemsQuery = _context.Items
+                    .AsNoTracking()
+                    .Include(i => i.Category)
+                    .Include(i => i.Unit)
+                    .Where(i => i.Status == "Active" && i.CurrentStock > 0);
+
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                {
+                    itemsQuery = itemsQuery.Where(i => i.TenantId == tenantId || i.TenantId == null);
+                }
+
+                items = await itemsQuery
+                    .OrderBy(i => i.ItemName)
+                    .ToListAsync();
+            }
 
             var settings = await _context.SystemSettings
-            .AsNoTracking()
-            .FirstOrDefaultAsync();
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId)
+                ?? new SystemSetting();
 
-                    ViewBag.TaxMode = settings?.TaxMode ?? "VAT";
-
-                    ViewBag.DefaultVatPercent =
-                        settings?.DefaultVatPercent ?? 0;
+            ViewBag.TaxMode = settings.TaxMode;
+            ViewBag.DefaultVatPercent = settings.DefaultVatPercent;
 
             return View(items);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermissionAuthorize("POS", "Create")]
         public async Task<IActionResult> Checkout(
             int? customerId,
             string paymentMethod,
@@ -76,6 +148,8 @@ namespace HardwareManagementSystem.Controllers
             string cartJson,
             string? checkoutToken)
         {
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             if (string.IsNullOrWhiteSpace(cartJson))
             {
                 TempData["ErrorMessage"] = "Cart is empty.";
@@ -104,10 +178,6 @@ namespace HardwareManagementSystem.Controllers
                 TempData["ErrorMessage"] = "Cart is empty.";
                 return RedirectToAction(nameof(Index));
             }
-
-            // ============================================
-            // DUPLICATE CHECKOUT PROTECTION
-            // ============================================
 
             var cashierIdForToken =
                 User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anon";
@@ -149,6 +219,35 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            if (customerId.HasValue)
+            {
+                var customerQuery = _context.Customers
+                    .Where(c => c.Id == customerId.Value && c.IsActive);
+
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                {
+                    customerQuery = customerQuery.Where(c => c.TenantId == tenantId || c.TenantId == null);
+                }
+
+                var customer = await customerQuery.FirstOrDefaultAsync();
+
+                if (customer == null)
+                {
+                    TempData["ErrorMessage"] = "Customer not found or inactive.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                if (!await _tenantGuard.CanAccessTenantAsync(customer.TenantId))
+                {
+                    return Forbid();
+                }
+
+                if (!customer.TenantId.HasValue && tenantId.HasValue)
+                {
+                    customer.TenantId = tenantId;
+                }
+            }
+
             if (paymentMethod == "Credit")
             {
                 amountReceived = 0;
@@ -160,7 +259,7 @@ namespace HardwareManagementSystem.Controllers
 
             try
             {
-                var salesNumber = await GenerateSalesNumberAsync();
+                var salesNumber = await GenerateSalesNumberAsync(tenantId);
 
                 var cashierId =
                     User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -168,37 +267,40 @@ namespace HardwareManagementSystem.Controllers
                 var cashierName =
                     User.Identity?.Name ?? "Unknown";
 
-                // ============================================
-                // SERVER-SIDE TAXMODE RECALCULATION
-                // ============================================
+                var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+
+                if (currentBranch != null && !await _tenantGuard.CanAccessTenantAsync(currentBranch.TenantId))
+                {
+                    await transaction.RollbackAsync();
+                    return Forbid();
+                }
 
                 var settings = await _context.SystemSettings
                     .AsNoTracking()
-                    .FirstOrDefaultAsync();
+                    .FirstOrDefaultAsync(s => s.TenantId == tenantId)
+                    ?? new SystemSetting();
 
-                var taxMode = settings?.TaxMode ?? "VAT";
-                var defaultVatPercent = settings?.DefaultVatPercent ?? 0;
-
-                // serverSubTotal, vatAmount, and totalAmount are recalculated server-side
-                // after SalesDetails are built from DB-confirmed prices (see below).
-                decimal serverTotalBeforeVat = 0;
+                var taxMode = settings.TaxMode;
+                var defaultVatPercent = settings.DefaultVatPercent;
 
                 var salesHeader = new SalesHeader
                 {
+                    TenantId = tenantId,
                     SalesNumber = salesNumber,
                     SalesDate = DateTime.Now,
                     CustomerId = customerId,
                     CashierId = cashierId,
                     CashierName = cashierName,
+                    BranchId = currentBranch?.Id,
                     PaymentMethod = paymentMethod,
                     ReferenceNumber = referenceNumber,
-                    SubTotal = 0,          // set after foreach
+                    SubTotal = 0,
                     DiscountAmount = discountAmount,
                     DiscountType = discountType,
                     DiscountValue = discountValue,
                     DiscountReason = discountReason,
-                    VatAmount = 0,         // set after foreach
-                    TotalAmount = 0,       // set after foreach
+                    VatAmount = 0,
+                    TotalAmount = 0,
                     AmountReceived = amountReceived,
                     ChangeAmount = changeAmount,
                     Status = "Completed",
@@ -208,19 +310,21 @@ namespace HardwareManagementSystem.Controllers
                 if (cartItems.Any(c => c.ItemId <= 0 || c.Quantity <= 0))
                 {
                     TempData["ErrorMessage"] = "Invalid cart item.";
+                    await transaction.RollbackAsync();
                     return RedirectToAction(nameof(Index));
                 }
 
-                var cartItemIds =
-                    cartItems.Select(c => c.ItemId).ToList();
+                var cartItemIds = cartItems.Select(c => c.ItemId).ToList();
 
-                // FIX 2: Re-fetch items inside the transaction with tracking
-                // to get fresh stock values for concurrency protection.
-                var itemsLookup = await _context.Items
-                    .Where(i =>
-                        cartItemIds.Contains(i.Id) &&
-                        i.Status == "Active")
-                    .ToDictionaryAsync(i => i.Id);
+                var itemsQuery = _context.Items
+                    .Where(i => cartItemIds.Contains(i.Id) && i.Status == "Active");
+
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                {
+                    itemsQuery = itemsQuery.Where(i => i.TenantId == tenantId || i.TenantId == null);
+                }
+
+                var itemsLookup = await itemsQuery.ToDictionaryAsync(i => i.Id);
 
                 foreach (var cartItem in cartItems)
                 {
@@ -240,11 +344,22 @@ namespace HardwareManagementSystem.Controllers
                         return RedirectToAction(nameof(Index));
                     }
 
-                    // FIX 2: Re-read current stock directly from DB inside transaction
-                    var freshStock = await _context.Items
+                    if (!await _tenantGuard.CanAccessTenantAsync(item.TenantId))
+                    {
+                        await transaction.RollbackAsync();
+                        return Forbid();
+                    }
+
+                    var freshStockQuery = _context.Items
                         .Where(i => i.Id == item.Id)
-                        .Select(i => new { i.CurrentStock, i.Status })
-                        .FirstOrDefaultAsync();
+                        .Select(i => new { i.CurrentStock, i.Status, i.TenantId });
+
+                    if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                    {
+                        freshStockQuery = freshStockQuery.Where(i => i.TenantId == tenantId || i.TenantId == null);
+                    }
+
+                    var freshStock = await freshStockQuery.FirstOrDefaultAsync();
 
                     if (freshStock == null || freshStock.Status != "Active")
                     {
@@ -255,7 +370,9 @@ namespace HardwareManagementSystem.Controllers
                         return RedirectToAction(nameof(Index));
                     }
 
-                    if (freshStock.CurrentStock < cartItem.Quantity)
+                    // In branch mode the authoritative stock is BranchProductStock,
+                    // not Item.CurrentStock, so skip the global check (H-5).
+                    if (currentBranch == null && freshStock.CurrentStock < cartItem.Quantity)
                     {
                         TempData["ErrorMessage"] =
                             $"Stock for {item.ItemName} changed during checkout. " +
@@ -265,8 +382,7 @@ namespace HardwareManagementSystem.Controllers
                             User,
                             "POS",
                             "CHECKOUT_STOCK_CONFLICT",
-                            $"Stock conflict on checkout. Item: {item.ItemName}, " +
-                            $"Requested: {cartItem.Quantity}, Available: {freshStock.CurrentStock}",
+                            $"Stock conflict on checkout. Item: {item.ItemName}, Requested: {cartItem.Quantity}, Available: {freshStock.CurrentStock}",
                             "Item",
                             item.Id.ToString(),
                             HttpContext.Connection.RemoteIpAddress?.ToString());
@@ -275,7 +391,6 @@ namespace HardwareManagementSystem.Controllers
                         return RedirectToAction(nameof(Index));
                     }
 
-                    // FIX 1: Use DB SellingPrice — ignore browser-submitted UnitPrice
                     var actualPrice = item.SellingPrice;
                     var lineTotal = actualPrice * cartItem.Quantity;
 
@@ -287,13 +402,44 @@ namespace HardwareManagementSystem.Controllers
                         LineTotal = lineTotal
                     });
 
-                    item.CurrentStock -= cartItem.Quantity;
+                    if (currentBranch != null)
+                    {
+                        var branchQty = await _branchService.GetBranchStockAsync(currentBranch.Id, item.Id);
+
+                        if (branchQty < cartItem.Quantity)
+                        {
+                            TempData["ErrorMessage"] =
+                                $"Insufficient branch stock for {item.ItemName}. " +
+                                $"Branch available: {branchQty:N0}. Please refresh cart.";
+
+                            await _auditService.LogAsync(
+                                User,
+                                "POS",
+                                "CHECKOUT_BRANCH_STOCK_CONFLICT",
+                                $"Branch stock conflict on checkout. Item: {item.ItemName}, Branch: {currentBranch.Name}, Requested: {cartItem.Quantity}, Branch Available: {branchQty}",
+                                "Item",
+                                item.Id.ToString(),
+                                HttpContext.Connection.RemoteIpAddress?.ToString());
+
+                            await transaction.RollbackAsync();
+                            return RedirectToAction(nameof(Index));
+                        }
+
+                        await _branchService.DeductStockAsync(currentBranch.Id, item.Id, cartItem.Quantity);
+                    }
+                    else
+                    {
+                        item.CurrentStock -= cartItem.Quantity;
+                    }
+
+                    if (!item.TenantId.HasValue && tenantId.HasValue)
+                    {
+                        item.TenantId = tenantId;
+                    }
                 }
 
-                // Recalculate subtotal from DB-confirmed line totals (override browser value)
                 var serverSubTotal = salesHeader.SalesDetails.Sum(d => d.LineTotal);
-
-                serverTotalBeforeVat = serverSubTotal - discountAmount;
+                var serverTotalBeforeVat = serverSubTotal - discountAmount;
 
                 if (serverTotalBeforeVat < 0)
                 {
@@ -315,7 +461,6 @@ namespace HardwareManagementSystem.Controllers
 
                 totalAmount = salesHeader.TotalAmount;
 
-                // Server-side guards using recalculated values
                 if (discountAmount > serverSubTotal)
                 {
                     TempData["ErrorMessage"] = "Discount cannot be greater than subtotal.";
@@ -340,8 +485,7 @@ namespace HardwareManagementSystem.Controllers
                         .Select(l => l.RunningBalance)
                         .FirstOrDefaultAsync();
 
-                    var newBalance =
-                        previousBalance + totalAmount;
+                    var newBalance = previousBalance + totalAmount;
 
                     _context.CustomerLedgers.Add(new CustomerLedger
                     {
@@ -384,11 +528,9 @@ namespace HardwareManagementSystem.Controllers
                         HttpContext.Connection.RemoteIpAddress?.ToString()
                     );
 
-                    await _notificationService
-                        .CreateDiscountNotificationAsync(
-                            salesNumber,
-                            discountAmount
-                        );
+                    await _notificationService.CreateDiscountNotificationAsync(
+                        salesNumber,
+                        discountAmount);
                 }
 
                 TempData["SuccessMessage"] =
@@ -410,15 +552,16 @@ namespace HardwareManagementSystem.Controllers
             }
         }
 
-        private async Task<string> GenerateSalesNumberAsync()
+        private async Task<string> GenerateSalesNumberAsync(int? tenantId)
         {
-            var today = DateTime.Now;
-            var prefix = $"POS-{today:yyyyMMdd}-";
+            var prefix = $"POS-{DateTime.Now:yyyyMMdd}-";
 
-            var countToday = await _context.SalesHeaders
-                .CountAsync(s => s.SalesNumber.StartsWith(prefix));
+            var query = _context.SalesHeaders.Where(s => s.SalesNumber.StartsWith(prefix));
+            if (tenantId.HasValue)
+                query = query.Where(s => s.TenantId == tenantId);
 
-            return $"{prefix}{(countToday + 1).ToString("0000")}";
+            var countToday = await query.CountAsync();
+            return $"{prefix}{(countToday + 1):0000}";
         }
 
         private class CartItemDto

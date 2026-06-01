@@ -1,0 +1,118 @@
+@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.ImportBatchRow>
+@using HardwareManagementSystem.ViewModels
+@using HardwareManagementSystem.Services
+
+@{
+    ViewData["Title"] = "Import Details";
+    var batch = ViewBag.Batch as HardwareManagementSystem.Models.ImportBatch;
+    var systemFields = ViewBag.SystemFields as List<string> ?? new List<string>();
+    var previewRows = ViewBag.PreviewRows as List<HardwareManagementSystem.ViewModels.ImportPreviewRow>
+        ?? new List<HardwareManagementSystem.ViewModels.ImportPreviewRow>();
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Import Details</h2>
+            <div class="hb-section-subtitle">
+                Batch #@batch?.Id — @batch?.ImportType — @batch?.FileName
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="History" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>
+                Back to History
+            </a>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- BATCH SUMMARY -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="kpi-card text-center">
+                    <div class="kpi-label">Total Rows</div>
+                    <div class="kpi-value">@batch?.TotalRows</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card text-center">
+                    <div class="kpi-label">Success</div>
+                    <div class="kpi-value text-success">@batch?.SuccessRows</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card text-center">
+                    <div class="kpi-label">Failed</div>
+                    <div class="kpi-value @(batch?.FailedRows > 0 ? "text-danger" : "")">@batch?.FailedRows</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card text-center">
+                    <div class="kpi-label">Status</div>
+                    <div class="kpi-value small">@batch?.Status</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW TABLE -->
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>#Row</th>
+                        @foreach (var f in systemFields)
+                        {
+                            <th>@ExcelImportService.GetDisplayName(f)</th>
+                        }
+                        <th>Status</th>
+                        <th>Error / Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in previewRows)
+                    {
+                        var rowClass = row.RowDbStatus switch
+                        {
+                            "Imported" => "table-success",
+                            "Failed"   => "table-danger",
+                            "Skipped"  => "table-warning",
+                            _          => ""
+                        };
+                        <tr class="@rowClass">
+                            <td class="text-muted small">@row.RowNumber</td>
+                            @foreach (var f in systemFields)
+                            {
+                                <td class="small">@(row.Fields.TryGetValue(f, out var v) ? v : "—")</td>
+                            }
+                            <td>
+                                @switch (row.RowDbStatus)
+                                {
+                                    case "Imported":
+                                        <span class="badge badge-soft-success"><i class="bi bi-check-circle me-1"></i>Imported</span>
+                                        break;
+                                    case "Failed":
+                                        <span class="badge badge-soft-danger"><i class="bi bi-x-circle me-1"></i>Failed</span>
+                                        break;
+                                    case "Skipped":
+                                        <span class="badge badge-soft-warning"><i class="bi bi-skip-forward me-1"></i>Skipped</span>
+                                        break;
+                                    default:
+                                        <span class="badge badge-soft-secondary">@row.RowDbStatus</span>
+                                        break;
+                                }
+                            </td>
+                            <td class="small text-danger">@(row.Errors.Count > 0 ? string.Join("; ", row.Errors) : "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Import", "Details", new Dictionary<string, string?> { ["batchId"] = batch?.Id.ToString() }))
+
+    </div>
+
+</div>

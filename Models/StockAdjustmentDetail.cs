@@ -1,8 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using HardwareManagementSystem.Models.Interfaces;
 
 namespace HardwareManagementSystem.Models
 {
-    public class StockAdjustmentDetail
+    public class StockAdjustmentDetail : ITenantEntity
     {
         public int Id { get; set; }
 

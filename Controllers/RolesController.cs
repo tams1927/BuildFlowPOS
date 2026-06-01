@@ -35,7 +35,13 @@ namespace HardwareManagementSystem.Controllers
         {
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
+            bool isSuperAdmin = User.IsInRole("SuperAdmin");
+
             var query = _roleManager.Roles.AsNoTracking().AsQueryable();
+
+            // Non-SuperAdmin cannot see or modify the SuperAdmin role
+            if (!isSuperAdmin)
+                query = query.Where(r => r.Name != "SuperAdmin");
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -54,6 +60,8 @@ namespace HardwareManagementSystem.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
+            ViewBag.IsSuperAdmin = isSuperAdmin;
+
             return View(new PagedResult<IdentityRole>
             {
                 Items = roles,
@@ -68,6 +76,8 @@ namespace HardwareManagementSystem.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(string roleName)
         {
+            bool isSuperAdmin = User.IsInRole("SuperAdmin");
+
             if (string.IsNullOrWhiteSpace(roleName))
             {
                 TempData["ErrorMessage"] = "Role name is required.";
@@ -75,6 +85,13 @@ namespace HardwareManagementSystem.Controllers
             }
 
             roleName = roleName.Trim();
+
+            // Prevent non-SuperAdmin from creating the SuperAdmin role
+            if (!isSuperAdmin && roleName.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["ErrorMessage"] = "You are not authorized to create the SuperAdmin role.";
+                return RedirectToAction(nameof(Index));
+            }
 
             if (await _roleManager.RoleExistsAsync(roleName))
             {
@@ -93,14 +110,10 @@ namespace HardwareManagementSystem.Controllers
             await CreateDefaultPermissionsForRoleAsync(roleName);
 
             await _auditService.LogAsync(
-                User,
-                "Users",
-                "ROLE CREATED",
+                User, "Users", "ROLE CREATED",
                 $"Role created: {roleName}",
-                "IdentityRole",
-                roleName,
-                HttpContext.Connection.RemoteIpAddress?.ToString()
-            );
+                "IdentityRole", roleName,
+                HttpContext.Connection.RemoteIpAddress?.ToString());
 
             TempData["SuccessMessage"] = "Role created successfully.";
             return RedirectToAction(nameof(Index));

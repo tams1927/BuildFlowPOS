@@ -5,11 +5,23 @@
 
     var dateFrom = ViewBag.DateFrom as DateTime? ?? DateTime.Today;
     var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
+    var allBranches = ViewBag.AllBranches as List<HardwareManagementSystem.Models.Branch>;
+    var isGlobal = (bool)(ViewBag.IsGlobalUser ?? false);
 }
 
 <div class="row g-3 mb-4">
 
-    <div class="col-xl-3 col-md-6">
+@if (!string.IsNullOrWhiteSpace(Model.BranchName))
+{
+    <div class="col-12">
+        <div class="alert alert-info border-0 rounded-3 py-2 px-3 d-flex align-items-center gap-2 small">
+            <i class="bi bi-building fs-5"></i>
+            <span>Showing data for <strong>@Model.BranchName</strong>.</span>
+        </div>
+    </div>
+}
+
+<div class="col-xl-3 col-md-6">
         <div class="kpi-card">
             <div class="kpi-icon"><i class="bi bi-cash-stack"></i></div>
             <div class="kpi-label">Gross Sales</div>
@@ -86,9 +98,27 @@
                        class="form-control" />
             </div>
 
+            @if (isGlobal && allBranches != null)
+            {
+                <div class="col-lg-3">
+                    <label class="form-label fw-semibold">Branch</label>
+                    <select name="branchId" class="form-select">
+                        <option value="0">All Branches</option>
+                        @foreach (var b in allBranches)
+                        {
+                            <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+            else if (Model.BranchId.HasValue)
+            {
+                <input type="hidden" name="branchId" value="@Model.BranchId" />
+            }
+
             <div class="col-lg-2 d-flex align-items-end">
                 <button type="submit"
-                        class="btn btn-primary w-100">
+                        class="btn btn-primary w-100" data-no-disable="true">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
@@ -97,7 +127,7 @@
 
                 <button type="button"
                         id="exportExpenseProfitPdfBtn"
-                        class="btn btn-danger w-100">
+                        class="btn btn-danger w-100" data-no-disable="true">
 
                     <i class="bi bi-file-earmark-pdf me-1"></i>
 

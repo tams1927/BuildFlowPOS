@@ -1,15 +1,21 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HardwareManagementSystem.Models.Interfaces;
 
 namespace HardwareManagementSystem.Models
 {
-    public class SalesReturnHeader
+    public class SalesReturnHeader : ITenantEntity
     {
         public int Id { get; set; }
 
         [Required]
         [StringLength(50)]
         public string ReturnNumber { get; set; } = string.Empty;
+
+        /// <summary>Tenant this return belongs to. Nullable for backward compatibility.</summary>
+        public int? TenantId { get; set; }
+
+        public Tenant? Tenant { get; set; }
 
         public DateTime ReturnDate { get; set; } = DateTime.Now;
 

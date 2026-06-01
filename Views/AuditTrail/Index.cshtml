@@ -4,8 +4,18 @@
 @{
     ViewData["Title"] = "Audit Trail";
 
-    var moduleFilter = ViewBag.ModuleFilter as string;
-    var actionFilter = ViewBag.ActionFilter as string;
+    var moduleFilter  = ViewBag.ModuleFilter as string;
+    var actionFilter  = ViewBag.ActionFilter as string;
+    var userFilter    = ViewBag.UserFilter   as string;
+    DateTime? dateFrom = ViewBag.DateFrom as DateTime?;
+    DateTime? dateTo   = ViewBag.DateTo   as DateTime?;
+    bool isSuperAdmin  = ViewBag.IsSuperAdmin == true;
+    int? tenantFilter  = ViewBag.TenantFilter as int?;
+
+    var tenantMap = ViewBag.TenantMap as Dictionary<int, string> ?? new Dictionary<int, string>();
+
+    // Anonymous list — typed via dynamic for the dropdown
+    var tenantList = ViewBag.Tenants as System.Collections.IEnumerable;
 }
 
 <div class="row g-3 mb-4">
@@ -60,9 +70,16 @@
 
     <div class="hb-card-header">
         <div>
-            <h2 class="hb-section-title">Audit Trail</h2>
+            <h2 class="hb-section-title">@(isSuperAdmin ? "Global Audit Trail" : "Audit Trail")</h2>
             <div class="hb-section-subtitle">
-                Track important system actions, cashier activities, discounts, and administrative changes
+                @if (isSuperAdmin)
+                {
+                    <span><i class="bi bi-globe me-1"></i>Platform-wide audit log across all tenants. Use the Tenant filter to narrow by store.</span>
+                }
+                else
+                {
+                    <span>Track important system actions, cashier activities, discounts, and administrative changes</span>
+                }
             </div>
         </div>
     </div>
@@ -72,6 +89,27 @@
         <form method="get"
       asp-controller="AuditTrail"
       asp-action="Index">
+
+    @if (isSuperAdmin)
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-lg-4">
+                <label class="form-label fw-semibold">
+                    <i class="bi bi-building me-1 text-primary"></i>Filter by Tenant
+                </label>
+                <select name="tenantFilter" class="form-select">
+                    <option value="">All Tenants</option>
+                    @if (tenantList != null)
+                    {
+                        foreach (dynamic t in tenantList)
+                        {
+                            <option value="@t.Id" selected="@(tenantFilter == (int)t.Id)">@t.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+        </div>
+    }
 
     <div class="row g-3 mb-4">
 
@@ -171,7 +209,46 @@
 
                 </option>
 
+                <option value="Branches"
+                        selected="@(moduleFilter == "Branches")">
+                    Branches
+                </option>
+
+                <option value="BranchTransfers"
+                        selected="@(moduleFilter == "BranchTransfers")">
+                    BranchTransfers
+                </option>
+
+                <option value="UserBranches"
+                        selected="@(moduleFilter == "UserBranches")">
+                    UserBranches
+                </option>
+
             </select>
+
+        </div>
+
+        <div class="col-lg-2">
+
+            <label class="form-label fw-semibold">User</label>
+            <input type="text" name="userFilter" class="form-control"
+                   value="@userFilter" placeholder="Filter by username..." />
+
+        </div>
+
+        <div class="col-lg-2">
+
+            <label class="form-label fw-semibold">Date From</label>
+            <input type="date" name="dateFrom" class="form-control"
+                   value="@dateFrom?.ToString("yyyy-MM-dd")" />
+
+        </div>
+
+        <div class="col-lg-2">
+
+            <label class="form-label fw-semibold">Date To</label>
+            <input type="date" name="dateTo" class="form-control"
+                   value="@dateTo?.ToString("yyyy-MM-dd")" />
 
         </div>
 
@@ -225,18 +302,17 @@
 
         </div>
 
-        <input type="hidden"
-               name="pageSize"
-               value="@Model.PageSize" />
-
-        <input type="hidden"
-               name="pageNumber"
-               value="1" />
+        <input type="hidden" name="pageSize"   value="@Model.PageSize" />
+        <input type="hidden" name="pageNumber" value="1" />
+        @if (isSuperAdmin && tenantFilter.HasValue)
+        {
+            <input type="hidden" name="tenantFilter" value="@tenantFilter" />
+        }
 
         <div class="col-lg-2 d-flex align-items-end">
 
             <button class="btn btn-primary w-100"
-                    type="submit">
+                    type="submit" data-no-disable="true">
 
                 <i class="bi bi-funnel me-1"></i>
 
@@ -258,6 +334,10 @@
                     <tr>
                         <th>Date/Time</th>
                         <th>User</th>
+                        @if (isSuperAdmin)
+                        {
+                            <th>Tenant</th>
+                        }
                         <th>Module</th>
                         <th>Action</th>
                         <th>Description</th>
@@ -294,6 +374,24 @@
                                 @(log.UserId ?? "No ID")
                             </div>
                         </td>
+
+                        @if (isSuperAdmin)
+                        {
+                            <td>
+                                @if (log.TenantId.HasValue && tenantMap.TryGetValue(log.TenantId.Value, out var tenantName))
+                                {
+                                    <span class="badge bg-primary text-white">@tenantName</span>
+                                }
+                                else if (log.TenantId == null)
+                                {
+                                    <span class="badge bg-secondary text-white">Platform</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary text-white">ID @log.TenantId</span>
+                                }
+                            </td>
+                        }
 
                         <td>
                             <span class="badge badge-soft-primary">
@@ -437,7 +535,7 @@
             {
                 <tr>
 
-                    <td colspan="10"
+                    <td colspan="@(isSuperAdmin ? 11 : 10)"
                         class="text-center py-5">
 
                         <div class="text-muted">
@@ -459,7 +557,7 @@
 
         </div>
 
-        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "AuditTrail", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["moduleFilter"] = moduleFilter, ["actionFilter"] = actionFilter }))
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "AuditTrail", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["moduleFilter"] = moduleFilter, ["actionFilter"] = actionFilter, ["userFilter"] = userFilter, ["dateFrom"] = dateFrom?.ToString("yyyy-MM-dd"), ["dateTo"] = dateTo?.ToString("yyyy-MM-dd"), ["tenantFilter"] = tenantFilter?.ToString() }))
 
     </div>
 

@@ -5,7 +5,7 @@
     ViewData["Title"] = "Role Permissions";
 
     var roles = ViewBag.Roles as List<string> ?? new();
-    var selectedRole = ViewBag.SelectedRole as string ?? "Admin";
+    var selectedRole = ViewBag.SelectedRole as string ?? "TenantAdmin";
     var permissionList = Model.Items.ToList();
 }
 
@@ -64,7 +64,7 @@
             <input type="hidden" name="pageNumber" value="1" />
 
             <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">
+                <button type="submit" class="btn btn-primary w-100" data-no-disable="true">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
@@ -274,7 +274,7 @@
                     cancelButtonColor: '#64748b'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        form.submit();
+                        form.requestSubmit();
                     }
                 });
             });

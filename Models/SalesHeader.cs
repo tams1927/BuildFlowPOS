@@ -1,9 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HardwareManagementSystem.Models.Interfaces;
 
 namespace HardwareManagementSystem.Models
 {
-    public class SalesHeader
+    public class SalesHeader : ITenantEntity
     {
         public int Id { get; set; }
 
@@ -58,6 +59,19 @@ namespace HardwareManagementSystem.Models
         public string Status { get; set; } = "Completed";
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        /// <summary>
+        /// Branch this sale was processed at.
+        /// Nullable for backward compatibility with existing records created before multi-branch.
+        /// </summary>
+        public int? BranchId { get; set; }
+
+        public Branch? Branch { get; set; }
+
+        /// <summary>Tenant this sale belongs to. Nullable for backward compatibility.</summary>
+        public int? TenantId { get; set; }
+
+        public Tenant? Tenant { get; set; }
 
         public Customer? Customer { get; set; }
 

@@ -1,0 +1,108 @@
+@model HardwareManagementSystem.ViewModels.FastMovingItemsViewModel
+@{
+    ViewData["Title"] = "Fast Moving Items";
+    var categories = ViewBag.AllCategories as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+    var allBranches = ViewBag.AllBranches as IEnumerable<HardwareManagementSystem.Models.Branch> ?? Enumerable.Empty<HardwareManagementSystem.Models.Branch>();
+    bool isGlobal = ViewBag.IsGlobalUser == true;
+}
+
+<div class="hb-card">
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title"><i class="bi bi-graph-up-arrow me-2 text-success"></i>Fast Moving Items</h2>
+            <div class="hb-section-subtitle">@Model.DateFrom.ToString("MMM dd") – @Model.DateTo.ToString("MMM dd, yyyy") @(Model.BranchName != null ? $"· {Model.BranchName}" : "")</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="FastMovingItemsPdf"
+               asp-route-dateFrom="@Model.DateFrom.ToString("yyyy-MM-dd")"
+               asp-route-dateTo="@Model.DateTo.ToString("yyyy-MM-dd")"
+               asp-route-branchId="@Model.BranchId"
+               asp-route-categoryId="@Model.CategoryId"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </a>
+        </div>
+    </div>
+    <div class="hb-card-body">
+
+        <form method="get" asp-action="FastMovingItems" class="mb-4">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2"><label class="form-label small fw-semibold">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm" value="@Model.DateFrom.ToString("yyyy-MM-dd")" /></div>
+                <div class="col-md-2"><label class="form-label small fw-semibold">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm" value="@Model.DateTo.ToString("yyyy-MM-dd")" /></div>
+                @if (isGlobal)
+                {
+                    <div class="col-md-2"><label class="form-label small fw-semibold">Branch</label>
+                        <select name="branchId" class="form-select form-select-sm">
+                            <option value="">All Branches</option>
+                            @foreach (var b in allBranches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }
+                        </select></div>
+                }
+                <div class="col-md-2"><label class="form-label small fw-semibold">Category</label>
+                    <select name="categoryId" class="form-select form-select-sm">
+                        <option value="">All Categories</option>
+                        @foreach (var c in categories) { <option value="@c.Id" selected="@(Model.CategoryId == (int)c.Id)">@c.CategoryName</option> }
+                    </select></div>
+                <div class="col-md-1"><button type="submit" class="btn btn-primary btn-sm" data-no-disable="true"><i class="bi bi-funnel"></i></button></div>
+            </div>
+        </form>
+
+        <!-- KPI row -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3"><div class="kpi-card py-3">
+                <div class="kpi-label">Total Items</div>
+                <div class="kpi-value fs-5">@Model.Rows.Count</div>
+            </div></div>
+            <div class="col-md-3"><div class="kpi-card py-3">
+                <div class="kpi-label">Total Qty Sold</div>
+                <div class="kpi-value fs-5">@Model.Rows.Sum(r => r.QtySold).ToString("N0")</div>
+            </div></div>
+            <div class="col-md-3"><div class="kpi-card py-3">
+                <div class="kpi-label">Total Revenue</div>
+                <div class="kpi-value fs-5">₱@Model.Rows.Sum(r => r.Revenue).ToString("N2")</div>
+            </div></div>
+            <div class="col-md-3"><div class="kpi-card py-3">
+                <div class="kpi-label">Top Item</div>
+                <div class="kpi-value fs-6 fw-bold text-truncate" title="@(Model.Rows.FirstOrDefault()?.ItemName)">
+                    @(Model.Rows.FirstOrDefault()?.ItemName ?? "—")
+                </div>
+            </div></div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr>
+                    <th>#</th><th>SKU</th><th>Item Name</th><th>Category</th><th>Unit</th>
+                    <th class="text-end">Qty Sold</th><th class="text-end">Revenue</th>
+                    <th class="text-end">Current Stock</th>
+                </tr></thead>
+                <tbody>
+                    @if (Model.Rows.Any())
+                    {
+                        int rank = 1;
+                        foreach (var r in Model.Rows)
+                        {
+                            <tr>
+                                <td class="text-muted small">@rank++</td>
+                                <td class="small text-muted">@r.ItemCode</td>
+                                <td><strong>@r.ItemName</strong></td>
+                                <td class="small">@r.Category</td>
+                                <td class="small">@r.Unit</td>
+                                <td class="text-end fw-bold text-success">@r.QtySold.ToString("N3")</td>
+                                <td class="text-end">₱@r.Revenue.ToString("N2")</td>
+                                <td class="text-end @(r.CurrentStock <= 0 ? "text-danger" : "")">@r.CurrentStock.ToString("N3")</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>No sales data for this period.
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

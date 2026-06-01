@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HardwareManagementSystem.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "SuperAdmin,TenantAdmin")]
     [PermissionAuthorize("Users", "View")]
     public class RolePermissionsController : Controller
     {
@@ -31,11 +31,19 @@ namespace HardwareManagementSystem.Controllers
         {
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
-            var selectedRole = string.IsNullOrWhiteSpace(role)
-                ? "Admin"
-                : role;
+            bool isSuperAdmin = User.IsInRole("SuperAdmin");
+
+            var selectedRole = string.IsNullOrWhiteSpace(role) ? "TenantAdmin" : role;
+
+            // Non-SuperAdmin cannot view or edit SuperAdmin role permissions
+            if (!isSuperAdmin && selectedRole == "SuperAdmin")
+            {
+                TempData["ErrorMessage"] = "You are not authorized to view SuperAdmin permissions.";
+                return RedirectToAction(nameof(Index), new { role = "TenantAdmin" });
+            }
 
             ViewBag.SelectedRole = selectedRole;
+            ViewBag.IsSuperAdmin = isSuperAdmin;
 
             var query = _context.RolePermissions
                 .AsNoTracking()
@@ -45,16 +53,13 @@ namespace HardwareManagementSystem.Controllers
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 var term = searchTerm.Trim().ToLower();
-
-                query = query.Where(p =>
-                    p.ModuleName.ToLower().Contains(term));
+                query = query.Where(p => p.ModuleName.ToLower().Contains(term));
             }
 
             var totalRecords = await query.CountAsync();
 
             pageNumber = PagedResult<object>.ValidatePageNumber(
-                pageNumber,
-                (int)Math.Ceiling(totalRecords / (double)pageSize));
+                pageNumber, (int)Math.Ceiling(totalRecords / (double)pageSize));
 
             var permissions = await query
                 .OrderBy(p => p.ModuleName)
@@ -62,11 +67,17 @@ namespace HardwareManagementSystem.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
-            ViewBag.Roles = await _context.Roles
+            // Roles dropdown: hide SuperAdmin from non-SuperAdmin users
+            var allRoles = await _context.Roles
                 .AsNoTracking()
                 .OrderBy(r => r.Name)
                 .Select(r => r.Name!)
                 .ToListAsync();
+
+            if (!isSuperAdmin)
+                allRoles = allRoles.Where(r => r != "SuperAdmin").ToList();
+
+            ViewBag.Roles = allRoles;
 
             return View(new PagedResult<RolePermission>
             {
@@ -87,30 +98,35 @@ namespace HardwareManagementSystem.Controllers
             int pageNumber = 1,
             int pageSize = 10)
         {
+            bool isSuperAdmin = User.IsInRole("SuperAdmin");
+
             if (permissions == null || !permissions.Any())
             {
-                TempData["ErrorMessage"] =
-                    "No permissions submitted.";
-
-                return RedirectToAction(
-                    nameof(Index),
-                    new { role = selectedRole, searchTerm, pageNumber, pageSize });
+                TempData["ErrorMessage"] = "No permissions submitted.";
+                return RedirectToAction(nameof(Index), new { role = selectedRole, searchTerm, pageNumber, pageSize });
             }
 
             var roleName = permissions.First().RoleName;
 
+            // Prevent non-SuperAdmin from modifying SuperAdmin role
+            if (!isSuperAdmin && roleName == "SuperAdmin")
+            {
+                TempData["ErrorMessage"] = "You are not authorized to modify SuperAdmin permissions.";
+                return RedirectToAction(nameof(Index), new { role = "TenantAdmin" });
+            }
+
             if (!ModelState.IsValid)
             {
-                TempData["ErrorMessage"] =
-                    "Invalid permission submission.";
-
-                return RedirectToAction(
-                    nameof(Index),
-                    new { role = roleName, searchTerm, pageNumber, pageSize });
+                TempData["ErrorMessage"] = "Invalid permission submission.";
+                return RedirectToAction(nameof(Index), new { role = roleName, searchTerm, pageNumber, pageSize });
             }
 
             foreach (var submitted in permissions)
             {
+                // Double-check: if this row is for SuperAdmin and caller is not SuperAdmin, skip
+                if (!isSuperAdmin && submitted.RoleName == "SuperAdmin")
+                    continue;
+
                 var existing = await _context.RolePermissions
                     .FirstOrDefaultAsync(p =>
                         p.RoleName == submitted.RoleName &&
@@ -119,12 +135,8 @@ namespace HardwareManagementSystem.Controllers
                 if (existing == null)
                     continue;
 
-                // ============================================
-                // PREVENT ADMIN SELF LOCKOUT
-                // ============================================
-
-                if (submitted.RoleName == "Admin" &&
-                    submitted.ModuleName == "RolePermissions")
+                // Prevent TenantAdmin self-lockout from permissions management
+                if (submitted.RoleName == "TenantAdmin" && submitted.ModuleName == "RolePermissions")
                 {
                     submitted.CanView = true;
                     submitted.CanEdit = true;
@@ -141,21 +153,14 @@ namespace HardwareManagementSystem.Controllers
             await _context.SaveChangesAsync();
 
             await _auditService.LogAsync(
-                User,
-                "RolePermissions",
-                "UPDATED",
+                User, "RolePermissions", "UPDATED",
                 $"Role permissions updated for role: {roleName}",
-                "RolePermission",
-                roleName,
-                HttpContext.Connection.RemoteIpAddress?.ToString()
-            );
+                "RolePermission", roleName,
+                HttpContext.Connection.RemoteIpAddress?.ToString());
 
-            TempData["SuccessMessage"] =
-                "Role permissions updated successfully.";
+            TempData["SuccessMessage"] = "Role permissions updated successfully.";
 
-            return RedirectToAction(
-                nameof(Index),
-                new { role = roleName, searchTerm, pageNumber, pageSize });
+            return RedirectToAction(nameof(Index), new { role = roleName, searchTerm, pageNumber, pageSize });
         }
     }
 }

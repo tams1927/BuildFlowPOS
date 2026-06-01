@@ -1,0 +1,86 @@
+@model HardwareManagementSystem.Models.PurchaseOrder
+@using HardwareManagementSystem.Models
+@{
+    Layout = "~/Views/Shared/_PrintDoc.cshtml";
+    var settings = ViewBag.PrintSettings as SystemSetting;
+    var currency = settings?.CurrencySymbol ?? "₱";
+}
+
+<div class="doc-meta-row" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <div>
+        <div class="doc-label">SUPPLIER</div>
+        <div class="doc-value"><strong>@(Model.Supplier?.SupplierName ?? "—")</strong></div>
+        @if (!string.IsNullOrWhiteSpace(Model.Supplier?.ContactNumber))
+        { <div class="doc-sub">Tel: @Model.Supplier.ContactNumber</div> }
+        @if (!string.IsNullOrWhiteSpace(Model.Supplier?.Email))
+        { <div class="doc-sub">@Model.Supplier.Email</div> }
+        @if (!string.IsNullOrWhiteSpace(Model.Supplier?.Address))
+        { <div class="doc-sub">@Model.Supplier.Address</div> }
+    </div>
+
+    <div>
+        <div class="doc-label">PO DETAILS</div>
+        <div class="doc-sub">Expected Delivery: <strong>@(Model.ExpectedDeliveryDate?.ToString("MMMM dd, yyyy") ?? "—")</strong></div>
+        <div class="doc-sub">Branch: @(Model.Branch?.Name ?? "Main")</div>
+        <div class="doc-sub">Status: <strong>@Model.Status</strong></div>
+        @if (!string.IsNullOrWhiteSpace(Model.Notes))
+        { <div class="doc-sub">Notes: @Model.Notes</div> }
+    </div>
+
+</div>
+
+<table class="doc-table" style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px;">
+    <thead>
+        <tr>
+            <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;">#</th>
+            <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;">Description</th>
+            <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;text-align:right;">Qty</th>
+            <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;">Unit</th>
+            <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;text-align:right;">Unit Cost</th>
+            <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;text-align:right;">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        @{int lineNo = 1;}
+        @foreach (var pi in Model.Items.OrderBy(i => i.Id))
+        {
+            var bg = lineNo % 2 == 0 ? "#f8f9fb" : "#fff";
+            <tr style="background:@bg;">
+                <td style="border:1px solid #ddd;padding:5px;">@lineNo</td>
+                <td style="border:1px solid #ddd;padding:5px;">
+                    <strong>@(pi.Item?.ItemName ?? $"Item #{pi.ItemId}")</strong>
+                    @if (pi.Item != null)
+                    { <div style="font-size:9px;color:#666;">@pi.Item.ItemCode</div> }
+                </td>
+                <td style="border:1px solid #ddd;padding:5px;text-align:right;">@pi.Quantity.ToString("0.###")</td>
+                <td style="border:1px solid #ddd;padding:5px;">@(pi.Item?.Unit?.ShortName ?? "—")</td>
+                <td style="border:1px solid #ddd;padding:5px;text-align:right;">@currency@pi.UnitCost.ToString("N2")</td>
+                <td style="border:1px solid #ddd;padding:5px;text-align:right;font-weight:700;">@currency@pi.TotalCost.ToString("N2")</td>
+            </tr>
+            lineNo++;
+        }
+    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="5" style="border:1px solid #ddd;padding:6px;text-align:right;font-weight:700;border-top:2px solid #1e3a5f;">
+                TOTAL AMOUNT
+            </td>
+            <td style="border:1px solid #ddd;padding:6px;text-align:right;font-weight:700;font-size:13px;border-top:2px solid #1e3a5f;color:#1e3a5f;">
+                @currency@Model.TotalAmount.ToString("N2")
+            </td>
+        </tr>
+    </tfoot>
+</table>
+
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:48px;">
+    <div style="border-top:1px solid #999;padding-top:6px;text-align:center;font-size:10px;color:#666;">
+        Prepared By
+    </div>
+    <div style="border-top:1px solid #999;padding-top:6px;text-align:center;font-size:10px;color:#666;">
+        Approved By
+    </div>
+    <div style="border-top:1px solid #999;padding-top:6px;text-align:center;font-size:10px;color:#666;">
+        Received By / Supplier
+    </div>
+</div>

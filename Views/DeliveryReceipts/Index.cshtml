@@ -1,0 +1,163 @@
+@model IEnumerable<HardwareManagementSystem.Models.DeliveryReceipt>
+@{
+    ViewData["Title"] = "Delivery Receipts";
+    int pageNumber  = ViewBag.PageNumber ?? 1;
+    int totalPages  = ViewBag.TotalPages ?? 1;
+    int total       = ViewBag.Total ?? 0;
+    string? search  = ViewBag.SearchTerm as string;
+    string? status  = ViewBag.StatusFilter as string;
+}
+
+<div class="page-header-row mb-4">
+    <div>
+        <h2 class="page-section-title">Delivery Receipts</h2>
+        <p class="text-muted mb-0">Track and manage outgoing deliveries</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i> New DR
+    </a>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-2"></i>@TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-circle me-2"></i>@TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="hb-card mb-4">
+    <div class="hb-card-body">
+        <form method="get" asp-action="Index">
+            <div class="row g-3">
+                <div class="col-lg-5">
+                    <label class="form-label fw-semibold">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="searchTerm" class="form-control border-start-0"
+                               value="@search" placeholder="DR number, customer, driver..." />
+                    </div>
+                </div>
+                <div class="col-lg-3">
+                    <label class="form-label fw-semibold">Status</label>
+                    <select name="statusFilter" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="Pending" selected="@(status == "Pending")">Pending</option>
+                        <option value="Delivered" selected="@(status == "Delivered")">Delivered</option>
+                        <option value="Cancelled" selected="@(status == "Cancelled")">Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" type="submit" data-no-disable="true">
+                        <i class="bi bi-funnel me-1"></i> Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="hb-card">
+    <div class="hb-card-body p-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>DR Number</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Driver</th>
+                        <th>Address</th>
+                        <th>Status</th>
+                        <th>Linked Sale</th>
+                        <th width="120">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Any())
+                    {
+                        foreach (var dr in Model)
+                        {
+                            var badge = dr.Status switch {
+                                "Pending"   => "badge-soft-warning",
+                                "Delivered" => "badge-soft-success",
+                                "Cancelled" => "badge-soft-danger",
+                                _           => "badge-soft-secondary"
+                            };
+                            <tr>
+                                <td><strong>@dr.DRNumber</strong></td>
+                                <td>@dr.DeliveryDate.ToString("MMM dd, yyyy")</td>
+                                <td>@(dr.Customer?.CustomerName ?? "Walk-in")</td>
+                                <td>@(dr.DriverName ?? "—")</td>
+                                <td class="text-muted small">@(dr.DeliveryAddress ?? "—")</td>
+                                <td><span class="badge @badge">@dr.Status</span></td>
+                                <td>
+                                    @if (dr.SalesHeaderId.HasValue)
+                                    {
+                                        <a asp-controller="Sales" asp-action="Index"
+                                           class="badge badge-soft-primary text-decoration-none">
+                                            Linked
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a asp-action="Details" asp-route-id="@dr.Id"
+                                           class="btn btn-sm btn-outline-secondary" title="Details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a asp-action="Print" asp-route-id="@dr.Id"
+                                           class="btn btn-sm btn-outline-primary" title="Print" target="_blank">
+                                            <i class="bi bi-printer"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-truck fs-1 d-block mb-2"></i>
+                                No delivery receipts found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (totalPages > 1)
+        {
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                <div class="text-muted small">@total record(s) · Page @pageNumber of @totalPages</div>
+                <div class="d-flex gap-1">
+                    @if (pageNumber > 1)
+                    {
+                        <a asp-action="Index" asp-route-pageNumber="@(pageNumber - 1)"
+                           asp-route-searchTerm="@search" asp-route-statusFilter="@status"
+                           class="btn btn-sm btn-outline-secondary">Prev</a>
+                    }
+                    @if (pageNumber < totalPages)
+                    {
+                        <a asp-action="Index" asp-route-pageNumber="@(pageNumber + 1)"
+                           asp-route-searchTerm="@search" asp-route-statusFilter="@status"
+                           class="btn btn-sm btn-outline-secondary">Next</a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

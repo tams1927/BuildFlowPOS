@@ -1,0 +1,263 @@
+@using HardwareManagementSystem.Models
+@using HardwareManagementSystem.Controllers
+@model TenantDatabaseInfoVm
+@{
+    ViewData["Title"] = "Tenant Database Info";
+}
+
+<div class="page-header-row mb-3">
+    <div>
+        <h2 class="page-section-title">Database Diagnostics</h2>
+        <p class="text-muted mb-0">@Model.TenantName</p>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.TenantId" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">
+        <i class="bi bi-hdd-stack me-2"></i>Routing Metadata
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="text-muted small">Tenant</div>
+                <div class="fw-semibold">@Model.TenantName <span class="text-muted">(ID @Model.TenantId)</span></div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Database Mode</div>
+                <div>
+                    @if (Model.DatabaseMode == TenantDatabaseMode.Dedicated)
+                    {
+                        <span class="badge badge-soft-primary"><i class="bi bi-hdd me-1"></i>Dedicated</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-secondary"><i class="bi bi-share me-1"></i>Shared</span>
+                    }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Database Name</div>
+                <div>@Model.DatabaseName</div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Database Server</div>
+                <div>@(string.IsNullOrWhiteSpace(Model.DatabaseServer) ? "—" : Model.DatabaseServer)</div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Uses Dedicated Database</div>
+                <div>
+                    @if (Model.UsesDedicatedDatabase)
+                    {
+                        <span class="badge badge-soft-success">Yes</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-secondary">No</span>
+                    }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Connection String (masked)</div>
+                <div><code>@Model.MaskedConnectionString</code></div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Last Migration</div>
+                <div class="small">@(string.IsNullOrWhiteSpace(Model.LastDatabaseMigration) ? "—" : Model.LastDatabaseMigration)</div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Provisioned (UTC)</div>
+                <div>
+                    @(Model.DatabaseProvisionedAtUtc.HasValue
+                        ? Model.DatabaseProvisionedAtUtc.Value.ToString("MMM dd, yyyy HH:mm") + " UTC"
+                        : "Not provisioned")
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">
+        <i class="bi bi-clipboard-check me-2"></i>Live Status (Phase 5.0C)
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="text-muted small">Current Routing</div>
+                <div>
+                    @if (Model.CurrentRouting == "Dedicated")
+                    {
+                        <span class="badge badge-soft-primary"><i class="bi bi-hdd me-1"></i>Dedicated</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-secondary"><i class="bi bi-share me-1"></i>Shared</span>
+                    }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Provision Status</div>
+                <div>
+                    @if (Model.IsProvisioned)
+                    {
+                        <span class="badge badge-soft-success">Provisioned</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-secondary">Not provisioned</span>
+                    }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Database Exists</div>
+                <div>
+                    @if (!Model.UsesDedicatedDatabase)
+                    {
+                        <span class="text-muted">Shared database</span>
+                    }
+                    else if (!Model.IsProvisioned)
+                    {
+                        <span class="badge badge-soft-secondary">No</span>
+                    }
+                    else if (Model.DatabaseExists)
+                    {
+                        <span class="badge badge-soft-success">Yes</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-danger">No</span>
+                    }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Connection Test</div>
+                <div>
+                    @if (!Model.ConnectionTested)
+                    {
+                        <span class="text-muted">Not tested (shared / not provisioned)</span>
+                    }
+                    else if (Model.ConnectionTestPassed)
+                    {
+                        <span class="badge badge-soft-success">Passed</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-danger">Failed</span>
+                    }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Data Migrated</div>
+                <div>
+                    @if (Model.DataMigrated)
+                    {
+                        <span class="badge badge-soft-success">Yes</span>
+                        <span class="small text-muted ms-1">@Model.DataMigratedAtUtc?.ToString("MMM dd, yyyy HH:mm") UTC</span>
+                    }
+                    else { <span class="badge badge-soft-secondary">No</span> }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Routing Enabled</div>
+                <div>
+                    @if (Model.RoutingEnabled) { <span class="badge badge-soft-success">Yes</span> }
+                    else { <span class="badge badge-soft-secondary">No</span> }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Last Migration</div>
+                <div class="small">@(string.IsNullOrWhiteSpace(Model.LastDatabaseMigration) ? "—" : Model.LastDatabaseMigration)</div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Current Runtime Database</div>
+                <div>
+                    @if (Model.RuntimeDatabase == "Dedicated")
+                    {
+                        <span class="badge bg-primary"><i class="bi bi-hdd me-1"></i>Dedicated</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary"><i class="bi bi-share me-1"></i>Shared</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">
+        <i class="bi bi-diagram-3 me-2"></i>Runtime Context (Phase 5.0D.1)
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="text-muted small">Current Context</div>
+                <div>
+                    @if (Model.CurrentContext == "TenantDbContext")
+                    {
+                        <span class="badge bg-primary"><i class="bi bi-hdd me-1"></i>TenantDbContext</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary"><i class="bi bi-share me-1"></i>ApplicationDbContext</span>
+                    }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Routing Active</div>
+                <div>
+                    @if (Model.RoutingActive)
+                    {
+                        <span class="badge badge-soft-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-secondary"><i class="bi bi-dash-circle me-1"></i>Inactive</span>
+                    }
+                </div>
+            </div>
+            <div class="col-12">
+                <a class="btn btn-sm btn-outline-secondary"
+                   asp-controller="Diagnostics" asp-action="RuntimeDatabase"
+                   asp-route-tenantId="@Model.TenantId" target="_blank">
+                    <i class="bi bi-terminal me-1"></i>Verify runtime database (JSON)
+                </a>
+                <span class="small text-muted ms-2">
+                    Confirms which EF context this tenant's business requests resolve to right now.
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">
+        <i class="bi bi-activity me-2"></i>Resolver Status
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="text-muted small">Resolver</div>
+                <div><span class="badge badge-soft-success">@Model.ResolverStatus</span></div>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small">Phase Status</div>
+                <div>@Model.PhaseStatus</div>
+            </div>
+            <div class="col-12">
+                <div class="alert alert-info mb-0 py-2 small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Phase 5.0D enables opt-in per-tenant routing. A tenant uses its dedicated database
+                    only when it is provisioned, data-migrated, and routing-enabled
+                    (Current Runtime Database = <strong>Dedicated</strong>). All other tenants — and
+                    SuperAdmin, Identity, and subscriptions — remain on the shared database.
+                    Disable routing at any time to roll back instantly; no data is deleted.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

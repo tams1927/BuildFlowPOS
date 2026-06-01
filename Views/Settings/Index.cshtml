@@ -44,6 +44,16 @@
                     <input asp-for="Email" class="form-control" />
                 </div>
 
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">TIN (Tax Identification Number)</label>
+                    <input asp-for="TIN" class="form-control" placeholder="000-000-000-000" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">VAT Registration Number</label>
+                    <input asp-for="VATRegNumber" class="form-control" placeholder="VAT Reg. No." />
+                </div>
+
                 <div class="col-md-3">
                     <label class="form-label fw-semibold">Currency Symbol</label>
                     <input asp-for="CurrencySymbol" class="form-control" required />
@@ -299,6 +309,94 @@
 
     <div class="hb-card-header">
         <div>
+            <h2 class="hb-section-title">Company Logo</h2>
+            <div class="hb-section-subtitle">
+                Upload your company logo. It appears on PDFs, quotations, delivery receipts, and printed documents.
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <div class="row g-4 align-items-center">
+
+            <div class="col-md-4 text-center">
+                @if (!string.IsNullOrWhiteSpace(Model.LogoPath))
+                {
+                    <img id="logoPreview"
+                         src="@Model.LogoPath"
+                         alt="Company Logo"
+                         class="img-fluid rounded border"
+                         style="max-height:140px; max-width:280px; object-fit:contain;" />
+                }
+                else
+                {
+                    <div id="logoPlaceholder"
+                         class="border rounded d-flex align-items-center justify-content-center text-muted"
+                         style="height:140px; width:280px; margin:auto; background:var(--hb-surface-2);">
+                        <div class="text-center">
+                            <i class="bi bi-image fs-1 d-block mb-1"></i>
+                            <span class="small">No logo uploaded</span>
+                        </div>
+                    </div>
+                    <img id="logoPreview"
+                         src="#"
+                         alt="Preview"
+                         class="img-fluid rounded border d-none"
+                         style="max-height:140px; max-width:280px; object-fit:contain;" />
+                }
+            </div>
+
+            <div class="col-md-8">
+                <form asp-controller="Settings"
+                      asp-action="UploadLogo"
+                      method="post"
+                      enctype="multipart/form-data"
+                      id="logoUploadForm">
+
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Select Image</label>
+                        <input type="file"
+                               name="logo"
+                               id="logoFileInput"
+                               accept="image/jpeg,image/png,image/gif,image/webp"
+                               class="form-control"
+                               required />
+                        <div class="form-text">
+                            Accepted: JPG, PNG, GIF, WebP &mdash; max 2 MB
+                        </div>
+                    </div>
+
+                    <button type="button"
+                            id="uploadLogoBtn"
+                            class="btn btn-primary">
+                        <i class="bi bi-cloud-upload me-1"></i>
+                        Upload Logo
+                    </button>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.LogoPath))
+                    {
+                        <span class="ms-3 text-muted small">
+                            <i class="bi bi-check-circle-fill text-success me-1"></i>
+                            Logo on file — uploading will replace it.
+                        </span>
+                    }
+
+                </form>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="hb-card mt-4">
+
+    <div class="hb-card-header">
+        <div>
             <h2 class="hb-section-title">Receipt Preview</h2>
             <div class="hb-section-subtitle">
                 Preview how business information will appear on receipts
@@ -453,8 +551,58 @@
             confirmButtonColor: '#2563eb',
             cancelButtonColor: '#64748b'
         }).then((result) => {
-        if (result.isConfirmed) form.submit();
+        if (result.isConfirmed) form.requestSubmit();
         });
     });
+
+    // Logo preview
+    const logoInput    = document.getElementById('logoFileInput');
+    const logoPreview  = document.getElementById('logoPreview');
+    const logoHolder   = document.getElementById('logoPlaceholder');
+
+    if (logoInput) {
+        logoInput.addEventListener('change', function () {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                if (logoPreview) {
+                    logoPreview.src = e.target.result;
+                    logoPreview.classList.remove('d-none');
+                }
+                if (logoHolder) logoHolder.classList.add('d-none');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Logo upload confirmation
+    const uploadLogoBtn = document.getElementById('uploadLogoBtn');
+    if (uploadLogoBtn) {
+        uploadLogoBtn.addEventListener('click', function () {
+            const file = logoInput && logoInput.files[0];
+            if (!file) {
+                Swal.fire({ icon: 'warning', title: 'No file selected', text: 'Please choose an image file first.', confirmButtonColor: '#1e40af' });
+                return;
+            }
+            const maxMb = 2;
+            if (file.size > maxMb * 1024 * 1024) {
+                Swal.fire({ icon: 'error', title: 'File too large', text: 'Maximum allowed size is 2 MB.', confirmButtonColor: '#1e40af' });
+                return;
+            }
+            Swal.fire({
+                title: 'Upload logo?',
+                text: 'This will replace the current company logo.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, upload',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#64748b'
+            }).then((result) => {
+                if (result.isConfirmed) document.getElementById('logoUploadForm').requestSubmit();
+            });
+        });
+    }
 </script>
 }

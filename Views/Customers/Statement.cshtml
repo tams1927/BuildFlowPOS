@@ -1,0 +1,175 @@
+@model HardwareManagementSystem.ViewModels.CustomerSOAViewModel
+@using HardwareManagementSystem.Models
+
+@{
+    ViewData["Title"] = $"SOA — {Model.Customer.CustomerName}";
+    var settings = ViewBag.Settings as SystemSetting;
+    var currency = settings?.CurrencySymbol ?? "₱";
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">
+                <i class="bi bi-file-earmark-person me-2"></i>Statement of Account
+            </h2>
+            <div class="hb-section-subtitle">@Model.Customer.CustomerName</div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+            <a asp-action="StatementPdf" asp-route-id="@Model.Customer.Id"
+               asp-route-dateFrom="@Model.DateFrom.ToString("yyyy-MM-dd")"
+               asp-route-dateTo="@Model.DateTo.ToString("yyyy-MM-dd")"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </a>
+            <button onclick="window.print()" class="btn btn-outline-info btn-sm">
+                <i class="bi bi-printer me-1"></i>Print
+            </button>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- Date filter -->
+        <form method="get" asp-controller="Customers" asp-action="Statement" asp-route-id="@Model.Customer.Id" class="mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm"
+                           value="@Model.DateFrom.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm"
+                           value="@Model.DateTo.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm" data-no-disable="true">
+                        <i class="bi bi-search me-1"></i>Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Customer info + balance -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-5">
+                <div class="p-3 rounded bg-body-secondary">
+                    <div class="text-muted small fw-semibold mb-1">CUSTOMER</div>
+                    <div class="fw-bold">@Model.Customer.CustomerName</div>
+                    @if (!string.IsNullOrWhiteSpace(Model.Customer.ContactNumber))
+                    { <div class="small text-muted">Tel: @Model.Customer.ContactNumber</div> }
+                    @if (!string.IsNullOrWhiteSpace(Model.Customer.Email))
+                    { <div class="small text-muted">@Model.Customer.Email</div> }
+                    @if (!string.IsNullOrWhiteSpace(Model.Customer.Address))
+                    { <div class="small text-muted">@Model.Customer.Address</div> }
+                    @if (Model.Customer.CreditLimit > 0)
+                    { <div class="small mt-1">Credit Limit: <strong>@currency@Model.Customer.CreditLimit.ToString("N2")</strong></div> }
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 rounded bg-body-secondary">
+                    <div class="text-muted small fw-semibold mb-1">SUMMARY</div>
+                    <div class="row g-1 small">
+                        <div class="col-7 text-muted">Period</div>
+                        <div class="col-5">@Model.DateFrom.ToString("MMM dd") – @Model.DateTo.ToString("MMM dd, yyyy")</div>
+                        <div class="col-7 text-muted">Beginning Balance</div>
+                        <div class="col-5 fw-semibold">@currency@Model.BeginningBalance.ToString("N2")</div>
+                        <div class="col-7 text-muted">Total Charges</div>
+                        <div class="col-5">@currency@Model.TotalDebits.ToString("N2")</div>
+                        <div class="col-7 text-muted">Total Payments</div>
+                        <div class="col-5 text-success">@currency@Model.TotalCredits.ToString("N2")</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 d-flex align-items-center">
+                <div class="p-3 rounded w-100 text-center @(Model.ClosingBalance > 0 ? "bg-danger bg-opacity-10" : "bg-success bg-opacity-10")">
+                    <div class="small text-muted fw-semibold mb-1">OUTSTANDING BALANCE</div>
+                    <div class="fw-bold @(Model.ClosingBalance > 0 ? "text-danger" : "text-success")" style="font-size:1.5rem;">
+                        @currency@Model.ClosingBalance.ToString("N2")
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction table -->
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Reference #</th>
+                        <th>Remarks</th>
+                        <th>Method</th>
+                        <th class="text-end">Debit</th>
+                        <th class="text-end">Credit</th>
+                        <th class="text-end">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Transactions.Any())
+                    {
+                        <tr class="table-light">
+                            <td colspan="7" class="text-muted small fst-italic">Beginning Balance</td>
+                            <td class="text-end fw-semibold">@currency@Model.BeginningBalance.ToString("N2")</td>
+                        </tr>
+                        foreach (var t in Model.Transactions)
+                        {
+                            var typeBadge = t.TransactionType switch
+                            {
+                                "CHARGE"     => "badge-soft-danger",
+                                "PAYMENT"    => "badge-soft-success",
+                                "ADJUSTMENT" => "badge-soft-warning",
+                                _            => "badge-soft-secondary"
+                            };
+                            <tr>
+                                <td class="small">@t.TransactionDate.ToString("MMM dd, yyyy")</td>
+                                <td><span class="badge @typeBadge">@t.TransactionType</span></td>
+                                <td class="small">@t.ReferenceNumber</td>
+                                <td class="small text-muted">@(t.Remarks ?? "—")</td>
+                                <td class="small text-muted">@(t.PaymentMethod ?? "—")</td>
+                                <td class="text-end @(t.DebitAmount > 0 ? "text-danger" : "")">
+                                    @(t.DebitAmount > 0 ? $"{currency}{t.DebitAmount:N2}" : "")
+                                </td>
+                                <td class="text-end @(t.CreditAmount > 0 ? "text-success" : "")">
+                                    @(t.CreditAmount > 0 ? $"{currency}{t.CreditAmount:N2}" : "")
+                                </td>
+                                <td class="text-end fw-semibold @(t.RunningBalance > 0 ? "text-danger" : t.RunningBalance < 0 ? "text-success" : "")">
+                                    @currency@t.RunningBalance.ToString("N2")
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No transactions in this period.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.Transactions.Any())
+                {
+                    <tfoot>
+                        <tr class="table-light fw-bold">
+                            <td colspan="5" class="text-end">Totals</td>
+                            <td class="text-end text-danger">@currency@Model.TotalDebits.ToString("N2")</td>
+                            <td class="text-end text-success">@currency@Model.TotalCredits.ToString("N2")</td>
+                            <td class="text-end @(Model.ClosingBalance > 0 ? "text-danger" : "text-success") fs-6">
+                                @currency@Model.ClosingBalance.ToString("N2")
+                            </td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+    </div>
+</div>

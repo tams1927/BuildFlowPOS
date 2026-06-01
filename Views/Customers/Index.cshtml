@@ -126,7 +126,7 @@
                 <input type="hidden" name="pageNumber" value="1" />
 
                 <div class="col-lg-2 d-flex align-items-end">
-                    <button class="btn btn-primary w-100" type="submit">
+                    <button class="btn btn-primary w-100" type="submit" data-no-disable="true">
                         <i class="bi bi-funnel me-1"></i>
                         Filter
                     </button>
@@ -222,10 +222,24 @@
                                            asp-route-customerId="@customer.Id"
                                            class="btn btn-sm btn-outline-primary"
                                            title="View Ledger">
-
                                             <i class="bi bi-journal-text"></i>
-
                                         </a>
+
+                                        <a asp-controller="Customers"
+                                           asp-action="Statement"
+                                           asp-route-id="@customer.Id"
+                                           class="btn btn-sm btn-outline-info"
+                                           title="Statement of Account">
+                                            <i class="bi bi-file-earmark-person"></i>
+                                        </a>
+
+                                        <button class="btn btn-sm btn-outline-warning credit-limit-btn"
+                                                data-id="@customer.Id"
+                                                data-name="@customer.CustomerName"
+                                                data-limit="@customer.CreditLimit"
+                                                title="Set Credit Limit">
+                                            <i class="bi bi-credit-card"></i>
+                                        </button>
 
                                         <button class="btn btn-sm btn-outline-secondary"
                                                 data-bs-toggle="modal"
@@ -527,7 +541,7 @@
                     cancelButtonColor: '#64748b'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        form.submit();
+                        form.requestSubmit();
                     }
                 });
             });
@@ -548,7 +562,7 @@
                     cancelButtonColor: '#64748b'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        form.submit();
+                        form.requestSubmit();
                     }
                 });
             });
@@ -583,5 +597,66 @@
             });
         }
 
+        // Credit Limit modal
+        document.querySelectorAll('.credit-limit-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const id    = this.dataset.id;
+                const name  = this.dataset.name;
+                const limit = parseFloat(this.dataset.limit) || 0;
+
+                document.getElementById('clCustomerId').value = id;
+                document.getElementById('clCustomerName').textContent = name;
+                document.getElementById('clCreditLimit').value = limit.toFixed(2);
+
+                new bootstrap.Modal(document.getElementById('creditLimitModal')).show();
+            });
+        });
+
+        document.getElementById('saveCreditLimitBtn')?.addEventListener('click', function () {
+            const limitVal = parseFloat(document.getElementById('clCreditLimit').value);
+            if (isNaN(limitVal) || limitVal < 0) {
+                Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Credit limit must be 0 or greater.', confirmButtonColor: '#2563eb' });
+                return;
+            }
+            Swal.fire({
+                title: 'Update Credit Limit?',
+                html: `Set credit limit to <strong>₱${limitVal.toLocaleString('en-PH', {minimumFractionDigits:2})}</strong>?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Update',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#64748b'
+            }).then(r => { if (r.isConfirmed) document.getElementById('creditLimitForm').requestSubmit(); });
+        });
+
     </script>
 }
+
+<!-- Credit Limit Modal -->
+<div class="modal fade" id="creditLimitModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-credit-card me-2"></i>Set Credit Limit</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form asp-controller="Customers" asp-action="UpdateCreditLimit" method="post" id="creditLimitForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="clCustomerId" name="id" />
+                <div class="modal-body">
+                    <div class="mb-2 text-muted small">Customer: <strong id="clCustomerName"></strong></div>
+                    <label class="form-label fw-semibold">Credit Limit (₱)</label>
+                    <input type="number" id="clCreditLimit" name="creditLimit" class="form-control"
+                           min="0" step="0.01" placeholder="0 = no limit" />
+                    <div class="form-text">Enter 0 to remove the credit limit.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="saveCreditLimitBtn" class="btn btn-warning">
+                        <i class="bi bi-save me-1"></i>Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

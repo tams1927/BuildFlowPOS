@@ -1,0 +1,110 @@
+@model HardwareManagementSystem.ViewModels.ABCAnalysisViewModel
+@{
+    ViewData["Title"] = "ABC Analysis";
+    var allBranches = ViewBag.AllBranches as IEnumerable<HardwareManagementSystem.Models.Branch> ?? Enumerable.Empty<HardwareManagementSystem.Models.Branch>();
+    bool isGlobal = ViewBag.IsGlobalUser == true;
+}
+
+<div class="hb-card">
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title"><i class="bi bi-bar-chart-steps me-2 text-primary"></i>ABC Analysis</h2>
+            <div class="hb-section-subtitle">Revenue contribution classification · @Model.DateFrom.ToString("MMM dd") – @Model.DateTo.ToString("MMM dd, yyyy")</div>
+        </div>
+        <a asp-action="ABCAnalysisPdf"
+           asp-route-dateFrom="@Model.DateFrom.ToString("yyyy-MM-dd")"
+           asp-route-dateTo="@Model.DateTo.ToString("yyyy-MM-dd")"
+           asp-route-branchId="@Model.BranchId"
+           class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+    </div>
+    <div class="hb-card-body">
+
+        <form method="get" asp-action="ABCAnalysis" class="mb-4">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2"><label class="form-label small fw-semibold">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm" value="@Model.DateFrom.ToString("yyyy-MM-dd")" /></div>
+                <div class="col-md-2"><label class="form-label small fw-semibold">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm" value="@Model.DateTo.ToString("yyyy-MM-dd")" /></div>
+                @if (isGlobal)
+                {
+                    <div class="col-md-2"><label class="form-label small fw-semibold">Branch</label>
+                        <select name="branchId" class="form-select form-select-sm">
+                            <option value="">All Branches</option>
+                            @foreach (var b in allBranches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }
+                        </select></div>
+                }
+                <div class="col-md-1"><button type="submit" class="btn btn-primary btn-sm" data-no-disable="true"><i class="bi bi-funnel"></i></button></div>
+            </div>
+        </form>
+
+        <!-- Classification legend -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3"><div class="kpi-card py-3 border-start border-3 border-success">
+                <div class="kpi-label text-success">Class A — Top 80%</div>
+                <div class="kpi-value fs-5 text-success">@Model.ACount Items</div>
+                <div class="kpi-trend">High-value, fast movers</div>
+            </div></div>
+            <div class="col-md-3"><div class="kpi-card py-3 border-start border-3 border-warning">
+                <div class="kpi-label text-warning">Class B — Next 15%</div>
+                <div class="kpi-value fs-5 text-warning">@Model.BCount Items</div>
+                <div class="kpi-trend">Moderate value items</div>
+            </div></div>
+            <div class="col-md-3"><div class="kpi-card py-3 border-start border-3 border-danger">
+                <div class="kpi-label text-danger">Class C — Bottom 5%</div>
+                <div class="kpi-value fs-5 text-danger">@Model.CCount Items</div>
+                <div class="kpi-trend">Low-value, slow movers</div>
+            </div></div>
+            <div class="col-md-3"><div class="kpi-card py-3">
+                <div class="kpi-label">Total Revenue</div>
+                <div class="kpi-value fs-5">₱@Model.TotalRevenue.ToString("N2")</div>
+            </div></div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr>
+                    <th>#</th><th>SKU</th><th>Item Name</th><th>Category</th>
+                    <th class="text-end">Revenue</th>
+                    <th class="text-end">Contribution %</th>
+                    <th class="text-end">Cumulative %</th>
+                    <th>Class</th>
+                </tr></thead>
+                <tbody>
+                    @if (Model.Rows.Any())
+                    {
+                        int rank = 1;
+                        foreach (var r in Model.Rows)
+                        {
+                            var badgeClass = r.Classification == "A" ? "bg-success" : r.Classification == "B" ? "bg-warning text-dark" : "bg-danger";
+                            var rowClass   = r.Classification == "A" ? "" : r.Classification == "B" ? "table-warning table-opacity-50" : "";
+                            <tr class="@rowClass">
+                                <td class="text-muted small">@rank++</td>
+                                <td class="small text-muted">@r.ItemCode</td>
+                                <td><strong>@r.ItemName</strong></td>
+                                <td class="small">@r.Category</td>
+                                <td class="text-end">₱@r.Revenue.ToString("N2")</td>
+                                <td class="text-end">@r.ContributionPct.ToString("N2")%</td>
+                                <td class="text-end">
+                                    <div class="d-flex align-items-center gap-2 justify-content-end">
+                                        @r.CumulativePct.ToString("N1")%
+                                        <div class="progress" style="width:60px;height:6px;">
+                                            <div class="progress-bar @(r.Classification == "A" ? "bg-success" : r.Classification == "B" ? "bg-warning" : "bg-danger")"
+                                                 style="width:@Math.Min((double)r.CumulativePct, 100)%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge @badgeClass">@r.Classification</span></td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>No sales data for this period.
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

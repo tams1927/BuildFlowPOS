@@ -2,6 +2,11 @@
     ViewData["Title"] = "New Stock Adjustment";
 
     var items = ViewBag.Items as List<HardwareManagementSystem.Models.Item>;
+    var currentBranch = ViewBag.CurrentBranch as HardwareManagementSystem.Models.Branch;
+    var branchStockMap = ViewBag.BranchStockMap as Dictionary<int, decimal>;
+
+    decimal GetStock(int itemId) =>
+        branchStockMap != null && branchStockMap.TryGetValue(itemId, out var q) ? q : 0;
 }
 
 <div class="hb-card">
@@ -12,6 +17,12 @@
             <h2 class="hb-section-title">New Stock Adjustment</h2>
             <div class="hb-section-subtitle">
                 Increase or decrease stock manually for recounts, damaged items, losses, or corrections
+                @if (currentBranch != null)
+                {
+                    <span class="badge badge-soft-primary ms-2">
+                        <i class="bi bi-building me-1"></i>@currentBranch.Name
+                    </span>
+                }
             </div>
         </div>
 
@@ -58,8 +69,9 @@
                         {
                             foreach (var item in items)
                             {
+                                var stockVal = GetStock(item.Id);
                                 <option value="@item.Id"
-                                        data-stock="@item.CurrentStock"
+                                        data-stock="@stockVal"
                                         data-unit="@(item.Unit?.ShortName ?? "")">
                                     @item.ItemCode - @item.ItemName
                                 </option>
@@ -213,7 +225,7 @@
                     cancelButtonColor: '#64748b'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        form.submit();
+                        form.requestSubmit();
                     }
                 });
             });

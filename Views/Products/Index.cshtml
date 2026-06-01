@@ -1,0 +1,552 @@
+@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.Item>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Products";
+
+    var categories = ViewBag.Categories as List<HardwareManagementSystem.Models.Category>;
+    var units = ViewBag.Units as List<HardwareManagementSystem.Models.Unit>;
+    var suppliers = ViewBag.Suppliers as List<HardwareManagementSystem.Models.Supplier>;
+    var categoryFilter = ViewBag.CategoryFilter as string;
+    var statusFilter = ViewBag.StatusFilter as string;
+}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="kpi-label">Total Products</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
+            <div class="kpi-trend">All product records</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="kpi-label">Active Products</div>
+            <div class="kpi-value">@(ViewBag.TotalActive ?? 0)</div>
+            <div class="kpi-trend">Available for sale</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-x-circle"></i>
+            </div>
+            <div class="kpi-label">Inactive Products</div>
+            <div class="kpi-value">@(ViewBag.TotalInactive ?? 0)</div>
+            <div class="kpi-trend">Disabled from POS</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <i class="bi bi-tags"></i>
+            </div>
+            <div class="kpi-label">Categories</div>
+            <div class="kpi-value">@(categories?.Count ?? 0)</div>
+            <div class="kpi-trend">Product categories</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Product Management</h2>
+            <div class="hb-section-subtitle">
+                Manage product master data � codes, pricing, and categories
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addProductModal">
+                <i class="bi bi-plus-circle me-1"></i>
+                Add Product
+            </button>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get" asp-controller="Products" asp-action="Index">
+            <div class="row g-3 mb-4">
+
+                <div class="col-lg-4">
+                    <label class="form-label fw-semibold">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text"
+                               name="searchTerm"
+                               class="form-control border-start-0"
+                               value="@Model.SearchTerm"
+                               placeholder="Search name, code, description..." />
+                    </div>
+                </div>
+
+                <div class="col-lg-3">
+                    <label class="form-label fw-semibold">Category</label>
+                    <select name="categoryFilter" class="form-select">
+                        <option value="all">All Categories</option>
+                        @if (categories != null)
+                        {
+                            foreach (var cat in categories)
+                            {
+                                <option value="@cat.Id" selected="@(categoryFilter == cat.Id.ToString())">@cat.CategoryName</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="col-lg-3">
+                    <label class="form-label fw-semibold">Status</label>
+                    <select name="statusFilter" class="form-select">
+                        <option value="all">All Status</option>
+                        <option value="active" selected="@(statusFilter == "active")">Active</option>
+                        <option value="inactive" selected="@(statusFilter == "inactive")">Inactive</option>
+                    </select>
+                </div>
+
+                <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                <input type="hidden" name="pageNumber" value="1" />
+
+                <div class="col-lg-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" type="submit" data-no-disable="true">
+                        <i class="bi bi-funnel me-1"></i>
+                        Filter
+                    </button>
+                </div>
+
+            </div>
+        </form>
+
+        <div class="table-responsive">
+
+            <table class="table align-middle">
+
+                <thead>
+                    <tr>
+                        <th>Code / Barcode</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Unit</th>
+                        <th>Supplier</th>
+                        <th>Cost Price</th>
+                        <th>Selling Price</th>
+                        <th>Reorder Lvl</th>
+                        <th>Status</th>
+                        <th width="120">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <code class="text-primary fw-semibold">@item.ItemCode</code>
+                                    @if (!string.IsNullOrWhiteSpace(item.Barcode))
+                                    {
+                                        <div class="text-muted small"><i class="bi bi-upc me-1"></i>@item.Barcode</div>
+                                    }
+                                </td>
+
+                                <td>
+                                    <strong>@item.ItemName</strong>
+                                    @if (!string.IsNullOrWhiteSpace(item.Description))
+                                    {
+                                        <div class="text-muted small">@item.Description</div>
+                                    }
+                                </td>
+
+                                <td>@(item.Category?.CategoryName ?? "�")</td>
+
+                                <td>@(item.Unit?.ShortName ?? "�")</td>
+
+                                <td>@(item.Supplier?.SupplierName ?? "�")</td>
+
+                                <td>?@item.CostPrice.ToString("N2")</td>
+
+                                <td>?@item.SellingPrice.ToString("N2")</td>
+
+                                <td>@item.ReorderLevel.ToString("0.###")</td>
+
+                                <td>
+                                    @if (item.Status == "Active")
+                                    {
+                                        <span class="badge badge-soft-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft-warning">Inactive</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <div class="d-flex gap-1">
+
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                title="Edit"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editProductModal"
+                                                data-id="@item.Id"
+                                                data-code="@item.ItemCode"
+                                                data-name="@item.ItemName"
+                                                data-categoryid="@item.CategoryId"
+                                                data-unitid="@item.UnitId"
+                                                data-supplierid="@item.SupplierId"
+                                                data-reorder="@item.ReorderLevel"
+                                                data-cost="@item.CostPrice"
+                                                data-price="@item.SellingPrice"
+                                                data-status="@item.Status"
+                                                data-description="@item.Description"
+                                                data-barcode="@item.Barcode">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                title="Delete"
+                                                onclick="confirmDelete(@item.Id, '@item.ItemName.Replace("'", "\\'")' )">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="10" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No products found.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+
+        </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Products", "Index", new Dictionary<string, string?> { ["searchTerm"] = Model.SearchTerm, ["categoryFilter"] = categoryFilter, ["statusFilter"] = statusFilter }))
+
+    </div>
+
+</div>
+
+<!-- ADD PRODUCT MODAL -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-labelledby="addProductModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="addProductModalLabel">Add Product</h5>
+                    <div class="text-muted small">Create a new product record</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <form asp-controller="Products" asp-action="Create" method="post">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-body">
+                    <div class="row g-3">
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Product Code</label>
+                            <input type="text" name="itemCode" class="form-control" placeholder="Leave blank to auto-generate" />
+                            <div class="form-text">Auto-generated from category if left blank.</div>
+                        </div>
+
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Product Name <span class="text-danger">*</span></label>
+                            <input type="text" name="itemName" class="form-control" placeholder="Example: Portland Cement 40kg" required />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+                            <select name="categoryId" class="form-select" required>
+                                <option value="">Select Category</option>
+                                @if (categories != null)
+                                {
+                                    foreach (var cat in categories)
+                                    {
+                                        <option value="@cat.Id">@cat.CategoryName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Unit <span class="text-danger">*</span></label>
+                            <select name="unitId" class="form-select" required>
+                                <option value="">Select Unit</option>
+                                @if (units != null)
+                                {
+                                    foreach (var unit in units)
+                                    {
+                                        <option value="@unit.Id">@unit.UnitName (@unit.ShortName)</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Supplier</label>
+                            <select name="supplierId" class="form-select">
+                                <option value="">No Supplier</option>
+                                @if (suppliers != null)
+                                {
+                                    foreach (var sup in suppliers)
+                                    {
+                                        <option value="@sup.Id">@sup.SupplierName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Cost Price <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">?</span>
+                                <input type="number" step="0.01" min="0" name="costPrice" class="form-control" value="0" required />
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Selling Price <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">?</span>
+                                <input type="number" step="0.01" min="0" name="sellingPrice" class="form-control" value="0" required />
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Reorder Level</label>
+                            <input type="number" step="0.001" min="0" name="reorderLevel" class="form-control" value="0" required />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Barcode</label>
+                            <input type="text" name="barcode" class="form-control" placeholder="EAN / UPC / Custom barcode (optional)" />
+                            <div class="form-text">Used for POS barcode scanner lookup.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Description</label>
+                            <textarea name="description" class="form-control" rows="2" placeholder="Optional product description"></textarea>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-1"></i>
+                        Add Product
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- EDIT PRODUCT MODAL -->
+<div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="editProductModalLabel">Edit Product</h5>
+                    <div class="text-muted small">Update product details</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <form asp-controller="Products" asp-action="Edit" method="post">
+
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="editId" name="id" />
+
+                <div class="modal-body">
+                    <div class="row g-3">
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Product Code <span class="text-danger">*</span></label>
+                            <input type="text" id="editCode" name="itemCode" class="form-control" required />
+                        </div>
+
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Product Name <span class="text-danger">*</span></label>
+                            <input type="text" id="editName" name="itemName" class="form-control" required />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+                            <select id="editCategoryId" name="categoryId" class="form-select" required>
+                                <option value="">Select Category</option>
+                                @if (categories != null)
+                                {
+                                    foreach (var cat in categories)
+                                    {
+                                        <option value="@cat.Id">@cat.CategoryName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Unit <span class="text-danger">*</span></label>
+                            <select id="editUnitId" name="unitId" class="form-select" required>
+                                <option value="">Select Unit</option>
+                                @if (units != null)
+                                {
+                                    foreach (var unit in units)
+                                    {
+                                        <option value="@unit.Id">@unit.UnitName (@unit.ShortName)</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Supplier</label>
+                            <select id="editSupplierId" name="supplierId" class="form-select">
+                                <option value="">No Supplier</option>
+                                @if (suppliers != null)
+                                {
+                                    foreach (var sup in suppliers)
+                                    {
+                                        <option value="@sup.Id">@sup.SupplierName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Cost Price <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">?</span>
+                                <input type="number" step="0.01" min="0" id="editCost" name="costPrice" class="form-control" required />
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Selling Price <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">?</span>
+                                <input type="number" step="0.01" min="0" id="editPrice" name="sellingPrice" class="form-control" required />
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Reorder Level</label>
+                            <input type="number" step="0.001" min="0" id="editReorder" name="reorderLevel" class="form-control" required />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Status</label>
+                            <select id="editStatus" name="status" class="form-select">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Barcode</label>
+                            <input type="text" id="editBarcode" name="barcode" class="form-control" placeholder="EAN / UPC / Custom barcode" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Description</label>
+                            <textarea id="editDescription" name="description" class="form-control" rows="2"></textarea>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i>
+                        Save Changes
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- DELETE FORM (hidden) -->
+<form id="deleteForm" asp-controller="Products" asp-action="Delete" method="post" class="d-none">
+    @Html.AntiForgeryToken()
+    <input type="hidden" id="deleteId" name="id" />
+</form>
+
+@section Scripts {
+    <script>
+        // Populate edit modal
+        document.getElementById('editProductModal').addEventListener('show.bs.modal', function (e) {
+            const btn = e.relatedTarget;
+            document.getElementById('editId').value = btn.dataset.id;
+            document.getElementById('editCode').value = btn.dataset.code;
+            document.getElementById('editName').value = btn.dataset.name;
+            document.getElementById('editCategoryId').value = btn.dataset.categoryid;
+            document.getElementById('editUnitId').value = btn.dataset.unitid;
+            document.getElementById('editSupplierId').value = btn.dataset.supplierid || '';
+            document.getElementById('editReorder').value = btn.dataset.reorder;
+            document.getElementById('editCost').value = btn.dataset.cost;
+            document.getElementById('editPrice').value = btn.dataset.price;
+            document.getElementById('editStatus').value = btn.dataset.status;
+            document.getElementById('editDescription').value = btn.dataset.description || '';
+            document.getElementById('editBarcode').value = btn.dataset.barcode || '';
+        });
+
+        // SweetAlert delete confirmation
+        function confirmDelete(id, name) {
+            Swal.fire({
+                title: 'Delete Product?',
+                html: `Are you sure you want to delete <strong>${name}</strong>?<br><small class="text-muted">Products with transactions will be deactivated instead.</small>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Delete',
+                cancelButtonText: 'Cancel'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    document.getElementById('deleteId').value = id;
+                    document.getElementById('deleteForm').requestSubmit();
+                }
+            });
+        }
+    </script>
+}

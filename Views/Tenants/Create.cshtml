@@ -1,0 +1,177 @@
+@using HardwareManagementSystem.Models
+@model HardwareManagementSystem.Models.Tenant
+@{
+    ViewData["Title"] = "New Tenant";
+    bool reopenOwner = ViewBag.CreateOwnerAccount == true;
+}
+
+<div class="page-header-row mb-3">
+    <div>
+        <h2 class="page-section-title">New Tenant</h2>
+        <p class="text-muted mb-0">Register a new hardware store business on the platform.</p>
+    </div>
+    <a asp-controller="Tenants" asp-action="Index" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+            <h6 class="fw-bold text-uppercase text-muted small mb-3">Business Info</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-8">
+                    <label asp-for="Name" class="form-label fw-semibold">Business Name <span class="text-danger">*</span></label>
+                    <input asp-for="Name" class="form-control" placeholder="e.g. Dela Cruz Hardware Store" />
+                    <span asp-validation-for="Name" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Code" class="form-label fw-semibold">Tenant Code <span class="text-danger">*</span></label>
+                    <input asp-for="Code" class="form-control text-uppercase" placeholder="e.g. DLCRZ" maxlength="20" />
+                    <span asp-validation-for="Code" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="OwnerName" class="form-label fw-semibold">Owner Name</label>
+                    <input asp-for="OwnerName" class="form-control" placeholder="Full name of owner/admin" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Email" class="form-label fw-semibold">Email</label>
+                    <input asp-for="Email" class="form-control" type="email" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Phone" class="form-label fw-semibold">Phone / Contact Number</label>
+                    <input asp-for="Phone" class="form-control" placeholder="09xx-xxx-xxxx" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Address" class="form-label fw-semibold">Address</label>
+                    <input asp-for="Address" class="form-control" />
+                </div>
+                <div class="col-12">
+                    <label asp-for="Notes" class="form-label fw-semibold">Notes</label>
+                    <textarea asp-for="Notes" class="form-control" rows="2" placeholder="Internal notes..."></textarea>
+                </div>
+            </div>
+
+            <h6 class="fw-bold text-uppercase text-muted small mb-3">Subscription & Limits</h6>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="SubscriptionPlanId" class="form-label fw-semibold">Subscription Plan</label>
+                    <select asp-for="SubscriptionPlanId" asp-items="ViewBag.Plans" class="form-select">
+                        <option value="">— Custom / No Plan —</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Status" class="form-label fw-semibold">Status</label>
+                    <select asp-for="Status" class="form-select">
+                        <option value="Trial">Trial</option>
+                        <option value="Active">Active</option>
+                        <option value="Suspended">Suspended</option>
+                        <option value="Expired">Expired</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="ExpirationDate" class="form-label fw-semibold">Expiration Date</label>
+                    <input asp-for="ExpirationDate" class="form-control" type="date" />
+                    <div class="form-text">Leave blank for no expiry.</div>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="MaxBranches" class="form-label fw-semibold">Max Branches</label>
+                    <input asp-for="MaxBranches" class="form-control" type="number" min="1" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="MaxUsers" class="form-label fw-semibold">Max Users</label>
+                    <input asp-for="MaxUsers" class="form-control" type="number" min="1" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="MaxProducts" class="form-label fw-semibold">Max Products</label>
+                    <input asp-for="MaxProducts" class="form-control" type="number" min="1" />
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" type="checkbox" />
+                        <label asp-for="IsActive" class="form-check-label fw-semibold">Active</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Optional First Owner Account ───────────────────── -->
+            <hr class="my-4" />
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <h6 class="fw-bold text-uppercase text-muted small mb-0">First Owner / Admin Account</h6>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="createOwnerToggle"
+                           name="createOwnerAccount" value="true"
+                           @(reopenOwner ? "checked" : "") />
+                    <label class="form-check-label fw-semibold" for="createOwnerToggle">Create Now</label>
+                </div>
+                <small class="text-muted">(optional — can be done later via Users)</small>
+            </div>
+
+            <div id="ownerAccountSection" class="@(reopenOwner ? "" : "d-none")">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Full Name <span class="text-danger owner-required">*</span></label>
+                        <input type="text" name="ownerFullName" class="form-control"
+                               placeholder="e.g. Juan Dela Cruz" value="@ViewBag.OwnerFullName" />
+                        <span class="text-danger small" data-valmsg-for="ownerFullName" data-valmsg-replace="true"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Username <span class="text-danger owner-required">*</span></label>
+                        <input type="text" name="ownerUsername" class="form-control"
+                               placeholder="e.g. jdelacruz" value="@ViewBag.OwnerUsername" autocomplete="off" />
+                        <span class="text-danger small" data-valmsg-for="ownerUsername" data-valmsg-replace="true"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Email <span class="text-danger owner-required">*</span></label>
+                        <input type="email" name="ownerEmail" class="form-control"
+                               placeholder="owner@storename.com" value="@ViewBag.OwnerEmail" autocomplete="off" />
+                        <span class="text-danger small" data-valmsg-for="ownerEmail" data-valmsg-replace="true"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Password <span class="text-danger owner-required">*</span></label>
+                        <input type="password" name="ownerPassword" class="form-control"
+                               placeholder="Min 6 characters" autocomplete="new-password" />
+                        <span class="text-danger small" data-valmsg-for="ownerPassword" data-valmsg-replace="true"></span>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Role</label>
+                        <select name="ownerRole" class="form-select">
+                            <option value="TenantAdmin" selected>TenantAdmin</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i> Create Tenant
+                </button>
+                <a asp-controller="Tenants" asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+    <script>
+        (function () {
+            const toggle  = document.getElementById('createOwnerToggle');
+            const section = document.getElementById('ownerAccountSection');
+
+            function updateVisibility() {
+                if (toggle.checked) {
+                    section.classList.remove('d-none');
+                } else {
+                    section.classList.add('d-none');
+                }
+            }
+
+            toggle.addEventListener('change', updateVisibility);
+            updateVisibility();
+        })();
+    </script>
+}

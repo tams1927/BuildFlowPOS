@@ -1,0 +1,124 @@
+@{
+    ViewData["Title"] = "Account Suspended";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Account Suspended — HardBuild POS</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f1f3d 100%);
+            font-family: "Segoe UI", sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .suspended-card {
+            width: 100%;
+            max-width: 460px;
+            background: #1e293b;
+            border-radius: 22px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            padding: 48px 40px 40px;
+            text-align: center;
+        }
+
+        .icon-circle {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: rgba(239, 68, 68, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 2rem;
+            color: #f87171;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #f1f5f9;
+            margin-bottom: 12px;
+        }
+
+        .card-message {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .btn-logout {
+            width: 100%;
+            padding: 12px;
+            background: #ef4444;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+            .btn-logout:hover {
+                background: #dc2626;
+                color: #ffffff;
+            }
+
+        .support-note {
+            margin-top: 20px;
+            font-size: 0.82rem;
+            color: #475569;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="suspended-card">
+
+        <div class="icon-circle">
+            <i class="bi bi-slash-circle"></i>
+        </div>
+
+        <div class="card-title">Account Suspended</div>
+
+        <div class="card-message">
+            Your tenant account has been <strong style="color:#fca5a5;">suspended or expired</strong>
+            and access to HardBuild POS has been disabled.<br /><br />
+            If you believe this is a mistake or need to renew your subscription,
+            please contact your administrator or support team.
+        </div>
+
+        <form asp-controller="Account" asp-action="Logout" method="post">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn-logout">
+                <i class="bi bi-box-arrow-right me-2"></i>Sign Out
+            </button>
+        </form>
+
+        <div class="support-note">
+            <i class="bi bi-envelope me-1"></i>
+            Need help? Contact support to restore access.
+        </div>
+
+    </div>
+
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

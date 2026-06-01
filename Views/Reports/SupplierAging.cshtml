@@ -1,0 +1,148 @@
+@model HardwareManagementSystem.ViewModels.SupplierAgingViewModel
+@{
+    ViewData["Title"] = "Supplier Aging — AP";
+}
+
+<div class="hb-card">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">
+                <i class="bi bi-clock-history me-2"></i>Accounts Payable Aging
+            </h2>
+            <div class="hb-section-subtitle">As of @Model.AsOfDate.ToString("MMMM dd, yyyy")</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="SupplierAgingPdf" asp-route-searchTerm="@ViewBag.SearchTerm"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </a>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- KPI row -->
+        <div class="row g-3 mb-4">
+            @{
+                var kpis = new[]
+                {
+                    ("Current (0-30)", Model.TotalCurrent, "bi-check-circle"),
+                    ("31–60 Days", Model.TotalDays1_30, "bi-hourglass-split"),
+                    ("61–90 Days", Model.TotalDays31_60, "bi-hourglass"),
+                    ("91–120 Days", Model.TotalDays61_90, "bi-exclamation-triangle"),
+                    ("120+ Days", Model.TotalOver90, "bi-x-octagon"),
+                    ("TOTAL", Model.TotalBalance, "bi-cash-stack"),
+                };
+                foreach (var (label, amount, icon) in kpis)
+                {
+                    <div class="col">
+                        <div class="kpi-card py-3">
+                            <div class="kpi-icon small"><i class="bi @icon"></i></div>
+                            <div class="kpi-label">@label</div>
+                            <div class="kpi-value fs-6">₱@amount.ToString("N2")</div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Search -->
+        <form method="get" asp-action="SupplierAging">
+            <div class="row g-3 mb-3">
+                <div class="col-lg-4">
+                    <div class="search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" name="searchTerm" class="form-control"
+                               value="@ViewBag.SearchTerm" placeholder="Search supplier..." />
+                    </div>
+                </div>
+                <div class="col-lg-2">
+                    <button type="submit" class="btn btn-primary" data-no-disable="true">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Supplier</th>
+                        <th>Contact</th>
+                        <th class="text-end">Current (0–30)</th>
+                        <th class="text-end">31–60 Days</th>
+                        <th class="text-end">61–90 Days</th>
+                        <th class="text-end">91–120 Days</th>
+                        <th class="text-end">120+ Days</th>
+                        <th class="text-end">Total Outstanding</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Rows.Any())
+                    {
+                        foreach (var r in Model.Rows.OrderByDescending(x => x.TotalOutstanding))
+                        {
+                            var urgency = r.Over90 > 0 ? "table-danger" : r.Days61_90 > 0 ? "table-warning" : "";
+                            <tr class="@urgency">
+                                <td><strong>@r.SupplierName</strong></td>
+                                <td class="small text-muted">@(r.ContactNumber ?? "—")</td>
+                                <td class="text-end @(r.Current > 0 ? "text-success" : "text-muted")">
+                                    @(r.Current > 0 ? $"₱{r.Current:N2}" : "—")
+                                </td>
+                                <td class="text-end @(r.Days1_30 > 0 ? "text-warning" : "text-muted")">
+                                    @(r.Days1_30 > 0 ? $"₱{r.Days1_30:N2}" : "—")
+                                </td>
+                                <td class="text-end @(r.Days31_60 > 0 ? "text-warning" : "text-muted")">
+                                    @(r.Days31_60 > 0 ? $"₱{r.Days31_60:N2}" : "—")
+                                </td>
+                                <td class="text-end @(r.Days61_90 > 0 ? "text-danger" : "text-muted")">
+                                    @(r.Days61_90 > 0 ? $"₱{r.Days61_90:N2}" : "—")
+                                </td>
+                                <td class="text-end @(r.Over90 > 0 ? "text-danger fw-bold" : "text-muted")">
+                                    @(r.Over90 > 0 ? $"₱{r.Over90:N2}" : "—")
+                                </td>
+                                <td class="text-end fw-bold @(r.TotalOutstanding > 0 ? "text-danger" : "")">
+                                    ₱@r.TotalOutstanding.ToString("N2")
+                                </td>
+                                <td>
+                                    <a asp-controller="Suppliers" asp-action="Statement" asp-route-id="@r.SupplierId"
+                                       class="btn btn-sm btn-outline-primary" title="View Statement">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                <i class="bi bi-check-circle fs-1 d-block mb-2 text-success"></i>
+                                No outstanding payables. All invoices are settled.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.Rows.Any())
+                {
+                    <tfoot class="table-dark">
+                        <tr>
+                            <td colspan="2" class="fw-bold">TOTALS</td>
+                            <td class="text-end fw-bold">₱@Model.TotalCurrent.ToString("N2")</td>
+                            <td class="text-end fw-bold">₱@Model.TotalDays1_30.ToString("N2")</td>
+                            <td class="text-end fw-bold">₱@Model.TotalDays31_60.ToString("N2")</td>
+                            <td class="text-end fw-bold">₱@Model.TotalDays61_90.ToString("N2")</td>
+                            <td class="text-end fw-bold">₱@Model.TotalOver90.ToString("N2")</td>
+                            <td class="text-end fw-bold fs-6">₱@Model.TotalBalance.ToString("N2")</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+    </div>
+</div>

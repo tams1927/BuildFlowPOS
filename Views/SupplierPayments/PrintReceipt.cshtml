@@ -1,0 +1,117 @@
+@model HardwareManagementSystem.Models.SupplierPayment
+@{
+    Layout = "~/Views/Shared/_PrintDoc.cshtml";
+    ViewBag.PrintDocTitle  = "SUPPLIER PAYMENT RECEIPT";
+    ViewBag.PrintDocNumber = $"PAY-{Model.Id:D6}";
+    ViewBag.PrintDocDate   = Model.PaymentDate.ToString("MMMM dd, yyyy");
+
+    var settings = ViewBag.PrintSettings as HardwareManagementSystem.Models.SystemSetting;
+    var currency = settings?.CurrencySymbol ?? "₱";
+}
+
+@section DocActions {
+    <button onclick="window.print()" class="btn-print">
+        &#128438; Print / Save PDF
+    </button>
+    <a href="@Url.Action("SupplierPayables", "Reports")" class="btn-secondary-print">
+        &#x2190; Back
+    </a>
+}
+
+<!-- Payment Info -->
+<div class="doc-info-grid">
+    <div>
+        <div class="info-label">Supplier</div>
+        <div class="info-value">@(Model.Supplier?.SupplierName ?? "—")</div>
+        @if (!string.IsNullOrWhiteSpace(Model.Supplier?.ContactNumber))
+        {
+            <div class="info-value muted">@Model.Supplier.ContactNumber</div>
+        }
+    </div>
+    <div>
+        <div class="info-label">Payment Date</div>
+        <div class="info-value">@Model.PaymentDate.ToString("MMMM dd, yyyy")</div>
+    </div>
+    <div>
+        <div class="info-label">Payment Method</div>
+        <div class="info-value">@Model.PaymentMethod</div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.ReferenceNumber))
+    {
+        <div>
+            <div class="info-label">Reference No.</div>
+            <div class="info-value muted">@Model.ReferenceNumber</div>
+        </div>
+    }
+    @if (Model.StockInHeader != null)
+    {
+        <div>
+            <div class="info-label">Stock-In Reference</div>
+            <div class="info-value muted">@Model.StockInHeader.StockInNumber</div>
+        </div>
+    }
+    <div>
+        <div class="info-label">Processed By</div>
+        <div class="info-value muted">@(Model.CreatedBy ?? "—")</div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.Remarks))
+    {
+        <div class="full-span">
+            <div class="info-label">Remarks</div>
+            <div class="info-value muted">@Model.Remarks</div>
+        </div>
+    }
+</div>
+
+<!-- Payment Summary -->
+<div class="doc-section-title">Payment Summary</div>
+
+<table class="doc-table">
+    <thead>
+        <tr>
+            <th>Description</th>
+            <th class="text-right" style="width:150px">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+                <strong>Payment to @(Model.Supplier?.SupplierName ?? "Supplier")</strong>
+                @if (Model.StockInHeader != null)
+                {
+                    <div style="font-size:10px;color:#888;">
+                        Stock-In: @Model.StockInHeader.StockInNumber
+                    </div>
+                }
+            </td>
+            <td class="text-right" style="font-size:14px;font-weight:700;color:#1e3a5f;">
+                @currency@Model.AmountPaid.ToString("N2")
+            </td>
+        </tr>
+    </tbody>
+    @if (Model.StockInHeader != null)
+    {
+        <tfoot>
+            <tr>
+                <td class="text-right"><strong>Balance Due After Payment</strong></td>
+                <td class="text-right" style="color:@(Model.StockInHeader.BalanceDue <= 0 ? "#065f46" : "#991b1b");">
+                    @(Model.StockInHeader.BalanceDue <= 0
+                        ? "FULLY PAID"
+                        : $"{currency}{Model.StockInHeader.BalanceDue:N2}")
+                </td>
+            </tr>
+        </tfoot>
+    }
+</table>
+
+<!-- Signature area -->
+<div class="sig-row two-col">
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Received By (Supplier)</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Authorized By</div>
+    </div>
+</div>

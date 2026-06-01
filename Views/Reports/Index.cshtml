@@ -2,6 +2,18 @@
 
 @{
     ViewData["Title"] = "Reports Dashboard";
+
+    var allBranches = ViewBag.AllBranches as List<HardwareManagementSystem.Models.Branch>;
+    var isGlobal = (bool)(ViewBag.IsGlobalUser ?? false);
+    var branchId = ViewBag.BranchId as int?;
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.BranchName))
+{
+    <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-3 d-flex align-items-center gap-2 small">
+        <i class="bi bi-building fs-5"></i>
+        <span>Showing report data for <strong>@Model.BranchName</strong>.</span>
+    </div>
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -46,6 +58,24 @@
                    class="form-control" />
 
         </div>
+
+        @if (isGlobal && allBranches != null)
+        {
+            <div class="col-auto">
+                <label class="form-label fw-semibold">Branch</label>
+                <select name="branchId" class="form-select">
+                    <option value="0">All Branches</option>
+                    @foreach (var b in allBranches)
+                    {
+                        <option value="@b.Id" selected="@(branchId == b.Id)">@b.Name</option>
+                    }
+                </select>
+            </div>
+        }
+        else if (branchId.HasValue)
+        {
+            <input type="hidden" name="branchId" value="@branchId" />
+        }
 
         <div class="col-auto">
 
@@ -96,7 +126,9 @@
         <div class="col-auto">
 
             <button type="submit"
-                    class="btn btn-primary">
+                    class="btn btn-primary" data-no-disable="true">
+
+
 
                 <i class="bi bi-funnel me-1"></i>
                 Apply Filter
@@ -121,7 +153,7 @@
             <button type="submit"
                     formaction="@Url.Action("ExportExcel", "Reports")"
                     formmethod="get"
-                    class="btn btn-success">
+                    class="btn btn-success" data-no-disable="true">
 
                 <i class="bi bi-file-earmark-excel me-1"></i>
                 Export Excel
@@ -626,6 +658,162 @@
 
         </div>
 
+    </div>
+
+</div>
+
+<div class="row g-3 mt-1">
+
+    <div class="col-12">
+        <div class="hb-card">
+            <div class="hb-card-header">
+                <div>
+                    <h2 class="hb-section-title">Analytics &amp; Operations</h2>
+                    <div class="hb-section-subtitle">Detailed branch-aware analytics and exports</div>
+                </div>
+            </div>
+            <div class="hb-card-body">
+                <div class="row g-3">
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="TransferAnalytics"
+                           asp-route-branchId="@branchId"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-arrow-left-right fs-1 text-success mb-2 d-block"></i>
+                                <strong>Transfer Analytics</strong>
+                                <div class="text-muted small mt-1">Branch transfer activity &amp; trends</div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="ExpenseVsProfit"
+                           asp-route-branchId="@branchId"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-graph-up-arrow fs-1 text-danger mb-2 d-block"></i>
+                                <strong>Expense vs Profit</strong>
+                                <div class="text-muted small mt-1">P&amp;L summary by branch</div>
+                            </div>
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@* ── INVENTORY INTELLIGENCE (Phase 4.6) ───────────────────────────── *@
+<div class="row g-3 mt-1">
+
+    <div class="col-12">
+        <div class="hb-card">
+            <div class="hb-card-header">
+                <div>
+                    <h2 class="hb-section-title">
+                        <i class="bi bi-bar-chart-steps me-2 text-primary"></i>Inventory Intelligence
+                    </h2>
+                    <div class="hb-section-subtitle">Decision-support reports for inventory management</div>
+                </div>
+            </div>
+            <div class="hb-card-body">
+                <div class="row g-3">
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="FastMovingItems"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-graph-up-arrow fs-1 text-success mb-2 d-block"></i>
+                                <strong>Fast Moving Items</strong>
+                                <div class="text-muted small mt-1">Top sellers by qty sold in date range</div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="SlowMovingItems"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-graph-down fs-1 text-warning mb-2 d-block"></i>
+                                <strong>Slow Moving Items</strong>
+                                <div class="text-muted small mt-1">Items with low sales activity</div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="DeadStock"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-archive fs-1 text-danger mb-2 d-block"></i>
+                                <strong>Dead Stock</strong>
+                                <div class="text-muted small mt-1">No sales in 90+ days, color-coded by age</div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="ReorderSuggestions"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-cart-plus fs-1 text-primary mb-2 d-block"></i>
+                                <strong>Reorder Suggestions</strong>
+                                <div class="text-muted small mt-1">Items at or below reorder level, generate PO</div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="StockAging"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-layers fs-1 text-info mb-2 d-block"></i>
+                                <strong>Stock Aging</strong>
+                                <div class="text-muted small mt-1">5-bucket aging by last stock-in date</div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="InventoryValuationReport"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-currency-exchange fs-1 text-primary mb-2 d-block"></i>
+                                <strong>Inventory Valuation</strong>
+                                <div class="text-muted small mt-1">WAC × Qty, grouped by category, PDF</div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="ABCAnalysis"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-bar-chart-steps fs-1 text-purple mb-2 d-block"></i>
+                                <strong>ABC Analysis</strong>
+                                <div class="text-muted small mt-1">A=80% / B=15% / C=5% revenue class</div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6">
+                        <a asp-controller="Reports" asp-action="InventoryValuation"
+                           asp-route-branchId="@branchId"
+                           class="hb-card text-decoration-none d-block h-100">
+                            <div class="hb-card-body text-center py-4">
+                                <i class="bi bi-box-seam fs-1 text-secondary mb-2 d-block"></i>
+                                <strong>Inventory Status</strong>
+                                <div class="text-muted small mt-1">Branch stock levels &amp; Excel export</div>
+                            </div>
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
     </div>
 
 </div>

@@ -7,6 +7,7 @@
     ViewData["Title"] = "Expense Management";
 
     var categoryFilter = ViewBag.CategoryFilter as string;
+    var currentBranch = ViewBag.CurrentBranch as HardwareManagementSystem.Models.Branch;
 
     var totalExpenses = Model.Items.Sum(x => x.Amount);
 }
@@ -75,6 +76,12 @@
 
             <div class="hb-section-subtitle">
                 Track operating expenses, utilities, payroll, delivery, and other business costs
+                @if (currentBranch != null)
+                {
+                    <span class="badge badge-soft-primary ms-2">
+                        <i class="bi bi-building me-1"></i>@currentBranch.Name
+                    </span>
+                }
             </div>
 
         </div>
@@ -177,7 +184,7 @@
             <div class="col-lg-2 d-flex align-items-end">
 
                 <button type="submit"
-                        class="btn btn-primary w-100">
+                        class="btn btn-primary w-100" data-no-disable="true">
 
                     <i class="bi bi-funnel me-1"></i>
 

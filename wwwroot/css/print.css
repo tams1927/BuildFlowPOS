@@ -1,0 +1,407 @@
+/* ============================================================
+   HardBuild POS — Shared Print Stylesheet
+   Used by all standalone print/document views.
+   Supports: A4 documents + 58mm/80mm thermal receipts
+   ============================================================ */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    color: #111;
+    background: #f0f0f0;
+    padding: 20px;
+}
+
+/* ── Document container ───────────────────────────────────── */
+
+.doc-page {
+    background: #fff;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px 40px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.12);
+    border-radius: 4px;
+}
+
+/* ── Document header ──────────────────────────────────────── */
+
+.doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #1e3a5f;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+}
+
+.doc-header-left h1 {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e3a5f;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.doc-header-left .sub {
+    font-size: 10px;
+    color: #666;
+    line-height: 1.6;
+}
+
+.doc-header-right {
+    text-align: right;
+}
+
+.doc-header-right .doc-type {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e3a5f;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.doc-header-right .doc-no {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin-top: 2px;
+}
+
+.doc-header-right .doc-date {
+    font-size: 10px;
+    color: #888;
+    margin-top: 2px;
+}
+
+/* ── Info grid (two-col) ──────────────────────────────────── */
+
+.doc-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 24px;
+    margin-bottom: 18px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.doc-info-grid.three-col {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+.doc-info-grid.full {
+    grid-template-columns: 1fr;
+}
+
+.info-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    color: #888;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 1px;
+}
+
+.info-value {
+    font-size: 12px;
+    font-weight: 600;
+    color: #111;
+}
+
+.info-value.muted {
+    font-weight: 400;
+    color: #555;
+}
+
+.full-span {
+    grid-column: 1 / -1;
+}
+
+/* ── Section title ────────────────────────────────────────── */
+
+.doc-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #1e3a5f;
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid #dde0e7;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+    margin-top: 16px;
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+
+.doc-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+}
+
+.doc-table thead th {
+    background: #1e3a5f;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 7px 10px;
+    text-align: left;
+}
+
+.doc-table thead th.text-right { text-align: right; }
+.doc-table thead th.text-center { text-align: center; }
+
+.doc-table tbody tr:nth-child(even) { background: #f8f9fb; }
+
+.doc-table tbody td {
+    padding: 6px 10px;
+    font-size: 11px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+}
+
+.doc-table tbody td.text-right { text-align: right; }
+.doc-table tbody td.text-center { text-align: center; }
+
+.doc-table tfoot td {
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border-top: 2px solid #1e3a5f;
+}
+
+.doc-table tfoot td.text-right { text-align: right; }
+
+/* ── Totals summary ───────────────────────────────────────── */
+
+.doc-totals {
+    margin-left: auto;
+    width: 280px;
+    margin-bottom: 16px;
+}
+
+.doc-totals-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 11px;
+}
+
+.doc-totals-row.total-line {
+    border-top: 2px solid #1e3a5f;
+    padding-top: 7px;
+    margin-top: 4px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e3a5f;
+}
+
+/* ── Signature area ───────────────────────────────────────── */
+
+.sig-row {
+    display: grid;
+    gap: 24px;
+    margin-top: 48px;
+    margin-bottom: 16px;
+}
+
+.sig-row.two-col { grid-template-columns: 1fr 1fr; }
+.sig-row.three-col { grid-template-columns: 1fr 1fr 1fr; }
+
+.sig-box {
+    border-top: 1px solid #aaa;
+    padding-top: 6px;
+    text-align: center;
+    font-size: 10px;
+    color: #555;
+}
+
+.sig-box .sig-name {
+    font-weight: 700;
+    color: #222;
+    min-height: 28px;
+}
+
+.sig-box .sig-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    color: #888;
+    letter-spacing: 0.5px;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+
+.doc-footer {
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 9px;
+    color: #999;
+    text-align: center;
+}
+
+/* ── Status badge ─────────────────────────────────────────── */
+
+.doc-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.doc-status.pending   { background: #fef3c7; color: #92400e; }
+.doc-status.accepted  { background: #d1fae5; color: #065f46; }
+.doc-status.converted { background: #dbeafe; color: #1e40af; }
+.doc-status.delivered { background: #d1fae5; color: #065f46; }
+.doc-status.voided, .doc-status.cancelled { background: #fee2e2; color: #991b1b; }
+.doc-status.completed { background: #d1fae5; color: #065f46; }
+.doc-status.draft     { background: #f3f4f6; color: #374151; }
+
+/* ── Print action bar ─────────────────────────────────────── */
+
+.print-actions {
+    text-align: center;
+    margin: 24px 0 8px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.btn-print {
+    background: #1e3a5f;
+    color: #fff;
+    border: none;
+    padding: 9px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-print:hover { background: #16315a; color: #fff; }
+
+.btn-secondary-print {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 9px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-secondary-print:hover { background: #e5e7eb; color: #111; }
+
+/* ============================================================
+   THERMAL RECEIPT OVERRIDES (58mm / 80mm)
+   Add class "thermal-58" or "thermal-80" to body for thermal.
+   ============================================================ */
+
+body.thermal-58 .doc-page { max-width: 220px; padding: 8px 10px; box-shadow: none; border-radius: 0; }
+body.thermal-80 .doc-page { max-width: 320px; padding: 10px 12px; box-shadow: none; border-radius: 0; }
+
+body.thermal-58, body.thermal-80 {
+    padding: 4px;
+    background: #fff;
+    font-size: 11px;
+}
+
+body.thermal-58 .doc-header,
+body.thermal-80 .doc-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    border-bottom: 1px dashed #aaa;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+}
+
+body.thermal-58 .doc-header-right,
+body.thermal-80 .doc-header-right {
+    text-align: center;
+    margin-top: 4px;
+}
+
+body.thermal-58 .doc-info-grid,
+body.thermal-80 .doc-info-grid {
+    grid-template-columns: 1fr;
+    gap: 2px;
+}
+
+body.thermal-58 .doc-table thead th,
+body.thermal-80 .doc-table thead th {
+    background: #333;
+    font-size: 9px;
+    padding: 4px 6px;
+}
+
+body.thermal-58 .doc-table tbody td,
+body.thermal-80 .doc-table tbody td {
+    padding: 3px 6px;
+    font-size: 10px;
+}
+
+body.thermal-58 .doc-totals,
+body.thermal-80 .doc-totals {
+    width: 100%;
+}
+
+body.thermal-58 .sig-row,
+body.thermal-80 .sig-row {
+    margin-top: 16px;
+}
+
+/* ============================================================
+   PRINT MEDIA — hide screen chrome
+   ============================================================ */
+
+@media print {
+    body {
+        background: #fff !important;
+        padding: 0 !important;
+    }
+
+    .doc-page {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .print-actions,
+    .no-print {
+        display: none !important;
+    }
+
+    .doc-table thead th {
+        background: #1e3a5f !important;
+        color: #fff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .doc-table tbody tr:nth-child(even) {
+        background: #f8f9fb !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

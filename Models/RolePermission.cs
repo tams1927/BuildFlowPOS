@@ -1,8 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using HardwareManagementSystem.Models.Interfaces;
 
 namespace HardwareManagementSystem.Models
 {
-    public class RolePermission
+    public class RolePermission : IPlatformEntity
     {
         public int Id { get; set; }
 

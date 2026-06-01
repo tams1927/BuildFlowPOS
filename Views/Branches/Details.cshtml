@@ -1,0 +1,85 @@
+@{
+    ViewData["Title"] = "Branch Stock Details";
+    var branch = ViewBag.Branch as HardwareManagementSystem.Models.Branch;
+    var stocks = ViewBag.Stocks as List<HardwareManagementSystem.Models.BranchProductStock>
+        ?? new List<HardwareManagementSystem.Models.BranchProductStock>();
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">@branch?.Name — Stock Snapshot</h2>
+            <div class="hb-section-subtitle">
+                Current inventory levels recorded for branch <code>@branch?.Code</code>
+            </div>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Branches
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        @if (!stocks.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-box-seam fs-1 d-block mb-2"></i>
+                No branch stock records yet. Stock will appear here after Stock-In or POS transactions are recorded for this branch.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Unit</th>
+                            <th class="text-end">Branch Stock</th>
+                            <th class="text-end">Reorder Level</th>
+                            <th>Stock Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in stocks)
+                        {
+                            var reorder = s.ReorderLevel ?? s.Product?.ReorderLevel ?? 0;
+                            var stockStatus = s.Quantity <= 0 ? "out"
+                                : s.Quantity <= reorder ? "low"
+                                : "ok";
+
+                            <tr class="@(stockStatus == "out" ? "table-danger" : stockStatus == "low" ? "table-warning" : "")">
+                                <td>
+                                    <strong>@s.Product?.ItemName</strong>
+                                    <div class="text-muted small"><code>@s.Product?.ItemCode</code></div>
+                                </td>
+                                <td class="small">@(s.Product?.Category?.CategoryName ?? "—")</td>
+                                <td class="small">@(s.Product?.Unit?.ShortName ?? "—")</td>
+                                <td class="text-end fw-semibold">@s.Quantity.ToString("0.###")</td>
+                                <td class="text-end text-muted">@reorder.ToString("0.###")</td>
+                                <td>
+                                    @switch (stockStatus)
+                                    {
+                                        case "out":
+                                            <span class="badge badge-soft-danger">Out of Stock</span>
+                                            break;
+                                        case "low":
+                                            <span class="badge badge-soft-warning">Low Stock</span>
+                                            break;
+                                        default:
+                                            <span class="badge badge-soft-success">OK</span>
+                                            break;
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+    </div>
+
+</div>

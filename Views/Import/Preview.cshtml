@@ -1,0 +1,284 @@
+@model HardwareManagementSystem.ViewModels.ImportPreviewViewModel
+@using HardwareManagementSystem.Services
+
+@{
+    ViewData["Title"] = "Preview Import";
+    var alreadyCompleted = ViewBag.AlreadyCompleted as bool? ?? false;
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Preview Import</h2>
+            <div class="hb-section-subtitle">
+                Review rows before confirming � <strong>@Model.ImportType</strong> (Batch #@Model.BatchId)
+            </div>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Start Over
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- STEP INDICATOR -->
+        <div class="d-flex align-items-center gap-2 mb-4">
+            <span class="badge bg-success px-3 py-2"><i class="bi bi-check"></i> Upload</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-success px-3 py-2"><i class="bi bi-check"></i> Mapping</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-primary px-3 py-2">3 Preview</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-secondary px-3 py-2">4 Confirm</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-secondary px-3 py-2">5 Result</span>
+        </div>
+
+        <!-- ALREADY COMPLETED BANNER -->
+        @if (alreadyCompleted)
+        {
+            <div class="alert alert-danger border-0 rounded-3 mb-4">
+                <i class="bi bi-shield-lock me-1"></i>
+                <strong>This batch has already been confirmed and imported.</strong>
+                It cannot be confirmed again. Rows below reflect their final import status.
+                <a asp-action="Result" asp-route-batchId="@Model.BatchId" class="alert-link ms-2">
+                    View Import Result &rarr;
+                </a>
+            </div>
+        }
+
+        <!-- OPENING STOCK NOTE -->
+        @if (Model.ImportType == "OpeningStock")
+        {
+            <div class="alert alert-info border-0 rounded-3 mb-4 small">
+                <i class="bi bi-info-circle me-1"></i>
+                <strong>Note on Quantity to Add:</strong>
+                The <em>Quantity to Add</em> value is <strong>added</strong> to the product's
+                current stock (<code>CurrentStock += Quantity</code>). If the product already has
+                stock recorded, this will <strong>increase</strong> it further.
+                Confirm only if you intend to add these quantities. Each batch can only be confirmed once.
+            </div>
+        }
+
+        @if (Model.ImportType == "Products")
+        {
+            <div class="alert alert-info border-0 rounded-3 mb-4 small">
+                <i class="bi bi-info-circle me-1"></i>
+                <strong>Note on Opening Qty / Qty to Add:</strong>
+                This value sets the product's initial <code>CurrentStock</code> at the time of import.
+                Leave blank or 0 if the product has no opening stock.
+            </div>
+        }
+
+        <!-- SUMMARY PILLS -->
+        <div class="row g-3 mb-4">
+            <div class="col-auto">
+                <div class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 bg-white">
+                    <span class="text-muted small">Total Rows</span>
+                    <span class="fw-bold">@Model.Rows.Count</span>
+                </div>
+            </div>
+            @if (alreadyCompleted)
+            {
+                <div class="col-auto">
+                    <div class="d-flex align-items-center gap-2 border border-success rounded-3 px-3 py-2 bg-white">
+                        <span class="text-success small">Imported</span>
+                        <span class="fw-bold text-success">@Model.ImportedCount</span>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex align-items-center gap-2 border border-danger rounded-3 px-3 py-2 bg-white">
+                        <span class="text-danger small">Failed</span>
+                        <span class="fw-bold text-danger">@Model.FailedCount</span>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex align-items-center gap-2 border border-warning rounded-3 px-3 py-2 bg-white">
+                        <span class="text-warning small">Skipped</span>
+                        <span class="fw-bold text-warning">@Model.SkippedCount</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="col-auto">
+                    <div class="d-flex align-items-center gap-2 border border-success rounded-3 px-3 py-2 bg-white">
+                        <span class="text-success small">Valid (to import)</span>
+                        <span class="fw-bold text-success">@Model.ValidCount</span>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex align-items-center gap-2 border border-warning rounded-3 px-3 py-2 bg-white">
+                        <span class="text-warning small">Will be Skipped</span>
+                        <span class="fw-bold text-warning">@Model.InvalidCount</span>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (!alreadyCompleted && Model.InvalidCount > 0)
+        {
+            <div class="alert alert-warning border-0 rounded-3 mb-3 small">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <strong>@Model.InvalidCount row(s) have validation errors</strong> and will be
+                <strong>skipped</strong> � they will not be imported.
+                Only <strong>@Model.ValidCount valid row(s)</strong> will be imported.
+            </div>
+        }
+
+        <!-- PREVIEW TABLE -->
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>#Row</th>
+                        @foreach (var f in Model.SystemFields)
+                        {
+                            <th>@ExcelImportService.GetDisplayName(f)</th>
+                        }
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        var rowClass = row.RowDbStatus switch
+                        {
+                            "Imported" => "table-success",
+                            "Failed"   => "table-danger",
+                            "Skipped"  => "table-warning",
+                            _ when row.HasErrors => "table-warning",
+                            _          => ""
+                        };
+                        <tr class="@rowClass">
+                            <td class="text-muted small">@row.RowNumber</td>
+                            @foreach (var f in Model.SystemFields)
+                            {
+                                <td class="small">@(row.Fields.TryGetValue(f, out var v) ? v : "�")</td>
+                            }
+                            <td>
+                                @switch (row.RowDbStatus)
+                                {
+                                    case "Imported":
+                                        <span class="badge badge-soft-success">
+                                            <i class="bi bi-check-circle me-1"></i>Imported
+                                        </span>
+                                        break;
+                                    case "Failed":
+                                        <span class="badge badge-soft-danger">
+                                            <i class="bi bi-x-circle me-1"></i>Failed
+                                        </span>
+                                        if (row.Errors.Count > 0)
+                                        {
+                                            <div class="text-danger small mt-1">@string.Join("; ", row.Errors)</div>
+                                        }
+                                        break;
+                                    case "Skipped":
+                                        <span class="badge badge-soft-warning">
+                                            <i class="bi bi-skip-forward me-1"></i>Skipped
+                                        </span>
+                                        if (row.Errors.Count > 0)
+                                        {
+                                            <div class="text-warning small mt-1">@string.Join("; ", row.Errors)</div>
+                                        }
+                                        break;
+                                    default:
+                                        if (row.HasErrors)
+                                        {
+                                            <span class="badge badge-soft-warning">
+                                                <i class="bi bi-skip-forward me-1"></i>Will be Skipped
+                                            </span>
+                                            <div class="text-warning small mt-1">@string.Join("; ", row.Errors)</div>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-soft-primary">
+                                                <i class="bi bi-clock me-1"></i>Pending
+                                            </span>
+                                        }
+                                        break;
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ACTION BUTTONS -->
+        <div class="d-flex gap-2 mt-4">
+            @if (!alreadyCompleted)
+            {
+                <a asp-action="Mapping" asp-route-batchId="@Model.BatchId" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Mapping
+                </a>
+
+                @if (Model.ValidCount > 0)
+                {
+                    <form asp-action="Confirm" method="post" id="confirmForm">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="batchId" value="@Model.BatchId" />
+                        <button type="button" class="btn btn-primary" onclick="confirmImport()">
+                            <i class="bi bi-check2-circle me-1"></i>
+                            Confirm &amp; Import @Model.ValidCount Row(s)
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled>
+                        <i class="bi bi-exclamation-circle me-1"></i>
+                        No valid rows to import
+                    </button>
+                }
+            }
+            else
+            {
+                <a asp-action="Result" asp-route-batchId="@Model.BatchId" class="btn btn-primary">
+                    <i class="bi bi-bar-chart me-1"></i>
+                    View Import Result
+                </a>
+                <a asp-action="History" class="btn btn-outline-secondary">
+                    <i class="bi bi-clock-history me-1"></i>
+                    Import History
+                </a>
+            }
+        </div>
+
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+            new bootstrap.Tooltip(el);
+        });
+
+        function confirmImport() {
+            const isOpeningStock = '@Model.ImportType' === 'OpeningStock';
+            const openingNote = isOpeningStock
+                ? '<br><small class="text-warning"><b>&#9888; Note:</b> Quantities will be <b>added</b> to current stock. This action cannot be undone or re-run.</small>'
+                : '';
+
+            Swal.fire({
+                title: 'Confirm Import?',
+                html: `This will import <strong>@Model.ValidCount</strong> valid row(s) into the system.<br>` +
+                      `<small class="text-muted">@Model.InvalidCount row(s) with errors will be skipped.</small>` +
+                      openingNote,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#0d6efd',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Import Now',
+                cancelButtonText: 'Cancel'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    document.getElementById('confirmForm').requestSubmit();
+                }
+            });
+        }
+    </script>
+}

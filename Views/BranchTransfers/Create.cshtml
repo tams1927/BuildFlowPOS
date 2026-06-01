@@ -1,0 +1,184 @@
+@{
+    ViewData["Title"] = "New Branch Transfer";
+    var branches = ViewBag.Branches as List<HardwareManagementSystem.Models.Branch> ?? new();
+    var currentBranch = ViewBag.CurrentBranch as HardwareManagementSystem.Models.Branch;
+    var items = ViewBag.Items as List<HardwareManagementSystem.Models.Item> ?? new();
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">New Branch Transfer</h2>
+            <div class="hb-section-subtitle">Move inventory stock from one branch to another</div>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back
+        </a>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form asp-action="Create" method="post" id="transferForm">
+            @Html.AntiForgeryToken()
+
+            <div class="row g-3 mb-4">
+
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">From Branch <span class="text-danger">*</span></label>
+                    <select name="fromBranchId" id="fromBranchId" class="form-select" required>
+                        <option value="">Select Source Branch</option>
+                        @foreach (var b in branches)
+                        {
+                            <option value="@b.Id" selected="@(currentBranch?.Id == b.Id)">
+                                @b.Name (@b.Code)@(b.IsMainBranch ? " ?" : "")
+                            </option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-1 d-flex align-items-end justify-content-center pb-2">
+                    <i class="bi bi-arrow-right fs-4 text-muted"></i>
+                </div>
+
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">To Branch <span class="text-danger">*</span></label>
+                    <select name="toBranchId" id="toBranchId" class="form-select" required>
+                        <option value="">Select Destination Branch</option>
+                        @foreach (var b in branches)
+                        {
+                            <option value="@b.Id">
+                                @b.Name (@b.Code)@(b.IsMainBranch ? " ?" : "")
+                            </option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Optional transfer notes or reason..."></textarea>
+                </div>
+
+            </div>
+
+            <h6 class="fw-bold mb-3">
+                <i class="bi bi-list-ul me-1"></i>Transfer Items
+            </h6>
+
+            <div class="table-responsive mb-3">
+                <table class="table align-middle" id="itemsTable">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th width="200">Quantity</th>
+                            <th width="150">Available Stock</th>
+                            <th width="60"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody">
+                        <tr id="emptyRow">
+                            <td colspan="4" class="text-center py-3 text-muted small">
+                                Click "Add Product" to add items to this transfer.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <button type="button" class="btn btn-outline-primary btn-sm mb-4" onclick="addRow()">
+                <i class="bi bi-plus-circle me-1"></i>Add Product
+            </button>
+
+            <div class="d-flex gap-2 justify-content-end">
+                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-send me-1"></i>Create Transfer
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const itemsData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(items.Select(i => new { id = i.Id, name = i.ItemName, code = i.ItemCode })));
+        let rowIndex = 0;
+
+        function addRow() {
+            const emptyRow = document.getElementById('emptyRow');
+            if (emptyRow) emptyRow.remove();
+
+            const tbody = document.getElementById('itemsBody');
+            const idx = rowIndex++;
+            const row = document.createElement('tr');
+            row.id = `row_${idx}`;
+
+            const options = itemsData.map(i => `<option value="${i.id}">${i.name} (${i.code})</option>`).join('');
+
+            row.innerHTML = `
+                <td>
+                    <select name="productIds" class="form-select form-select-sm product-select" required
+                            onchange="loadStock(this, ${idx})">
+                        <option value="">Select Product</option>
+                        ${options}
+                    </select>
+                </td>
+                <td>
+                    <input type="number" name="quantities" class="form-control form-control-sm"
+                           step="0.001" min="0.001" value="1" required id="qty_${idx}" />
+                </td>
+                <td>
+                    <span class="text-muted small" id="stock_${idx}">�</span>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(${idx})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>`;
+
+            tbody.appendChild(row);
+        }
+
+        function removeRow(idx) {
+            const row = document.getElementById(`row_${idx}`);
+            if (row) row.remove();
+            if (document.getElementById('itemsBody').children.length === 0) {
+                const tbody = document.getElementById('itemsBody');
+                const emptyRow = document.createElement('tr');
+                emptyRow.id = 'emptyRow';
+                emptyRow.innerHTML = '<td colspan="4" class="text-center py-3 text-muted small">Click "Add Product" to add items to this transfer.</td>';
+                tbody.appendChild(emptyRow);
+            }
+        }
+
+        async function loadStock(select, idx) {
+            const productId = select.value;
+            const fromBranchId = document.getElementById('fromBranchId').value;
+            const stockEl = document.getElementById(`stock_${idx}`);
+
+            if (!productId || !fromBranchId) {
+                stockEl.textContent = '�';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/BranchTransfers/GetBranchStock?branchId=${fromBranchId}&productId=${productId}`);
+                const data = await res.json();
+                stockEl.innerHTML = `<strong>${parseFloat(data.quantity).toFixed(3)}</strong>`;
+            } catch {
+                stockEl.textContent = 'Error';
+            }
+        }
+
+        // Reload all stock quantities when from branch changes
+        document.getElementById('fromBranchId').addEventListener('change', function () {
+            document.querySelectorAll('.product-select').forEach((sel, i) => {
+                const idx = sel.closest('tr').id.replace('row_', '');
+                loadStock(sel, idx);
+            });
+        });
+
+    </script>
+}

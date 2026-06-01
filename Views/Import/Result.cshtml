@@ -1,0 +1,115 @@
+@model HardwareManagementSystem.ViewModels.ImportResultViewModel
+
+@{
+    ViewData["Title"] = "Import Result";
+}
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Import Result</h2>
+            <div class="hb-section-subtitle">
+                Import completed for <strong>@Model.ImportType</strong> � Batch #@Model.BatchId
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <!-- STEP INDICATOR -->
+        <div class="d-flex align-items-center gap-2 mb-4">
+            <span class="badge bg-success px-3 py-2"><i class="bi bi-check"></i> Upload</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-success px-3 py-2"><i class="bi bi-check"></i> Mapping</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-success px-3 py-2"><i class="bi bi-check"></i> Preview</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-success px-3 py-2"><i class="bi bi-check"></i> Confirm</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="badge bg-success px-3 py-2">5 Result</span>
+        </div>
+
+        <!-- RESULT SUMMARY -->
+        <div class="text-center py-4 mb-4">
+            @if (Model.SuccessRows > 0 && Model.FailedRows == 0)
+            {
+                <i class="bi bi-check-circle-fill text-success" style="font-size:4rem"></i>
+                <h4 class="fw-bold mt-3 text-success">Import Successful!</h4>
+            }
+            else if (Model.SuccessRows > 0)
+            {
+                <i class="bi bi-exclamation-circle-fill text-warning" style="font-size:4rem"></i>
+                <h4 class="fw-bold mt-3 text-warning">Import Completed with Errors</h4>
+            }
+            else
+            {
+                <i class="bi bi-x-circle-fill text-danger" style="font-size:4rem"></i>
+                <h4 class="fw-bold mt-3 text-danger">Import Failed</h4>
+            }
+            <p class="text-muted">@Model.FileName</p>
+        </div>
+
+        <div class="row g-3 justify-content-center mb-4">
+            <div class="col-md-3">
+                <div class="kpi-card text-center">
+                    <div class="kpi-label">Total Rows</div>
+                    <div class="kpi-value">@Model.TotalRows</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card text-center">
+                    <div class="kpi-label">Imported</div>
+                    <div class="kpi-value text-success">@Model.SuccessRows</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card text-center">
+                    <div class="kpi-label">Failed / Skipped</div>
+                    <div class="kpi-value @(Model.FailedRows > 0 ? "text-danger" : "")">@Model.FailedRows</div>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.CompletedAtUtc.HasValue)
+        {
+            <p class="text-center text-muted small">
+                Completed at @Model.CompletedAtUtc.Value.ToLocalTime().ToString("MMM dd, yyyy hh:mm tt")
+            </p>
+        }
+
+        <div class="d-flex gap-2 justify-content-center">
+            <a asp-action="Details" asp-route-batchId="@Model.BatchId" class="btn btn-outline-primary">
+                <i class="bi bi-list-ul me-1"></i>
+                View Row Details
+            </a>
+            <a asp-action="Index" class="btn btn-primary">
+                <i class="bi bi-upload me-1"></i>
+                Import Another File
+            </a>
+            @if (Model.ImportType == "Products")
+            {
+                <a asp-controller="Products" asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="bi bi-box-seam me-1"></i>
+                    View Products
+                </a>
+            }
+            @if (Model.ImportType == "Customers")
+            {
+                <a asp-controller="Customers" asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="bi bi-people me-1"></i>
+                    View Customers
+                </a>
+            }
+            @if (Model.ImportType == "Suppliers")
+            {
+                <a asp-controller="Suppliers" asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="bi bi-truck me-1"></i>
+                    View Suppliers
+                </a>
+            }
+        </div>
+
+    </div>
+
+</div>

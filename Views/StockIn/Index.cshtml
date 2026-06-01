@@ -6,6 +6,8 @@
 
     var suppliers = ViewBag.Suppliers as List<HardwareManagementSystem.Models.Supplier>;
     var items = ViewBag.Items as List<HardwareManagementSystem.Models.Item>;
+    var currentBranch = ViewBag.CurrentBranch as HardwareManagementSystem.Models.Branch;
+    var allBranches = ViewBag.AllBranches as List<HardwareManagementSystem.Models.Branch>;
 }
 
 <div class="row g-3 mb-4">
@@ -121,7 +123,7 @@
             <input type="hidden" name="pageNumber" value="1" />
 
             <div class="col-lg-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100" type="submit">
+                <button class="btn btn-primary w-100" type="submit" data-no-disable="true">
                     <i class="bi bi-funnel me-1"></i>
                     Filter
                 </button>
@@ -266,6 +268,31 @@
                 @Html.AntiForgeryToken()
 
                 <div class="modal-body">
+
+                    @* Branch context badge / selector — always visible so staff knows which branch receives this stock *@
+                    <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-3 small">
+                        <i class="bi bi-building me-1"></i>
+                        <strong>Receiving Branch:</strong>
+                        @if (allBranches != null && allBranches.Count > 1)
+                        {
+                            <select name="branchId" class="form-select form-select-sm d-inline-block w-auto ms-2">
+                                @foreach (var b in allBranches)
+                                {
+                                    <option value="@b.Id" selected="@(currentBranch?.Id == b.Id)">
+                                        @b.Name @(b.IsMainBranch ? "★" : "")
+                                    </option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <span class="ms-1 fw-semibold">@(currentBranch?.Name ?? "No branch configured")</span>
+                            @if (currentBranch != null)
+                            {
+                                <input type="hidden" name="branchId" value="@currentBranch.Id" />
+                            }
+                        }
+                    </div>
 
                     <div class="row g-3">
 
@@ -496,7 +523,7 @@
                 }).then((result) => {
 
                     if (result.isConfirmed) {
-                        form.submit();
+                        form.requestSubmit();
                     }
 
                 });

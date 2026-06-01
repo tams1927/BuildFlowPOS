@@ -1,5 +1,6 @@
-using HardwareManagementSystem.Data;
+﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
+using HardwareManagementSystem.Services.TenantDatabases;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -7,11 +8,20 @@ namespace HardwareManagementSystem.Services
 {
     public class NotificationService
     {
-        private readonly ApplicationDbContext _context;
+        // Phase 5.0D.2 — notifications are tenant-owned operational data and route to the
+        // tenant's dedicated database when routing is active (shared otherwise).
+        private readonly ITenantOperationalContextProvider _operationalContextProvider;
+        private readonly TenantGuard _tenantGuard;
+        private readonly ITenantContext _tenantContext;
 
-        public NotificationService(ApplicationDbContext context)
+        public NotificationService(
+            ITenantOperationalContextProvider operationalContextProvider,
+            TenantGuard tenantGuard,
+            ITenantContext tenantContext)
         {
-            _context = context;
+            _operationalContextProvider = operationalContextProvider;
+            _tenantGuard = tenantGuard;
+            _tenantContext = tenantContext;
         }
 
         public async Task CreateAsync(
@@ -22,8 +32,11 @@ namespace HardwareManagementSystem.Services
             string? targetRole = null,
             string? linkUrl = null)
         {
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             var notification = new Notification
             {
+                TenantId = tenantId,
                 Title = title,
                 Message = message,
                 Type = type,
@@ -34,20 +47,33 @@ namespace HardwareManagementSystem.Services
                 CreatedAt = DateTime.Now
             };
 
-            _context.Notifications.Add(notification);
-            await _context.SaveChangesAsync();
+            var db = await _operationalContextProvider.GetContextAsync();
+            db.Notifications.Add(notification);
+            await db.SaveChangesAsync();
         }
 
         public async Task<List<Notification>> GetForUserAsync(ClaimsPrincipal user, int take = 15)
         {
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             var roles = user.Claims
                 .Where(c => c.Type == ClaimTypes.Role)
                 .Select(c => c.Value)
                 .ToList();
 
-            return await _context.Notifications
+            var db = await _operationalContextProvider.GetContextAsync();
+            var query = db.Notifications
                 .AsNoTracking()
-                .Where(n => n.TargetRole == null || roles.Contains(n.TargetRole))
+                .Where(n => n.TargetRole == null || roles.Contains(n.TargetRole));
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                query = query.Where(n =>
+                    n.TenantId == tenantId ||
+                    n.TenantId == null);
+            }
+
+            return await query
                 .OrderByDescending(n => n.CreatedAt)
                 .Take(take)
                 .ToListAsync();
@@ -55,40 +81,65 @@ namespace HardwareManagementSystem.Services
 
         public async Task<int> GetUnreadCountAsync(ClaimsPrincipal user)
         {
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             var roles = user.Claims
                 .Where(c => c.Type == ClaimTypes.Role)
                 .Select(c => c.Value)
                 .ToList();
 
-            return await _context.Notifications
-                .CountAsync(n => !n.IsRead && (n.TargetRole == null || roles.Contains(n.TargetRole)));
+            var db = await _operationalContextProvider.GetContextAsync();
+            var query = db.Notifications
+                .AsNoTracking()
+                .Where(n => !n.IsRead && (n.TargetRole == null || roles.Contains(n.TargetRole)));
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                query = query.Where(n =>
+                    n.TenantId == tenantId ||
+                    n.TenantId == null);
+            }
+
+            return await query.CountAsync();
         }
 
         public async Task MarkAsReadAsync(int id)
         {
-            var notification = await _context.Notifications.FindAsync(id);
-            if (notification != null)
-            {
-                notification.IsRead = true;
-                await _context.SaveChangesAsync();
-            }
+            var db = await _operationalContextProvider.GetContextAsync();
+            var notification = await db.Notifications.FindAsync(id);
+
+            if (notification == null)
+                return;
+
+            if (!await _tenantGuard.CanAccessTenantAsync(notification.TenantId))
+                return;
+
+            notification.IsRead = true;
+
+            await db.SaveChangesAsync();
         }
 
         public async Task MarkAllAsReadAsync(ClaimsPrincipal user)
         {
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             var roles = user.Claims
                 .Where(c => c.Type == ClaimTypes.Role)
                 .Select(c => c.Value)
                 .ToList();
 
-            var unread = await _context.Notifications
-                .Where(n => !n.IsRead && (n.TargetRole == null || roles.Contains(n.TargetRole)))
-                .ToListAsync();
+            var db = await _operationalContextProvider.GetContextAsync();
+            var query = db.Notifications
+                .Where(n => !n.IsRead && (n.TargetRole == null || roles.Contains(n.TargetRole)));
 
-            foreach (var n in unread)
-                n.IsRead = true;
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                query = query.Where(n =>
+                    n.TenantId == tenantId ||
+                    n.TenantId == null);
+            }
 
-            await _context.SaveChangesAsync();
+            await query.ExecuteUpdateAsync(s => s.SetProperty(n => n.IsRead, true));
         }
 
         public async Task CreateLowStockNotificationAsync(string itemName)
@@ -146,7 +197,7 @@ namespace HardwareManagementSystem.Services
                 $"Inventory item \"{itemName}\" has been deactivated.",
                 "Warning",
                 "bi bi-slash-circle",
-                "Admin",
+                "TenantAdmin",
                 "/Inventory"
             );
         }
@@ -158,7 +209,7 @@ namespace HardwareManagementSystem.Services
                 $"User \"{userName}\" was created with role: {role}.",
                 "Info",
                 "bi bi-person-plus",
-                "Admin",
+                "TenantAdmin",
                 "/Users"
             );
         }
@@ -167,7 +218,7 @@ namespace HardwareManagementSystem.Services
         {
             await CreateAsync(
                 "Discount Applied",
-                $"A discount of \u20b1{discountAmount:N2} was applied on receipt {receiptNumber}.",
+                $"A discount of ₱{discountAmount:N2} was applied on receipt {receiptNumber}.",
                 "Warning",
                 "bi bi-tag",
                 null,

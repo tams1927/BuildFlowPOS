@@ -3,6 +3,11 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Environment-specific settings — never commit server names or credentials
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+
 # User-specific files
 *.rsuser
 *.suo

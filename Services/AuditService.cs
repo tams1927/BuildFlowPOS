@@ -1,21 +1,29 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
+using HardwareManagementSystem.Services.TenantDatabases;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
 
 namespace HardwareManagementSystem.Services
 {
     public class AuditService
     {
-        private readonly ApplicationDbContext _context;
+        // Phase 5.0D.2 — audit rows are tenant-owned operational data. They route to the
+        // tenant's dedicated database when routing is active, and to the shared database
+        // otherwise (including all SuperAdmin/platform actions where CurrentTenantId is null).
+        private readonly ITenantOperationalContextProvider _operationalContextProvider;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ITenantContext _tenantContext;
 
         public AuditService(
-            ApplicationDbContext context,
-            IHttpContextAccessor httpContextAccessor)
+            ITenantOperationalContextProvider operationalContextProvider,
+            IHttpContextAccessor httpContextAccessor,
+            ITenantContext tenantContext)
         {
-            _context = context;
+            _operationalContextProvider = operationalContextProvider;
             _httpContextAccessor = httpContextAccessor;
+            _tenantContext = tenantContext;
         }
 
         public async Task LogAsync(
@@ -108,12 +116,16 @@ namespace HardwareManagementSystem.Services
                 DeviceType = deviceType,
                 UserAgent = userAgent,
 
+                TenantId = _tenantContext.CurrentTenantId,
+
                 CreatedAt = DateTime.Now
             };
 
-            _context.AuditTrails.Add(audit);
+            var db = await _operationalContextProvider.GetContextAsync();
 
-            await _context.SaveChangesAsync();
+            db.AuditTrails.Add(audit);
+
+            await db.SaveChangesAsync();
         }
     }
 }

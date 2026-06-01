@@ -2,6 +2,10 @@
 {
     public class ExpenseVsProfitReportViewModel
     {
+        public int? BranchId { get; set; }
+
+        public string? BranchName { get; set; }
+
         public decimal GrossSales { get; set; }
 
         public decimal CostOfGoods { get; set; }

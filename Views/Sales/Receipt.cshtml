@@ -1,248 +1,221 @@
 ﻿@model HardwareManagementSystem.Models.SalesHeader
-
 @{
     ViewData["Title"] = "Receipt";
 
-    var settings =
-        ViewBag.SystemSetting
-        as HardwareManagementSystem.Models.SystemSetting;
+    var settings    = ViewBag.SystemSetting as HardwareManagementSystem.Models.SystemSetting;
+    var branch      = ViewBag.ReceiptBranch as HardwareManagementSystem.Models.Branch;
+    var tenant      = ViewBag.ReceiptTenant as HardwareManagementSystem.Models.Tenant;
 
-    var taxMode =
-        settings?.TaxMode ?? "VAT";
+    var taxMode           = settings?.TaxMode ?? "VAT";
+    var defaultVatPercent = settings?.DefaultVatPercent ?? 0;
+    var currency          = settings?.CurrencySymbol ?? "₱";
+    var paperSize         = settings?.ReceiptPaperSize ?? "80mm";
+    var footerNote        = settings?.ReceiptFooter ?? "Thank you for your purchase!";
 
-    var defaultVatPercent =
-        settings?.DefaultVatPercent ?? 0;
+    string bizName    = branch?.Name ?? tenant?.Name ?? settings?.BusinessName ?? "HardBuild POS";
+    string bizAddress = branch?.Address ?? tenant?.Address ?? settings?.BusinessAddress ?? "";
+    string bizPhone   = branch?.ContactNumber ?? tenant?.Phone ?? settings?.ContactNumber ?? "";
 }
 
-<div class="hb-card mx-auto receipt-card">
+@section Styles {
+<style>
+    /* ── Receipt wrapper ──────────────────────────────────── */
+    .receipt-wrapper {
+        max-width: @(paperSize == "58mm" ? "260px" : "360px");
+        margin: 0 auto;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: @(paperSize == "58mm" ? "11px" : "12px");
+        background: #fff;
+        padding: 16px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .rcpt-header { text-align: center; margin-bottom: 10px; }
+    .rcpt-header h3 { font-size: @(paperSize == "58mm" ? "14px" : "16px"); font-weight: 900; margin: 0 0 3px; }
+    .rcpt-header .sub { font-size: 10px; color: #666; }
+    .rcpt-divider { border: none; border-top: 1px dashed #bbb; margin: 8px 0; }
+    .rcpt-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; margin-bottom: 8px; }
+    .rcpt-meta .label { font-size: 9px; text-transform: uppercase; color: #888; }
+    .rcpt-meta .value { font-weight: 700; font-size: 11px; }
+    .rcpt-item { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px; }
+    .rcpt-item .item-name { flex: 1; }
+    .rcpt-item .item-total { font-weight: 700; white-space: nowrap; padding-left: 8px; }
+    .rcpt-item .item-sub { color: #777; font-size: 10px; }
+    .rcpt-totals { margin-top: 4px; }
+    .rcpt-total-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; }
+    .rcpt-total-row.grand { font-size: 14px; font-weight: 900; border-top: 1px solid #333; padding-top: 5px; margin-top: 4px; }
+    .rcpt-footer { text-align: center; font-size: 10px; color: #666; margin-top: 10px; }
+    .rcpt-payment-badge {
+        display: inline-block; padding: 2px 10px; border-radius: 12px;
+        font-size: 10px; font-weight: 700;
+        background: #d1fae5; color: #065f46; margin-left: 6px;
+    }
+    /* Actions */
+    .rcpt-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+    @@media print {
+        body { background: #fff !important; }
+        .app-sidebar, .app-topbar, .rcpt-actions, .no-print { display: none !important; }
+        .app-main, .app-content { padding: 0 !important; margin: 0 !important; }
+        .receipt-wrapper { border: none !important; box-shadow: none !important; max-width: 100% !important; }
+    }
+</style>
+}
 
-    <div class="hb-card-body">
+<div class="row justify-content-center">
+    <div class="col-auto">
 
-        <div class="text-center mb-4">
-            <div class="brand-icon mx-auto mb-3">
-                <i class="bi bi-shop"></i>
+        <div class="receipt-wrapper">
+
+            <!-- HEADER -->
+            <div class="rcpt-header">
+                @if (!string.IsNullOrWhiteSpace(settings?.LogoPath))
+                {
+                    <img src="@settings.LogoPath"
+                         alt="@bizName"
+                         style="max-height:56px; max-width:160px; object-fit:contain; display:block; margin:0 auto 6px;" />
+                }
+                <h3>@bizName</h3>
+                @if (!string.IsNullOrWhiteSpace(bizAddress))
+                {
+                    <div class="sub">@bizAddress</div>
+                }
+                @if (!string.IsNullOrWhiteSpace(bizPhone))
+                {
+                    <div class="sub">Tel: @bizPhone</div>
+                }
+                @if (branch != null)
+                {
+                    <div class="sub" style="font-weight:700;margin-top:3px;">Branch: @branch.Name</div>
+                }
             </div>
 
-            <h3 class="fw-bold mb-1">HardBuild POS</h3>
+            <hr class="rcpt-divider" />
 
-            <div class="text-muted">
-                Hardware / Construction Supply
-            </div>
-
-            <div class="text-muted small">
-                Quezon City, Philippines
-            </div>
-        </div>
-
-        <hr />
-
-        <div class="row g-2 mb-3">
-
-            <div class="col-6">
-                <div class="text-muted small">Receipt No.</div>
-                <strong>@Model.SalesNumber</strong>
-            </div>
-
-            <div class="col-6 text-end">
-                <div class="text-muted small">Date</div>
-                <strong>@Model.SalesDate.ToString("MMM dd, yyyy hh:mm tt")</strong>
-            </div>
-
-            <div class="col-6">
-                <div class="text-muted small">Customer</div>
-                <strong>@(Model.Customer?.CustomerName ?? "Walk-in Customer")</strong>
-            </div>
-
-            <div class="col-6 text-end">
-                <div class="text-muted small">Cashier</div>
-                <strong>@(Model.CashierName ?? "Unknown")</strong>
-            </div>
-
-        </div>
-
-        <hr />
-
-        <div class="table-responsive">
-
-            <table class="table align-middle">
-
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th class="text-end">Qty</th>
-                        <th class="text-end">Price</th>
-                        <th class="text-end">Total</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    @foreach (var detail in Model.SalesDetails)
-                    {
-                        <tr>
-                            <td>
-                                <strong>@(detail.Item?.ItemName ?? "N/A")</strong>
-                                <div class="text-muted small">
-                                    @(detail.Item?.ItemCode ?? "")
-                                </div>
-                            </td>
-
-                            <td class="text-end">
-                                @detail.Quantity.ToString("0.###")
-                                @(detail.Item?.Unit?.ShortName ?? "")
-                            </td>
-
-                            <td class="text-end">
-                                ₱@detail.UnitPrice.ToString("N2")
-                            </td>
-
-                            <td class="text-end">
-                                ₱@detail.LineTotal.ToString("N2")
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-
-            </table>
-
-        </div>
-
-        <hr />
-
-        <div class="receipt-totals">
-
-            <div class="d-flex justify-content-between mb-2">
-                <span>Subtotal</span>
-                <strong>₱@Model.SubTotal.ToString("N2")</strong>
-            </div>
-
-            <div class="d-flex justify-content-between mb-2">
-                <span>Discount</span>
-                <strong>₱@Model.DiscountAmount.ToString("N2")</strong>
-            </div>
-
-            @if (taxMode == "VAT")
-            {
-                <div class="d-flex justify-content-between mb-2">
-
-                    <span>
-                        VAT (@defaultVatPercent.ToString("0.##")%)
-                    </span>
-
-                    <strong>
-                        ₱@Model.VatAmount.ToString("N2")
-                    </strong>
-
+            <!-- META -->
+            <div class="rcpt-meta">
+                <div>
+                    <div class="label">Receipt No.</div>
+                    <div class="value">@Model.SalesNumber</div>
                 </div>
-            }
-            else if (taxMode == "NONVAT")
-            {
-                <div class="d-flex justify-content-between mb-2">
-
-                    <span>Tax Mode</span>
-
-                    <strong class="text-warning">
-                        NON-VAT
-                    </strong>
-
+                <div>
+                    <div class="label">Date</div>
+                    <div class="value">@Model.SalesDate.ToString("MM/dd/yy hh:mm tt")</div>
                 </div>
-            }
-            else
+                <div>
+                    <div class="label">Customer</div>
+                    <div class="value">@(Model.Customer?.CustomerName ?? "Walk-in")</div>
+                </div>
+                <div>
+                    <div class="label">Cashier</div>
+                    <div class="value">@(Model.CashierName ?? "—")</div>
+                </div>
+                <div>
+                    <div class="label">Payment</div>
+                    <div class="value">
+                        @Model.PaymentMethod
+                        @if (!string.IsNullOrWhiteSpace(Model.ReferenceNumber))
+                        {
+                            <div style="font-size:9px;color:#888;">Ref: @Model.ReferenceNumber</div>
+                        }
+                    </div>
+                </div>
+                @if (branch != null)
+                {
+                    <div>
+                        <div class="label">Branch</div>
+                        <div class="value">@branch.Name</div>
+                    </div>
+                }
+            </div>
+
+            <hr class="rcpt-divider" />
+
+            <!-- ITEMS -->
+            @foreach (var detail in Model.SalesDetails)
             {
-                <div class="d-flex justify-content-between mb-2">
-
-                    <span>Tax Mode</span>
-
-                    <strong class="text-secondary">
-                        MANUAL
-                    </strong>
-
+                <div class="rcpt-item">
+                    <div class="item-name">
+                        <div>@(detail.Item?.ItemName ?? "Item")</div>
+                        <div class="item-sub">
+                            @detail.Quantity.ToString("0.###")
+                            @(detail.Item?.Unit?.ShortName ?? "")
+                            × @currency@detail.UnitPrice.ToString("N2")
+                        </div>
+                    </div>
+                    <div class="item-total">@currency@detail.LineTotal.ToString("N2")</div>
                 </div>
             }
 
-            <div class="d-flex justify-content-between fs-5 border-top pt-3 mt-3">
-                <strong>Total</strong>
-                <strong class="text-primary">₱@Model.TotalAmount.ToString("N2")</strong>
-            </div>
+            <hr class="rcpt-divider" />
 
-            <div class="d-flex justify-content-between mt-2">
-                <span>Payment</span>
-                <strong>@Model.PaymentMethod</strong>
-            </div>
-
-            @if (!string.IsNullOrWhiteSpace(Model.ReferenceNumber))
-            {
-                <div class="d-flex justify-content-between mt-2">
-                    <span>Reference #</span>
-                    <strong>@Model.ReferenceNumber</strong>
+            <!-- TOTALS -->
+            <div class="rcpt-totals">
+                <div class="rcpt-total-row">
+                    <span>Subtotal</span>
+                    <span>@currency@Model.SubTotal.ToString("N2")</span>
                 </div>
-            }
 
-            <div class="d-flex justify-content-between mt-2">
-                <span>Amount Received</span>
-                <strong>₱@Model.AmountReceived.ToString("N2")</strong>
+                @if (Model.DiscountAmount > 0)
+                {
+                    <div class="rcpt-total-row">
+                        <span>Discount</span>
+                        <span>-@currency@Model.DiscountAmount.ToString("N2")</span>
+                    </div>
+                }
+
+                @if (taxMode == "VAT" && Model.VatAmount > 0)
+                {
+                    <div class="rcpt-total-row">
+                        <span>VAT (@defaultVatPercent.ToString("0.##")%)</span>
+                        <span>@currency@Model.VatAmount.ToString("N2")</span>
+                    </div>
+                }
+                else if (taxMode == "NONVAT")
+                {
+                    <div class="rcpt-total-row" style="color:#888;">
+                        <span>Tax</span><span>NON-VAT</span>
+                    </div>
+                }
+
+                <div class="rcpt-total-row grand">
+                    <span>TOTAL</span>
+                    <span>@currency@Model.TotalAmount.ToString("N2")</span>
+                </div>
+
+                @if (Model.PaymentMethod == "Cash")
+                {
+                    <div class="rcpt-total-row" style="margin-top:6px;">
+                        <span>Cash Tendered</span>
+                        <span>@currency@Model.AmountReceived.ToString("N2")</span>
+                    </div>
+                    <div class="rcpt-total-row" style="color:#065f46;font-weight:700;">
+                        <span>Change</span>
+                        <span>@currency@Model.ChangeAmount.ToString("N2")</span>
+                    </div>
+                }
             </div>
 
-            <div class="d-flex justify-content-between mt-2">
-                <span>Change</span>
-                <strong class="text-success">₱@Model.ChangeAmount.ToString("N2")</strong>
+            <hr class="rcpt-divider" />
+
+            <!-- FOOTER -->
+            <div class="rcpt-footer">
+                @footerNote
+                <div style="margin-top:6px;font-size:9px;color:#aaa;">
+                    Printed @DateTime.Now.ToString("MM/dd/yyyy hh:mm tt")
+                </div>
             </div>
 
         </div>
 
-        <hr />
-
-        <div class="text-center text-muted small mb-4">
-            Thank you for purchasing!
-        </div>
-
-        <div class="d-flex gap-2 no-print">
-
-            <a asp-controller="Sales"
-               asp-action="Index"
-               class="btn btn-outline-primary w-50">
-                <i class="bi bi-arrow-left me-1"></i>
-                Back
+        <!-- ACTION BUTTONS -->
+        <div class="rcpt-actions no-print mt-3">
+            <a asp-controller="Sales" asp-action="Index" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back
             </a>
-
-            <button onclick="window.print()"
-                    class="btn btn-primary w-50">
-                <i class="bi bi-printer me-1"></i>
-                Print
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer me-1"></i> Print Receipt
             </button>
-
         </div>
 
     </div>
-
 </div>
-
-<style>
-    .receipt-card {
-        max-width: 760px;
-    }
-
-    @@media print {
-        body {
-            background: #ffffff !important;
-        }
-
-        .app-sidebar,
-        .app-topbar,
-        .no-print {
-            display: none !important;
-        }
-
-        .app-main,
-        .app-content {
-            padding: 0 !important;
-            margin: 0 !important;
-            width: 100% !important;
-        }
-
-        .receipt-card {
-            box-shadow: none !important;
-            border: none !important;
-            max-width: 100% !important;
-        }
-    }
-</style>

@@ -1,0 +1,136 @@
+@using HardwareManagementSystem.Models
+@model HardwareManagementSystem.Models.Tenant
+@{
+    ViewData["Title"] = "Edit Tenant";
+}
+
+<div class="page-header-row mb-3">
+    <div>
+        <h2 class="page-section-title">Edit Tenant</h2>
+        <p class="text-muted mb-0"><span class="badge bg-secondary">@Model.Code</span></p>
+    </div>
+    <a asp-controller="Tenants" asp-action="Index" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+            @Html.AntiForgeryToken()
+            <input asp-for="Id" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+            <h6 class="fw-bold text-uppercase text-muted small mb-3">Business Info</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-8">
+                    <label asp-for="Name" class="form-label fw-semibold">Business Name <span class="text-danger">*</span></label>
+                    <input asp-for="Name" class="form-control" />
+                    <span asp-validation-for="Name" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Code" class="form-label fw-semibold">Tenant Code <span class="text-danger">*</span></label>
+                    <input asp-for="Code" class="form-control text-uppercase" maxlength="20" />
+                    <span asp-validation-for="Code" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="OwnerName" class="form-label fw-semibold">Owner Name</label>
+                    <input asp-for="OwnerName" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Email" class="form-label fw-semibold">Email</label>
+                    <input asp-for="Email" class="form-control" type="email" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Phone" class="form-label fw-semibold">Phone</label>
+                    <input asp-for="Phone" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Address" class="form-label fw-semibold">Address</label>
+                    <input asp-for="Address" class="form-control" />
+                </div>
+                <div class="col-12">
+                    <label asp-for="Notes" class="form-label fw-semibold">Notes</label>
+                    <textarea asp-for="Notes" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+
+            <h6 class="fw-bold text-uppercase text-muted small mb-3">Subscription & Limits</h6>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="SubscriptionPlanId" class="form-label fw-semibold">Subscription Plan</label>
+                    <select asp-for="SubscriptionPlanId" asp-items="ViewBag.Plans" class="form-select">
+                        <option value="">— Custom / No Plan —</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Status" class="form-label fw-semibold">Status</label>
+                    <select asp-for="Status" class="form-select">
+                        <option value="Trial">Trial</option>
+                        <option value="Active">Active</option>
+                        <option value="Suspended">Suspended</option>
+                        <option value="Expired">Expired</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="ExpirationDate" class="form-label fw-semibold">Expiration Date</label>
+                    <input asp-for="ExpirationDate" class="form-control" type="date" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="MaxBranches" class="form-label fw-semibold">Max Branches</label>
+                    <input asp-for="MaxBranches" class="form-control" type="number" min="1" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="MaxUsers" class="form-label fw-semibold">Max Users</label>
+                    <input asp-for="MaxUsers" class="form-control" type="number" min="1" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="MaxProducts" class="form-label fw-semibold">Max Products</label>
+                    <input asp-for="MaxProducts" class="form-control" type="number" min="1" />
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" type="checkbox" />
+                        <label asp-for="IsActive" class="form-check-label fw-semibold">Active</label>
+                    </div>
+                </div>
+            </div>
+
+            <h6 class="fw-bold text-uppercase text-muted small mb-3 mt-4">Database Routing (Advanced)</h6>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="DatabaseMode" class="form-label fw-semibold">Database Mode</label>
+                    <select asp-for="DatabaseMode" class="form-select">
+                        <option value="Shared">Shared</option>
+                        <option value="Dedicated">Dedicated</option>
+                    </select>
+                    <span class="text-muted small">Routing is not active yet (Phase 5.0B). Leave as Shared.</span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="DatabaseName" class="form-label fw-semibold">Database Name</label>
+                    <input asp-for="DatabaseName" class="form-control" maxlength="128"
+                           placeholder="e.g. HardBuild_Tenant_@Model.Id" />
+                    <span class="text-muted small">Logical name for a future dedicated database.</span>
+                </div>
+                <div class="col-12">
+                    <div class="alert alert-secondary mb-0 py-2 small">
+                        <i class="bi bi-shield-lock me-1"></i>
+                        The connection string is managed backend-only and cannot be edited here.
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i> Save Changes
+                </button>
+                <a asp-controller="Tenants" asp-action="Details" asp-route-id="@Model.Id"
+                   class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

@@ -1,0 +1,213 @@
+@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.ViewModels.InventoryMovementVm>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Inventory Movement History";
+
+    var movementType = ViewBag.MovementType as string;
+    int? productId = ViewBag.ProductId as int?;
+    int? branchId = ViewBag.BranchId as int?;
+    DateTime dateFrom = ViewBag.DateFrom ?? DateTime.Today.AddDays(-30);
+    DateTime dateTo = ViewBag.DateTo ?? DateTime.Today;
+
+    var allBranches = ViewBag.AllBranches as List<HardwareManagementSystem.Models.Branch> ?? new();
+    var allProducts = (ViewBag.AllProducts as IEnumerable<dynamic>) ?? Enumerable.Empty<dynamic>();
+
+    string MovementBadge(string type) => type switch
+    {
+        "Stock-In" => "badge-soft-success",
+        "Sale" => "badge-soft-danger",
+        "Adjustment +" => "badge-soft-primary",
+        "Adjustment -" => "badge-soft-warning",
+        "Transfer In" => "badge-soft-info",
+        "Transfer Out" => "badge-soft-secondary",
+        _ => "badge-soft-secondary"
+    };
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-clock-history"></i></div>
+            <div class="kpi-label">Total Movements</div>
+            <div class="kpi-value">@Model.TotalRecords</div>
+            <div class="kpi-trend">In selected range</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-arrow-down-circle"></i></div>
+            <div class="kpi-label">Total Stock In</div>
+            <div class="kpi-value">@Model.Items.Where(m => m.QuantityIn.HasValue).Sum(m => m.QuantityIn!.Value).ToString("0.###")</div>
+            <div class="kpi-trend">Units received</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-arrow-up-circle"></i></div>
+            <div class="kpi-label">Total Stock Out</div>
+            <div class="kpi-value">@Model.Items.Where(m => m.QuantityOut.HasValue).Sum(m => m.QuantityOut!.Value).ToString("0.###")</div>
+            <div class="kpi-trend">Units deducted</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-calendar-range"></i></div>
+            <div class="kpi-label">Date Range</div>
+            <div class="kpi-value" style="font-size:1rem;">@dateFrom.ToString("MMM dd") – @dateTo.ToString("MMM dd")</div>
+            <div class="kpi-trend">@((dateTo - dateFrom).Days + 1) days</div>
+        </div>
+    </div>
+</div>
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Inventory Movement History</h2>
+            <div class="hb-section-subtitle">
+                Unified stock movement log — Stock-In, Sales, Adjustments, Transfers
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+
+        <form method="get" asp-controller="InventoryMovement" asp-action="Index">
+            <div class="row g-3 mb-4">
+
+                <div class="col-lg-3">
+                    <label class="form-label fw-semibold">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="searchTerm" class="form-control border-start-0"
+                               value="@Model.SearchTerm" placeholder="Product name, code, reference..." />
+                    </div>
+                </div>
+
+                <div class="col-lg-2">
+                    <label class="form-label fw-semibold">Movement Type</label>
+                    <select name="movementType" class="form-select">
+                        <option value="">All Types</option>
+                        <option value="StockIn" selected="@(movementType == "StockIn")">Stock-In</option>
+                        <option value="Sale" selected="@(movementType == "Sale")">Sale</option>
+                        <option value="Adjustment" selected="@(movementType == "Adjustment")">Adjustment</option>
+                        <option value="Transfer" selected="@(movementType == "Transfer")">Transfer</option>
+                    </select>
+                </div>
+
+                @if (allBranches.Count > 1)
+                {
+                    <div class="col-lg-2">
+                        <label class="form-label fw-semibold">Branch</label>
+                        <select name="branchId" class="form-select">
+                            <option value="">All Branches</option>
+                            @foreach (var b in allBranches)
+                            {
+                                <option value="@b.Id" selected="@(branchId == b.Id)">@b.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <div class="col-lg-2">
+                    <label class="form-label fw-semibold">Date From</label>
+                    <input type="date" name="dateFrom" class="form-control" value="@dateFrom.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <div class="col-lg-2">
+                    <label class="form-label fw-semibold">Date To</label>
+                    <input type="date" name="dateTo" class="form-control" value="@dateTo.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                <input type="hidden" name="pageNumber" value="1" />
+
+                <div class="col-lg-1 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" type="submit" data-no-disable="true">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                </div>
+
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table align-middle table-sm">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Branch</th>
+                        <th>Product</th>
+                        <th class="text-end text-success">In</th>
+                        <th class="text-end text-danger">Out</th>
+                        <th>Reference</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var m in Model.Items)
+                        {
+                            <tr>
+                                <td class="small text-muted text-nowrap">
+                                    @m.Date.ToString("MMM dd, yyyy")<br />
+                                    <span style="font-size:.75rem;">@m.Date.ToString("hh:mm tt")</span>
+                                </td>
+                                <td>
+                                    <span class="badge @MovementBadge(m.MovementType)">@m.MovementType</span>
+                                </td>
+                                <td class="small">
+                                    @if (!string.IsNullOrWhiteSpace(m.Branch))
+                                    {
+                                        <i class="bi bi-building me-1 text-muted"></i>@m.Branch
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    <strong>@m.ProductName</strong>
+                                    <div class="text-muted small"><code>@m.ProductCode</code></div>
+                                </td>
+                                <td class="text-end fw-semibold text-success">
+                                    @(m.QuantityIn.HasValue ? $"+{m.QuantityIn.Value.ToString("0.###")} {m.Unit}" : "")
+                                </td>
+                                <td class="text-end fw-semibold text-danger">
+                                    @(m.QuantityOut.HasValue ? $"-{m.QuantityOut.Value.ToString("0.###")} {m.Unit}" : "")
+                                </td>
+                                <td>
+                                    <code class="text-primary small">@m.Reference</code>
+                                </td>
+                                <td class="small text-muted">@m.Notes</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-clock-history fs-1 d-block mb-2"></i>
+                                No movements found for the selected filters.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "InventoryMovement", "Index",
+            new Dictionary<string, string?>
+            {
+                ["searchTerm"] = Model.SearchTerm,
+                ["movementType"] = movementType,
+                ["branchId"] = branchId?.ToString(),
+                ["dateFrom"] = dateFrom.ToString("yyyy-MM-dd"),
+                ["dateTo"] = dateTo.ToString("yyyy-MM-dd")
+            }))
+
+    </div>
+</div>

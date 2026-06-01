@@ -1,266 +1,105 @@
 ﻿@model HardwareManagementSystem.Models.CustomerLedger
-
 @{
-    Layout = "_Layout";
+    Layout = "~/Views/Shared/_PrintDoc.cshtml";
+    ViewBag.PrintDocTitle  = "COLLECTION RECEIPT";
+    ViewBag.PrintDocNumber = Model.ReferenceNumber ?? $"COL-{Model.Id:D6}";
+    ViewBag.PrintDocDate   = Model.TransactionDate.ToString("MMMM dd, yyyy");
 
-    ViewData["Title"] = "Collection Receipt";
+    var settings = ViewBag.PrintSettings as HardwareManagementSystem.Models.SystemSetting;
+    var currency = settings?.CurrencySymbol ?? "₱";
 }
 
-<div class="row justify-content-center">
-
-    <div class="col-xl-7">
-
-        <div class="hb-card">
-
-            <div class="hb-card-header">
-
-                <div>
-                    <h2 class="hb-section-title">
-                        Collection Receipt
-                    </h2>
-
-                    <div class="hb-section-subtitle">
-                        Customer payment acknowledgment
-                    </div>
-                </div>
-
-                <div class="d-flex gap-2">
-
-                    <button type="button"
-                            class="btn btn-outline-primary"
-                            onclick="window.print()">
-
-                        <i class="bi bi-printer me-1"></i>
-                        Print
-
-                    </button>
-
-                    <a asp-controller="CustomerCollections"
-                       asp-action="Index"
-                       asp-route-customerId="@Model.CustomerId"
-                       class="btn btn-primary">
-
-                        <i class="bi bi-arrow-left me-1"></i>
-                        Back
-
-                    </a>
-
-                </div>
-
-            </div>
-
-            <div class="hb-card-body receipt-print-area">
-
-                <div class="text-center mb-4">
-
-                    <h3 class="fw-bold mb-1">
-                        Hardware Supply POS
-                    </h3>
-
-                    <div class="text-muted">
-                        Customer Collection Receipt
-                    </div>
-
-                </div>
-
-                <hr />
-
-                <div class="row g-4 mb-4">
-
-                    <div class="col-md-6">
-
-                        <div class="receipt-label">
-                            Receipt Number
-                        </div>
-
-                        <div class="receipt-value">
-                            @Model.ReferenceNumber
-                        </div>
-
-                    </div>
-
-                    <div class="col-md-6">
-
-                        <div class="receipt-label">
-                            Date & Time
-                        </div>
-
-                        <div class="receipt-value">
-                            @Model.TransactionDate.ToString("MMM dd, yyyy hh:mm tt")
-                        </div>
-
-                    </div>
-
-                    <div class="col-md-6">
-
-                        <div class="receipt-label">
-                            Customer
-                        </div>
-
-                        <div class="receipt-value">
-                            @(Model.Customer?.CustomerName ?? "N/A")
-                        </div>
-
-                    </div>
-
-                    <div class="col-md-6">
-
-                        <div class="receipt-label">
-                            Collected By
-                        </div>
-
-                        <div class="receipt-value">
-                            @(Model.CreatedBy ?? "N/A")
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <table class="table table-bordered align-middle mb-4">
-
-                    <tbody>
-
-                        <tr>
-                            <th width="40%">
-                                Payment Method
-                            </th>
-
-                            <td>
-                                @(Model.PaymentMethod ?? "N/A")
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th>
-                                Reference Number
-                            </th>
-
-                            <td>
-                                @(string.IsNullOrWhiteSpace(Model.PaymentReferenceNumber)
-                                                                ? "-"
-                                                                : Model.PaymentReferenceNumber)
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th>
-                                Previous Balance
-                            </th>
-
-                            <td>
-                                ₱@Model.BalanceBefore.ToString("N2")
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th>
-                                Payment Amount
-                            </th>
-
-                            <td class="fw-bold text-success">
-                                ₱@Model.CreditAmount.ToString("N2")
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th>
-                                Remaining Balance
-                            </th>
-
-                            <td class="fw-bold text-danger">
-                                ₱@Model.RunningBalance.ToString("N2")
-                            </td>
-                        </tr>
-
-                    </tbody>
-
-                </table>
-
-                <div class="mb-4">
-
-                    <div class="receipt-label mb-2">
-                        Remarks
-                    </div>
-
-                    <div class="border rounded-3 p-3 bg-light">
-                        @(string.IsNullOrWhiteSpace(Model.Remarks)
-                                                ? "No remarks."
-                                                : Model.Remarks)
-                    </div>
-
-                </div>
-
-                <div class="row mt-5">
-
-                    <div class="col-6 text-center">
-
-                        <div class="border-top pt-2">
-                            Customer Signature
-                        </div>
-
-                    </div>
-
-                    <div class="col-6 text-center">
-
-                        <div class="border-top pt-2">
-                            Authorized Signature
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
+@section DocActions {
+    <button onclick="window.print()" class="btn-print">
+        &#128438; Print / Save PDF
+    </button>
+    <a href="@Url.Action("Index", "CustomerCollections", new { customerId = Model.CustomerId })"
+       class="btn-secondary-print">
+        &#x2190; Back
+    </a>
+}
+
+<!-- Customer + Receipt Info -->
+<div class="doc-info-grid">
+    <div>
+        <div class="info-label">Customer</div>
+        <div class="info-value">@(Model.Customer?.CustomerName ?? "N/A")</div>
+        @if (!string.IsNullOrWhiteSpace(Model.Customer?.ContactNumber))
+        {
+            <div class="info-value muted">@Model.Customer.ContactNumber</div>
+        }
     </div>
-
+    <div>
+        <div class="info-label">Date & Time</div>
+        <div class="info-value">@Model.TransactionDate.ToString("MMMM dd, yyyy")</div>
+        <div class="info-value muted">@Model.TransactionDate.ToString("hh:mm tt")</div>
+    </div>
+    <div>
+        <div class="info-label">Collected By</div>
+        <div class="info-value muted">@(Model.CreatedBy ?? "—")</div>
+    </div>
+    <div>
+        <div class="info-label">Payment Method</div>
+        <div class="info-value">@(Model.PaymentMethod ?? "—")</div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.PaymentReferenceNumber))
+    {
+        <div>
+            <div class="info-label">Reference No.</div>
+            <div class="info-value muted">@Model.PaymentReferenceNumber</div>
+        </div>
+    }
 </div>
 
-@section Styles {
+<!-- Payment Summary -->
+<div class="doc-section-title">Payment Summary</div>
 
-    <style>
+<table class="doc-table">
+    <thead>
+        <tr>
+            <th>Description</th>
+            <th class="text-right" style="width:150px">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Previous Balance</td>
+            <td class="text-right">@currency@Model.BalanceBefore.ToString("N2")</td>
+        </tr>
+        <tr>
+            <td><strong>Payment Received</strong></td>
+            <td class="text-right" style="color:#065f46;font-weight:700;font-size:13px;">
+                @currency@Model.CreditAmount.ToString("N2")
+            </td>
+        </tr>
+    </tbody>
+    <tfoot>
+        <tr>
+            <td class="text-right"><strong>Remaining Balance</strong></td>
+            <td class="text-right"
+                style="font-size:13px;color:@(Model.RunningBalance <= 0 ? "#065f46" : "#991b1b");">
+                @(Model.RunningBalance <= 0 ? "FULLY PAID" : $"{currency}{Model.RunningBalance:N2}")
+            </td>
+        </tr>
+    </tfoot>
+</table>
 
-        .receipt-label {
-            font-size: 0.85rem;
-            color: #64748b;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-        }
-
-        .receipt-value {
-            font-size: 1rem;
-            font-weight: 700;
-        }
-
-        @@media print {
-
-            body * {
-                visibility: hidden;
-            }
-
-            .receipt-print-area,
-            .receipt-print-area * {
-                visibility: visible;
-            }
-
-            .receipt-print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
-
-            .btn,
-            .sidebar,
-            .navbar,
-            footer {
-                display: none !important;
-            }
-        }
-
-    </style>
-
+@if (!string.IsNullOrWhiteSpace(Model.Remarks))
+{
+    <p style="font-size:11px;color:#666;margin-bottom:16px;">
+        <span style="font-weight:600;color:#888;text-transform:uppercase;font-size:9px;">Remarks: </span>
+        @Model.Remarks
+    </p>
 }
+
+<!-- Signature area -->
+<div class="sig-row two-col">
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Customer Signature</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Authorized / Collected By</div>
+    </div>
+</div>

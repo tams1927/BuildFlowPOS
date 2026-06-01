@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.Services.TenantDatabases;
 using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,20 +11,28 @@ namespace HardwareManagementSystem.Controllers
 {
     [Authorize]
     [PermissionAuthorize("SalesReturn", "View")]
-    public class SalesReturnController : Controller
+    public class SalesReturnController : OperationalDbController
     {
-        private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
         private readonly NotificationService _notificationService;
+        private readonly BranchService _branchService;
+        private readonly ITenantContext _tenantContext;
+        private readonly TenantGuard _tenantGuard;
 
         public SalesReturnController(
-            ApplicationDbContext context,
+            ITenantOperationalContextProvider ctxProvider,
             AuditService auditService,
-            NotificationService notificationService)
+            NotificationService notificationService,
+            BranchService branchService,
+            ITenantContext tenantContext,
+            TenantGuard tenantGuard)
+            : base(ctxProvider)
         {
-            _context = context;
             _auditService = auditService;
             _notificationService = notificationService;
+            _branchService = branchService;
+            _tenantContext = tenantContext;
+            _tenantGuard = tenantGuard;
         }
 
         public async Task<IActionResult> Index(
@@ -33,6 +42,8 @@ namespace HardwareManagementSystem.Controllers
         {
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             var query = _context.SalesReturnHeaders
                 .AsNoTracking()
                 .Include(r => r.SalesHeader)
@@ -41,19 +52,32 @@ namespace HardwareManagementSystem.Controllers
                         .ThenInclude(i => i!.Unit)
                 .AsQueryable();
 
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                query = query.Where(r =>
+                    r.SalesHeader != null &&
+                    (r.SalesHeader.TenantId == tenantId ||
+                     r.SalesHeader.TenantId == null));
+            }
+
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 var term = searchTerm.Trim().ToLower();
+
                 query = query.Where(r =>
                     r.ReturnNumber.ToLower().Contains(term) ||
-                    (r.SalesHeader != null && r.SalesHeader.SalesNumber.ToLower().Contains(term)) ||
-                    (r.Reason != null && r.Reason.ToLower().Contains(term)) ||
-                    (r.CreatedBy != null && r.CreatedBy.ToLower().Contains(term)));
+                    (r.SalesHeader != null &&
+                     r.SalesHeader.SalesNumber.ToLower().Contains(term)) ||
+                    (r.Reason != null &&
+                     r.Reason.ToLower().Contains(term)) ||
+                    (r.CreatedBy != null &&
+                     r.CreatedBy.ToLower().Contains(term)));
             }
 
             var totalRecords = await query.CountAsync();
 
-            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+            pageNumber = PagedResult<object>.ValidatePageNumber(
+                pageNumber,
                 (int)Math.Ceiling(totalRecords / (double)pageSize));
 
             var returns = await query
@@ -74,9 +98,20 @@ namespace HardwareManagementSystem.Controllers
 
         public async Task<IActionResult> Create(int? saleId)
         {
-            ViewBag.Sales = await _context.SalesHeaders
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
+            var salesQuery = _context.SalesHeaders
                 .AsNoTracking()
-                .Where(s => s.Status == "Completed")
+                .Where(s => s.Status == "Completed");
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                salesQuery = salesQuery.Where(s =>
+                    s.TenantId == tenantId ||
+                    s.TenantId == null);
+            }
+
+            ViewBag.Sales = await salesQuery
                 .OrderByDescending(s => s.SalesDate)
                 .Take(200)
                 .ToListAsync();
@@ -85,24 +120,49 @@ namespace HardwareManagementSystem.Controllers
 
             if (saleId.HasValue)
             {
-                selectedSale = await _context.SalesHeaders
+                var selectedSaleQuery = _context.SalesHeaders
                     .Include(s => s.Customer)
                     .Include(s => s.SalesDetails)
                         .ThenInclude(d => d.Item)
                             .ThenInclude(i => i!.Unit)
-                    .FirstOrDefaultAsync(s => s.Id == saleId.Value && s.Status == "Completed");
+                    .Where(s =>
+                        s.Id == saleId.Value &&
+                        s.Status == "Completed");
+
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                {
+                    selectedSaleQuery = selectedSaleQuery.Where(s =>
+                        s.TenantId == tenantId ||
+                        s.TenantId == null);
+                }
+
+                selectedSale = await selectedSaleQuery.FirstOrDefaultAsync();
+
+                if (selectedSale != null &&
+                    !await _tenantGuard.CanAccessTenantAsync(selectedSale.TenantId))
+                {
+                    return Forbid();
+                }
 
                 if (selectedSale != null)
                 {
-                    var detailIds = selectedSale.SalesDetails.Select(d => d.Id).ToList();
+                    var detailIds = selectedSale.SalesDetails
+                        .Select(d => d.Id)
+                        .ToList();
+
                     var returnedQtys = await _context.SalesReturnDetails
                         .AsNoTracking()
                         .Where(r => detailIds.Contains(r.SalesDetailId))
                         .GroupBy(r => r.SalesDetailId)
-                        .Select(g => new { SalesDetailId = g.Key, Returned = g.Sum(x => x.QuantityReturned) })
+                        .Select(g => new
+                        {
+                            SalesDetailId = g.Key,
+                            Returned = g.Sum(x => x.QuantityReturned)
+                        })
                         .ToListAsync();
 
-                    ViewBag.ReturnedQtys = returnedQtys.ToDictionary(x => x.SalesDetailId, x => x.Returned);
+                    ViewBag.ReturnedQtys = returnedQtys
+                        .ToDictionary(x => x.SalesDetailId, x => x.Returned);
                 }
             }
 
@@ -113,6 +173,7 @@ namespace HardwareManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermissionAuthorize("SalesReturn", "Create")]
         public async Task<IActionResult> Create(
             int salesHeaderId,
             int salesDetailId,
@@ -120,6 +181,8 @@ namespace HardwareManagementSystem.Controllers
             string reason,
             bool restoreToInventory = true)
         {
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             if (salesHeaderId <= 0)
             {
                 TempData["ErrorMessage"] = "Invalid sale selected.";
@@ -144,15 +207,34 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Create), new { saleId = salesHeaderId });
             }
 
-            var sale = await _context.SalesHeaders
+            var saleQuery = _context.SalesHeaders
                 .Include(s => s.SalesDetails)
                     .ThenInclude(d => d.Item)
-                .FirstOrDefaultAsync(s => s.Id == salesHeaderId);
+                .Where(s => s.Id == salesHeaderId);
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                saleQuery = saleQuery.Where(s =>
+                    s.TenantId == tenantId ||
+                    s.TenantId == null);
+            }
+
+            var sale = await saleQuery.FirstOrDefaultAsync();
 
             if (sale == null)
             {
                 TempData["ErrorMessage"] = "Original sale not found.";
                 return RedirectToAction(nameof(Create));
+            }
+
+            if (!await _tenantGuard.CanAccessTenantAsync(sale.TenantId))
+            {
+                return Forbid();
+            }
+
+            if (!sale.TenantId.HasValue && tenantId.HasValue)
+            {
+                sale.TenantId = tenantId;
             }
 
             if (sale.Status == "Voided")
@@ -161,12 +243,18 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Create));
             }
 
-            var detail = sale.SalesDetails.FirstOrDefault(d => d.Id == salesDetailId);
+            var detail = sale.SalesDetails
+                .FirstOrDefault(d => d.Id == salesDetailId);
 
             if (detail == null || detail.Item == null)
             {
                 TempData["ErrorMessage"] = "Selected item not found in this sale.";
                 return RedirectToAction(nameof(Create), new { saleId = salesHeaderId });
+            }
+
+            if (!await _tenantGuard.CanAccessTenantAsync(detail.Item.TenantId))
+            {
+                return Forbid();
             }
 
             var alreadyReturnedQty = await _context.SalesReturnDetails
@@ -183,7 +271,9 @@ namespace HardwareManagementSystem.Controllers
 
             if (quantityReturned > remainingQty)
             {
-                TempData["ErrorMessage"] = $"Return quantity ({quantityReturned:0.###}) exceeds remaining returnable quantity ({remainingQty:0.###}).";
+                TempData["ErrorMessage"] =
+                    $"Return quantity ({quantityReturned:0.###}) exceeds remaining returnable quantity ({remainingQty:0.###}).";
+
                 return RedirectToAction(nameof(Create), new { saleId = salesHeaderId });
             }
 
@@ -191,18 +281,19 @@ namespace HardwareManagementSystem.Controllers
 
             try
             {
-                var returnNumber = await GenerateReturnNumberAsync();
+                var returnNumber = await GenerateReturnNumberAsync(tenantId);
                 var refundAmount = quantityReturned * detail.UnitPrice;
 
                 var header = new SalesReturnHeader
                 {
-                    ReturnNumber = returnNumber,
-                    ReturnDate = DateTime.Now,
+                    ReturnNumber  = returnNumber,
+                    ReturnDate    = DateTime.Now,
                     SalesHeaderId = sale.Id,
-                    Reason = reason.Trim(),
-                    RefundAmount = refundAmount,
-                    CreatedBy = User.Identity?.Name ?? "Unknown",
-                    CreatedAt = DateTime.Now
+                    Reason        = reason.Trim(),
+                    RefundAmount  = refundAmount,
+                    TenantId      = tenantId,
+                    CreatedBy     = User.Identity?.Name ?? "Unknown",
+                    CreatedAt     = DateTime.Now
                 };
 
                 header.SalesReturnDetails.Add(new SalesReturnDetail
@@ -216,10 +307,29 @@ namespace HardwareManagementSystem.Controllers
                 });
 
                 if (restoreToInventory)
-                    detail.Item.CurrentStock += quantityReturned;
+                {
+                    if (sale.BranchId.HasValue)
+                    {
+                        await _branchService.AddStockAsync(
+                            sale.BranchId.Value,
+                            detail.ItemId,
+                            quantityReturned);
+                    }
+                    else
+                    {
+                        detail.Item.CurrentStock += quantityReturned;
+                    }
+
+                    if (!detail.Item.TenantId.HasValue && tenantId.HasValue)
+                    {
+                        detail.Item.TenantId = tenantId;
+                    }
+                }
 
                 _context.SalesReturnHeaders.Add(header);
+
                 await _context.SaveChangesAsync();
+
                 await transaction.CommitAsync();
 
                 await _auditService.LogAsync(
@@ -244,31 +354,56 @@ namespace HardwareManagementSystem.Controllers
                 if (restoreToInventory)
                 {
                     var updatedItem = await _context.Items.FindAsync(detail.ItemId);
+
                     if (updatedItem != null)
                     {
-                        if (updatedItem.CurrentStock <= 0)
-                            await _notificationService.CreateOutOfStockNotificationAsync(updatedItem.ItemName);
-                        else if (updatedItem.CurrentStock <= updatedItem.ReorderLevel)
-                            await _notificationService.CreateLowStockNotificationAsync(updatedItem.ItemName);
+                        var stockToCheck = updatedItem.CurrentStock;
+
+                        if (sale.BranchId.HasValue)
+                        {
+                            stockToCheck = await _branchService.GetBranchStockAsync(
+                                sale.BranchId.Value,
+                                detail.ItemId);
+                        }
+
+                        if (stockToCheck <= 0)
+                        {
+                            await _notificationService
+                                .CreateOutOfStockNotificationAsync(updatedItem.ItemName);
+                        }
+                        else if (stockToCheck <= updatedItem.ReorderLevel)
+                        {
+                            await _notificationService
+                                .CreateLowStockNotificationAsync(updatedItem.ItemName);
+                        }
                     }
                 }
 
-                TempData["SuccessMessage"] = $"Sales return {returnNumber} processed. Refund: ₱{refundAmount:N2}";
+                TempData["SuccessMessage"] =
+                    $"Sales return {returnNumber} processed. Refund: ₱{refundAmount:N2}";
+
                 return RedirectToAction(nameof(Index));
             }
             catch
             {
                 await transaction.RollbackAsync();
-                TempData["ErrorMessage"] = "Unable to save sales return. Please try again.";
+
+                TempData["ErrorMessage"] =
+                    "Unable to save sales return. Please try again.";
+
                 return RedirectToAction(nameof(Create), new { saleId = salesHeaderId });
             }
         }
 
-        private async Task<string> GenerateReturnNumberAsync()
+        private async Task<string> GenerateReturnNumberAsync(int? tenantId)
         {
             var prefix = $"RET-{DateTime.Now:yyyyMMdd}-";
-            var countToday = await _context.SalesReturnHeaders
-                .CountAsync(r => r.ReturnNumber.StartsWith(prefix));
+
+            var query = _context.SalesReturnHeaders.Where(r => r.ReturnNumber.StartsWith(prefix));
+            if (tenantId.HasValue)
+                query = query.Where(r => r.TenantId == tenantId);
+
+            var countToday = await query.CountAsync();
             return $"{prefix}{(countToday + 1):D4}";
         }
     }

@@ -1,0 +1,136 @@
+@model HardwareManagementSystem.Models.Quotation
+@{
+    Layout = "~/Views/Shared/_PrintDoc.cshtml";
+    ViewData["Title"] = $"Quotation {Model.QuotationNo}";
+    ViewBag.PrintDocTitle  = "QUOTATION";
+    ViewBag.PrintDocNumber = Model.QuotationNo;
+    ViewBag.PrintDocDate   = Model.QuotationDate.ToString("MMMM dd, yyyy");
+
+    var currency = (ViewBag.PrintSettings as HardwareManagementSystem.Models.SystemSetting)?.CurrencySymbol ?? "₱";
+    var statusCss = Model.Status switch {
+        "Accepted"  => "accepted",
+        "Converted" => "converted",
+        "Voided"    => "voided",
+        "Expired"   => "voided",
+        "Sent"      => "pending",
+        _           => "draft"
+    };
+}
+
+@section DocActions {
+    <button onclick="window.print()" class="btn-print">
+        &#128438; Print / Save PDF
+    </button>
+    <a href="@Url.Action("DownloadPdf", "Quotations", new { id = Model.Id })" class="btn-secondary-print">
+        &#11015; Download PDF
+    </a>
+    <a href="@Url.Action("Details", "Quotations", new { id = Model.Id })" class="btn-secondary-print">
+        &#x2190; Back
+    </a>
+}
+
+<!-- Customer + Status info -->
+<div class="doc-info-grid">
+    <div>
+        <div class="info-label">Bill To</div>
+        <div class="info-value">@(Model.Customer?.CustomerName ?? Model.CustomerName ?? "Walk-in Customer")</div>
+        @if (!string.IsNullOrWhiteSpace(Model.Customer?.ContactNumber))
+        {
+            <div class="info-value muted">@Model.Customer.ContactNumber</div>
+        }
+    </div>
+    <div>
+        <div class="info-label">Status</div>
+        <div class="info-value">
+            <span class="doc-status @statusCss">@Model.Status</span>
+        </div>
+        @if (Model.ValidUntil.HasValue)
+        {
+            <div class="info-value muted" style="margin-top:4px;font-size:10px;">
+                Valid Until: <strong>@Model.ValidUntil.Value.ToString("MMMM dd, yyyy")</strong>
+            </div>
+        }
+    </div>
+    @if (Model.Branch != null)
+    {
+        <div>
+            <div class="info-label">Branch</div>
+            <div class="info-value muted">@Model.Branch.Name</div>
+        </div>
+    }
+    @if (Model.ConvertedToSaleId.HasValue)
+    {
+        <div>
+            <div class="info-label">Converted to Sale</div>
+            <div class="info-value muted">Sale ID #@Model.ConvertedToSaleId</div>
+        </div>
+    }
+</div>
+
+<!-- Items table -->
+<div class="doc-section-title">Items</div>
+
+<table class="doc-table">
+    <thead>
+        <tr>
+            <th style="width:30px">#</th>
+            <th>Description</th>
+            <th class="text-right" style="width:70px">Qty</th>
+            <th class="text-right" style="width:90px">Unit Price</th>
+            <th class="text-right" style="width:60px">Disc%</th>
+            <th class="text-right" style="width:90px">Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        @{int n = 1;}
+        @foreach (var item in Model.Items.OrderBy(i => i.SortOrder))
+        {
+            <tr>
+                <td>@(n++)</td>
+                <td>
+                    <strong>@item.Description</strong>
+                    @if (item.Item != null)
+                    {
+                        <div style="font-size:10px;color:#888;">SKU: @item.Item.ItemCode</div>
+                    }
+                </td>
+                <td class="text-right">@item.Quantity.ToString("0.###")</td>
+                <td class="text-right">@currency@item.UnitPrice.ToString("N2")</td>
+                <td class="text-right">@(item.DiscountPercent > 0 ? $"{item.DiscountPercent:N2}%" : "—")</td>
+                <td class="text-right"><strong>@currency@item.Subtotal.ToString("N2")</strong></td>
+            </tr>
+        }
+        @if (!Model.Items.Any())
+        {
+            <tr>
+                <td colspan="6" style="text-align:center;color:#888;padding:16px;">No items.</td>
+            </tr>
+        }
+    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="5" class="text-right"><strong>TOTAL AMOUNT</strong></td>
+            <td class="text-right" style="color:#1e3a5f;font-size:14px;">
+                @currency@Model.TotalAmount.ToString("N2")
+            </td>
+        </tr>
+    </tfoot>
+</table>
+
+@if (!string.IsNullOrWhiteSpace(Model.Notes))
+{
+    <div class="doc-section-title">Notes</div>
+    <p style="font-size:11px;color:#555;margin-bottom:12px;">@Model.Notes</p>
+}
+
+<!-- Signature area -->
+<div class="sig-row two-col">
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Prepared By</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Accepted By / Customer</div>
+    </div>
+</div>

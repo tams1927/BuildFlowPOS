@@ -1,0 +1,118 @@
+@model HardwareManagementSystem.Models.DeliveryReceipt
+@{
+    Layout = "~/Views/Shared/_PrintDoc.cshtml";
+    ViewData["Title"] = $"DR {Model.DRNumber}";
+    ViewBag.PrintDocTitle  = "DELIVERY RECEIPT";
+    ViewBag.PrintDocNumber = Model.DRNumber;
+    ViewBag.PrintDocDate   = Model.DeliveryDate.ToString("MMMM dd, yyyy");
+
+    var statusCss = Model.Status switch {
+        "Delivered"  => "delivered",
+        "Cancelled"  => "cancelled",
+        _            => "pending"
+    };
+}
+
+@section DocActions {
+    <button onclick="window.print()" class="btn-print">
+        &#128438; Print / Save PDF
+    </button>
+    <a href="@Url.Action("DownloadPdf", "DeliveryReceipts", new { id = Model.Id })" class="btn-secondary-print">
+        &#11015; Download PDF
+    </a>
+    <a href="@Url.Action("Details", "DeliveryReceipts", new { id = Model.Id })" class="btn-secondary-print">
+        &#x2190; Back
+    </a>
+}
+
+<!-- Delivery Info -->
+<div class="doc-info-grid">
+    <div>
+        <div class="info-label">Consignee / Customer</div>
+        <div class="info-value">@(Model.Customer?.CustomerName ?? "Walk-in Customer")</div>
+        @if (!string.IsNullOrWhiteSpace(Model.DeliveryAddress))
+        {
+            <div class="info-value muted">@Model.DeliveryAddress</div>
+        }
+    </div>
+    <div>
+        <div class="info-label">Driver</div>
+        <div class="info-value">@(Model.DriverName ?? "—")</div>
+    </div>
+    <div>
+        <div class="info-label">Status</div>
+        <div class="info-value">
+            <span class="doc-status @statusCss">@Model.Status</span>
+        </div>
+    </div>
+    @if (Model.SalesHeader != null)
+    {
+        <div>
+            <div class="info-label">Reference Sale</div>
+            <div class="info-value muted">@Model.SalesHeader.SalesNumber</div>
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.Notes))
+    {
+        <div class="full-span">
+            <div class="info-label">Notes / Instructions</div>
+            <div class="info-value muted">@Model.Notes</div>
+        </div>
+    }
+</div>
+
+<!-- Items table -->
+<div class="doc-section-title">Items to Deliver</div>
+
+<table class="doc-table">
+    <thead>
+        <tr>
+            <th style="width:30px">#</th>
+            <th>Description</th>
+            <th class="text-right" style="width:70px">Qty</th>
+            <th style="width:60px">Unit</th>
+            <th style="width:110px">Received (Qty)</th>
+        </tr>
+    </thead>
+    <tbody>
+        @{int n = 1;}
+        @foreach (var line in Model.Items.OrderBy(i => i.SortOrder))
+        {
+            <tr>
+                <td>@(n++)</td>
+                <td>
+                    <strong>@line.Description</strong>
+                    @if (line.Item != null)
+                    {
+                        <div style="font-size:10px;color:#888;">[@line.Item.ItemCode]</div>
+                    }
+                </td>
+                <td class="text-right">@line.Quantity.ToString("0.###")</td>
+                <td>@(line.Unit ?? line.Item?.Unit?.ShortName ?? "—")</td>
+                <td></td>
+            </tr>
+        }
+        @if (!Model.Items.Any())
+        {
+            <tr>
+                <td colspan="5" style="text-align:center;color:#888;padding:16px;">No items listed.</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Signature area -->
+<div class="sig-row three-col">
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Prepared By</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Delivered By (Driver)</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name"></div>
+        <div class="sig-label">Received By / Signature</div>
+    </div>
+</div>

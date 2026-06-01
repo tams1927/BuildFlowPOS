@@ -8,6 +8,9 @@
     var dateTo = ViewBag.DateTo as DateTime? ?? DateTime.Today;
     var paymentMethod = ViewBag.PaymentMethod as string;
     var status = ViewBag.Status as string;
+    var allBranches = ViewBag.AllBranches as List<HardwareManagementSystem.Models.Branch>;
+    var isGlobal = (bool)(ViewBag.IsGlobalUser ?? false);
+    var branchId = ViewBag.BranchId as int?;
 
     var totalSales = Model.Items.Sum(x => x.TotalAmount);
     var totalDiscount = Model.Items.Sum(x => x.DiscountAmount);
@@ -114,6 +117,24 @@
                 </select>
             </div>
 
+            @if (isGlobal && allBranches != null)
+            {
+                <div class="col-lg-2">
+                    <label class="form-label fw-semibold">Branch</label>
+                    <select name="branchId" class="form-select">
+                        <option value="0">All Branches</option>
+                        @foreach (var b in allBranches)
+                        {
+                            <option value="@b.Id" selected="@(branchId == b.Id)">@b.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+            else if (branchId.HasValue)
+            {
+                <input type="hidden" name="branchId" value="@branchId" />
+            }
+
             <div class="col-lg-2">
                 <label class="form-label fw-semibold">Status</label>
                 <select name="status" class="form-select">
@@ -128,7 +149,7 @@
 
             <div class="col-lg-1 d-flex align-items-end">
                 <button type="submit"
-                        class="btn btn-primary w-100">
+                        class="btn btn-primary w-100" data-no-disable="true">
                     <i class="bi bi-funnel"></i>
                 </button>
             </div>
@@ -136,7 +157,7 @@
 
                 <button type="button"
                         id="exportPdfBtn"
-                        class="btn btn-danger w-100">
+                        class="btn btn-danger w-100" data-no-disable="true">
 
                     <i class="bi bi-file-earmark-pdf me-1"></i>
 

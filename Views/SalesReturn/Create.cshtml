@@ -42,7 +42,7 @@
                     </select>
                 </div>
                 <div class="col-lg-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">
+                    <button type="submit" class="btn btn-primary w-100" data-no-disable="true">
                         <i class="bi bi-search me-1"></i>Load
                     </button>
                 </div>
@@ -271,7 +271,7 @@
                 confirmButtonColor: '#dc2626',
                 cancelButtonColor: '#475569'
             }).then(result => {
-                if (result.isConfirmed) returnForm.submit();
+                if (result.isConfirmed) returnForm.requestSubmit();
             });
         });
 

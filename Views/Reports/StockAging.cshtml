@@ -1,0 +1,125 @@
+@model HardwareManagementSystem.ViewModels.StockAgingViewModel
+@{
+    ViewData["Title"] = "Stock Aging";
+    var categories = ViewBag.AllCategories as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+    var allBranches = ViewBag.AllBranches as IEnumerable<HardwareManagementSystem.Models.Branch> ?? Enumerable.Empty<HardwareManagementSystem.Models.Branch>();
+    bool isGlobal = ViewBag.IsGlobalUser == true;
+}
+
+<div class="hb-card">
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title"><i class="bi bi-layers me-2 text-info"></i>Stock Aging Report</h2>
+            <div class="hb-section-subtitle">As of @Model.AsOfDate.ToString("MMMM dd, yyyy")@(Model.BranchName != null ? $" · {Model.BranchName}" : "")</div>
+        </div>
+        <a asp-action="StockAgingPdf" asp-route-branchId="@Model.BranchId" asp-route-categoryId="@Model.CategoryId"
+           class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+    </div>
+    <div class="hb-card-body">
+
+        <form method="get" asp-action="StockAging" class="mb-4">
+            <div class="row g-2 align-items-end">
+                @if (isGlobal)
+                {
+                    <div class="col-md-2"><label class="form-label small fw-semibold">Branch</label>
+                        <select name="branchId" class="form-select form-select-sm">
+                            <option value="">All Branches</option>
+                            @foreach (var b in allBranches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }
+                        </select></div>
+                }
+                <div class="col-md-2"><label class="form-label small fw-semibold">Category</label>
+                    <select name="categoryId" class="form-select form-select-sm">
+                        <option value="">All Categories</option>
+                        @foreach (var c in categories) { <option value="@c.Id" selected="@(Model.CategoryId == (int)c.Id)">@c.CategoryName</option> }
+                    </select></div>
+                <div class="col-md-1"><button type="submit" class="btn btn-primary btn-sm" data-no-disable="true"><i class="bi bi-funnel"></i></button></div>
+            </div>
+        </form>
+
+        <!-- Aging totals summary -->
+        <div class="row g-3 mb-4">
+            @{
+                var buckets = new[]
+                {
+                    ("0–30 Days", Model.TotalQty0_30,   Model.TotalVal0_30,   "text-success"),
+                    ("31–60 Days", Model.TotalQty31_60,  Model.TotalVal31_60,  "text-primary"),
+                    ("61–90 Days", Model.TotalQty61_90,  Model.TotalVal61_90,  "text-warning"),
+                    ("91–180 Days", Model.TotalQty91_180, Model.TotalVal91_180, "text-warning"),
+                    ("180+ Days",  Model.TotalQty180P,   Model.TotalVal180P,   "text-danger"),
+                };
+                foreach (var (label, qty, val, color) in buckets)
+                {
+                    <div class="col">
+                        <div class="kpi-card py-3">
+                            <div class="kpi-label">@label</div>
+                            <div class="kpi-value fs-6 @color">₱@val.ToString("N2")</div>
+                            <div class="kpi-trend">@qty.ToString("N0") units</div>
+                        </div>
+                    </div>
+                }
+                <div class="col">
+                    <div class="kpi-card py-3">
+                        <div class="kpi-label">Total Value</div>
+                        <div class="kpi-value fs-6 fw-bold">₱@Model.TotalValue.ToString("N2")</div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr>
+                    <th>SKU</th><th>Item Name</th><th>Category</th>
+                    <th class="text-end">0–30 Days</th>
+                    <th class="text-end">31–60 Days</th>
+                    <th class="text-end">61–90 Days</th>
+                    <th class="text-end">91–180 Days</th>
+                    <th class="text-end">180+ Days</th>
+                    <th class="text-end">Total Qty</th>
+                    <th class="text-end">Total Value</th>
+                </tr></thead>
+                <tbody>
+                    @if (Model.Rows.Any())
+                    {
+                        foreach (var r in Model.Rows)
+                        {
+                            <tr>
+                                <td class="small text-muted">@r.ItemCode</td>
+                                <td><strong>@r.ItemName</strong></td>
+                                <td class="small">@r.Category</td>
+                                <td class="text-end @(r.Qty0_30 > 0 ? "text-success" : "text-muted")">@(r.Qty0_30 > 0 ? r.Qty0_30.ToString("N3") : "—")</td>
+                                <td class="text-end @(r.Qty31_60 > 0 ? "text-primary" : "text-muted")">@(r.Qty31_60 > 0 ? r.Qty31_60.ToString("N3") : "—")</td>
+                                <td class="text-end @(r.Qty61_90 > 0 ? "text-warning" : "text-muted")">@(r.Qty61_90 > 0 ? r.Qty61_90.ToString("N3") : "—")</td>
+                                <td class="text-end @(r.Qty91_180 > 0 ? "text-warning" : "text-muted")">@(r.Qty91_180 > 0 ? r.Qty91_180.ToString("N3") : "—")</td>
+                                <td class="text-end @(r.Qty180Plus > 0 ? "text-danger" : "text-muted")">@(r.Qty180Plus > 0 ? r.Qty180Plus.ToString("N3") : "—")</td>
+                                <td class="text-end fw-semibold">@r.TotalQty.ToString("N3")</td>
+                                <td class="text-end fw-bold">₱@r.TotalValue.ToString("N2")</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="10" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>No stock-in data available.
+                        </td></tr>
+                    }
+                </tbody>
+                @if (Model.Rows.Any())
+                {
+                    <tfoot class="table-dark">
+                        <tr>
+                            <td colspan="3" class="fw-bold">TOTALS</td>
+                            <td class="text-end fw-bold">@Model.TotalQty0_30.ToString("N0")</td>
+                            <td class="text-end fw-bold">@Model.TotalQty31_60.ToString("N0")</td>
+                            <td class="text-end fw-bold">@Model.TotalQty61_90.ToString("N0")</td>
+                            <td class="text-end fw-bold">@Model.TotalQty91_180.ToString("N0")</td>
+                            <td class="text-end fw-bold">@Model.TotalQty180P.ToString("N0")</td>
+                            <td class="text-end fw-bold">@((Model.TotalQty0_30+Model.TotalQty31_60+Model.TotalQty61_90+Model.TotalQty91_180+Model.TotalQty180P).ToString("N0"))</td>
+                            <td class="text-end fw-bold">₱@Model.TotalValue.ToString("N2")</td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+    </div>
+</div>

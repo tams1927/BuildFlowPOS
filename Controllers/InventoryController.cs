@@ -1,6 +1,7 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.Services.TenantDatabases;
 using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,17 +11,28 @@ namespace HardwareManagementSystem.Controllers
 {
     [Authorize]
     [PermissionAuthorize("Inventory", "View")]
-    public class InventoryController : Controller
+    public class InventoryController : OperationalDbController
     {
-        private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
         private readonly NotificationService _notificationService;
+        private readonly BranchService _branchService;
+        private readonly ITenantContext _tenantContext;
+        private readonly TenantGuard _tenantGuard;
 
-        public InventoryController(ApplicationDbContext context, AuditService auditService, NotificationService notificationService)
+        public InventoryController(
+            ITenantOperationalContextProvider ctxProvider,
+            AuditService auditService,
+            NotificationService notificationService,
+            BranchService branchService,
+            ITenantContext tenantContext,
+            TenantGuard tenantGuard)
+            : base(ctxProvider)
         {
-            _context = context;
             _auditService = auditService;
             _notificationService = notificationService;
+            _branchService = branchService;
+            _tenantContext = tenantContext;
+            _tenantGuard = tenantGuard;
         }
 
         public async Task<IActionResult> Index(
@@ -29,26 +41,71 @@ namespace HardwareManagementSystem.Controllers
             string? searchTerm = null,
             string? categoryFilter = null,
             string? statusFilter = null,
-            string? stockFilter = null)
+            string? stockFilter = null,
+            int? branchId = null)
         {
             pageSize = PagedResult<object>.ValidatePageSize(pageSize);
 
-            ViewBag.Categories = await _context.Categories
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
+            var allBranches = await _branchService.GetAllActiveBranchesAsync();
+            ViewBag.Branches = allBranches;
+
+            Branch? selectedBranch;
+
+            if (branchId.HasValue && _branchService.IsGlobalUser(User))
+            {
+                selectedBranch = allBranches.FirstOrDefault(b => b.Id == branchId.Value)
+                    ?? await _branchService.GetCurrentBranchAsync(User);
+            }
+            else
+            {
+                selectedBranch = await _branchService.GetCurrentBranchAsync(User);
+            }
+
+            if (selectedBranch != null &&
+                !await _tenantGuard.CanAccessTenantAsync(selectedBranch.TenantId))
+            {
+                return Forbid();
+            }
+
+            ViewBag.SelectedBranch = selectedBranch;
+            ViewBag.SelectedBranchId = selectedBranch?.Id;
+
+            Dictionary<int, decimal>? branchStockMap = null;
+
+            if (selectedBranch != null)
+            {
+                var stockQuery = _context.BranchProductStocks
+                    .AsNoTracking()
+                    .Where(s => s.BranchId == selectedBranch.Id);
+
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                {
+                    stockQuery = stockQuery.Where(s =>
+                        s.TenantId == tenantId ||
+                        s.TenantId == null);
+                }
+
+                branchStockMap = await stockQuery
+                    .ToDictionaryAsync(s => s.ProductId, s => s.Quantity);
+            }
+
+            ViewBag.BranchStockMap = branchStockMap;
+
+            var categoryQuery = _context.Categories
                 .AsNoTracking()
-                .Where(c => c.IsActive)
+                .Where(c => c.IsActive);
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                categoryQuery = categoryQuery.Where(c =>
+                    c.TenantId == tenantId ||
+                    c.TenantId == null);
+            }
+
+            ViewBag.Categories = await categoryQuery
                 .OrderBy(c => c.CategoryName)
-                .ToListAsync();
-
-            ViewBag.Units = await _context.Units
-                .AsNoTracking()
-                .Where(u => u.IsActive)
-                .OrderBy(u => u.UnitName)
-                .ToListAsync();
-
-            ViewBag.Suppliers = await _context.Suppliers
-                .AsNoTracking()
-                .Where(s => s.IsActive)
-                .OrderBy(s => s.SupplierName)
                 .ToListAsync();
 
             var query = _context.Items
@@ -58,39 +115,90 @@ namespace HardwareManagementSystem.Controllers
                 .Include(i => i.Supplier)
                 .AsQueryable();
 
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                query = query.Where(i =>
+                    i.TenantId == tenantId ||
+                    i.TenantId == null);
+            }
+
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 var term = searchTerm.Trim().ToLower();
+
                 query = query.Where(i =>
                     i.ItemName.ToLower().Contains(term) ||
                     i.ItemCode.ToLower().Contains(term) ||
-                    (i.Category != null && i.Category.CategoryName.ToLower().Contains(term)) ||
-                    (i.Supplier != null && i.Supplier.SupplierName.ToLower().Contains(term)));
+                    (i.Category != null &&
+                     i.Category.CategoryName.ToLower().Contains(term)) ||
+                    (i.Supplier != null &&
+                     i.Supplier.SupplierName.ToLower().Contains(term)));
             }
 
-            if (!string.IsNullOrWhiteSpace(categoryFilter) && categoryFilter != "all")
+            if (!string.IsNullOrWhiteSpace(categoryFilter) &&
+                categoryFilter != "all")
             {
-                query = query.Where(i => i.Category != null && i.Category.CategoryName.ToLower() == categoryFilter.ToLower());
+                query = query.Where(i =>
+                    i.Category != null &&
+                    i.Category.CategoryName.ToLower() == categoryFilter.ToLower());
             }
 
-            if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "all")
+            if (!string.IsNullOrWhiteSpace(statusFilter) &&
+                statusFilter != "all")
             {
-                query = query.Where(i => i.Status.ToLower() == statusFilter.ToLower());
+                query = query.Where(i =>
+                    i.Status.ToLower() == statusFilter.ToLower());
             }
 
-            if (!string.IsNullOrWhiteSpace(stockFilter))
+            if (!string.IsNullOrWhiteSpace(stockFilter) &&
+                branchStockMap != null)
+            {
+                var allItems = await query
+                    .Select(i => new { i.Id, i.ReorderLevel })
+                    .ToListAsync();
+
+                var matchIds = stockFilter switch
+                {
+                    "low" => allItems
+                        .Where(i =>
+                            (branchStockMap.TryGetValue(i.Id, out var q) ? q : 0) > 0 &&
+                            (branchStockMap.TryGetValue(i.Id, out var q2) ? q2 : 0) <= i.ReorderLevel)
+                        .Select(i => i.Id)
+                        .ToHashSet(),
+
+                    "out" => allItems
+                        .Where(i =>
+                            (branchStockMap.TryGetValue(i.Id, out var q) ? q : 0) <= 0)
+                        .Select(i => i.Id)
+                        .ToHashSet(),
+
+                    _ => null
+                };
+
+                if (matchIds != null)
+                {
+                    query = query.Where(i => matchIds.Contains(i.Id));
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(stockFilter))
             {
                 query = stockFilter switch
                 {
-                    "low" => query.Where(i => i.CurrentStock > 0 && i.CurrentStock <= i.ReorderLevel),
-                    "out" => query.Where(i => i.CurrentStock <= 0),
+                    "low" => query.Where(i =>
+                        i.CurrentStock > 0 &&
+                        i.CurrentStock <= i.ReorderLevel),
+
+                    "out" => query.Where(i =>
+                        i.CurrentStock <= 0),
+
                     _ => query
                 };
             }
 
             var totalRecords = await query.CountAsync();
 
-            pageNumber = PagedResult<object>.ValidatePageNumber(pageNumber,
+            pageNumber = PagedResult<object>.ValidatePageNumber(
+                pageNumber,
                 (int)Math.Ceiling(totalRecords / (double)pageSize));
 
             var items = await query
@@ -102,11 +210,46 @@ namespace HardwareManagementSystem.Controllers
             ViewBag.CategoryFilter = categoryFilter;
             ViewBag.StatusFilter = statusFilter;
             ViewBag.StockFilter = stockFilter;
+            ViewBag.BranchIdFilter = selectedBranch?.Id;
 
-            ViewBag.TotalActive = await _context.Items.CountAsync(i => i.Status == "Active");
-            ViewBag.TotalLowStock = await _context.Items.CountAsync(i =>
-                i.Status == "Active" && i.CurrentStock > 0 && i.CurrentStock <= i.ReorderLevel);
-            ViewBag.TotalOutOfStock = await _context.Items.CountAsync(i => i.CurrentStock <= 0);
+            var activeItemsQuery = _context.Items
+                .Where(i => i.Status == "Active");
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                activeItemsQuery = activeItemsQuery.Where(i =>
+                    i.TenantId == tenantId ||
+                    i.TenantId == null);
+            }
+
+            if (branchStockMap != null)
+            {
+                var allItemIds = await activeItemsQuery
+                    .Select(i => new { i.Id, i.ReorderLevel })
+                    .ToListAsync();
+
+                ViewBag.TotalActive = allItemIds.Count;
+
+                ViewBag.TotalLowStock = allItemIds.Count(i =>
+                {
+                    var q = branchStockMap.TryGetValue(i.Id, out var v) ? v : 0;
+                    return q > 0 && q <= i.ReorderLevel;
+                });
+
+                ViewBag.TotalOutOfStock = allItemIds.Count(i =>
+                    (branchStockMap.TryGetValue(i.Id, out var v) ? v : 0) <= 0);
+            }
+            else
+            {
+                ViewBag.TotalActive = await activeItemsQuery.CountAsync();
+
+                ViewBag.TotalLowStock = await activeItemsQuery.CountAsync(i =>
+                    i.CurrentStock > 0 &&
+                    i.CurrentStock <= i.ReorderLevel);
+
+                ViewBag.TotalOutOfStock = await activeItemsQuery.CountAsync(i =>
+                    i.CurrentStock <= 0);
+            }
 
             return View(new PagedResult<Item>
             {
@@ -118,8 +261,11 @@ namespace HardwareManagementSystem.Controllers
             });
         }
 
+        // Legacy: product creation is now handled by ProductsController.
+        // This action is kept to avoid breaking any existing references.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermissionAuthorize("Inventory", "Create")]
         public async Task<IActionResult> Create(
             string itemCode,
             string itemName,
@@ -132,19 +278,41 @@ namespace HardwareManagementSystem.Controllers
             decimal sellingPrice,
             string? description)
         {
-            if (string.IsNullOrWhiteSpace(itemCode) || string.IsNullOrWhiteSpace(itemName))
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
+            if (string.IsNullOrWhiteSpace(itemCode) ||
+                string.IsNullOrWhiteSpace(itemName))
             {
-                TempData["ErrorMessage"] = "Item code and item name are required.";
+                TempData["ErrorMessage"] =
+                    "Item code and item name are required.";
+
                 return RedirectToAction(nameof(Index));
             }
 
-            if (currentStock < 0 || reorderLevel < 0 || costPrice < 0 || sellingPrice < 0)
+            if (currentStock < 0 ||
+                reorderLevel < 0 ||
+                costPrice < 0 ||
+                sellingPrice < 0)
             {
-                TempData["ErrorMessage"] = "Stock, reorder level, cost price, and selling price cannot be negative.";
+                TempData["ErrorMessage"] =
+                    "Stock, reorder level, cost price, and selling price cannot be negative.";
+
                 return RedirectToAction(nameof(Index));
             }
 
-            var exists = await _context.Items.AnyAsync(i => i.ItemCode == itemCode.Trim());
+            var code = itemCode.Trim();
+
+            var duplicateQuery = _context.Items.AsQueryable();
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                duplicateQuery = duplicateQuery.Where(i =>
+                    i.TenantId == tenantId ||
+                    i.TenantId == null);
+            }
+
+            var exists = await duplicateQuery.AnyAsync(i =>
+                i.ItemCode == code);
 
             if (exists)
             {
@@ -154,7 +322,8 @@ namespace HardwareManagementSystem.Controllers
 
             var item = new Item
             {
-                ItemCode = itemCode.Trim(),
+                TenantId = tenantId,
+                ItemCode = code,
                 ItemName = itemName.Trim(),
                 CategoryId = categoryId,
                 UnitId = unitId,
@@ -169,7 +338,9 @@ namespace HardwareManagementSystem.Controllers
             };
 
             _context.Items.Add(item);
+
             await _context.SaveChangesAsync();
+
             await _auditService.LogAsync(
                 User,
                 "Inventory",
@@ -181,11 +352,15 @@ namespace HardwareManagementSystem.Controllers
             );
 
             TempData["SuccessMessage"] = "Inventory item added successfully.";
+
             return RedirectToAction(nameof(Index));
         }
 
+        // Legacy: product master editing is now handled by ProductsController.
+        // This action is kept to avoid breaking any existing references.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermissionAuthorize("Inventory", "Edit")]
         public async Task<IActionResult> Edit(
             int id,
             string itemCode,
@@ -204,25 +379,54 @@ namespace HardwareManagementSystem.Controllers
 
             if (item == null)
             {
-                TempData["ErrorMessage"] = "Inventory item not found.";
+                TempData["ErrorMessage"] =
+                    "Inventory item not found.";
+
                 return RedirectToAction(nameof(Index));
             }
 
-            if (string.IsNullOrWhiteSpace(itemCode) || string.IsNullOrWhiteSpace(itemName))
+            if (!await _tenantGuard.CanAccessTenantAsync(item.TenantId))
             {
-                TempData["ErrorMessage"] = "Item code and item name are required.";
-                return RedirectToAction(nameof(Index));
+                return Forbid();
             }
 
-            if (currentStock < 0 || reorderLevel < 0 || costPrice < 0 || sellingPrice < 0)
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
+            if (string.IsNullOrWhiteSpace(itemCode) ||
+                string.IsNullOrWhiteSpace(itemName))
             {
-                TempData["ErrorMessage"] = "Stock, reorder level, cost price, and selling price cannot be negative.";
+                TempData["ErrorMessage"] =
+                    "Item code and item name are required.";
+
                 return RedirectToAction(nameof(Index));
             }
 
-            var exists = await _context.Items.AnyAsync(i =>
-                i.Id != id &&
-                i.ItemCode == itemCode.Trim());
+            if (currentStock < 0 ||
+                reorderLevel < 0 ||
+                costPrice < 0 ||
+                sellingPrice < 0)
+            {
+                TempData["ErrorMessage"] =
+                    "Stock, reorder level, cost price, and selling price cannot be negative.";
+
+                return RedirectToAction(nameof(Index));
+            }
+
+            var code = itemCode.Trim();
+
+            var duplicateQuery = _context.Items
+                .Where(i =>
+                    i.Id != id &&
+                    i.ItemCode == code);
+
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+            {
+                duplicateQuery = duplicateQuery.Where(i =>
+                    i.TenantId == tenantId ||
+                    i.TenantId == null);
+            }
+
+            var exists = await duplicateQuery.AnyAsync();
 
             if (exists)
             {
@@ -230,7 +434,9 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            item.ItemCode = itemCode.Trim();
+            var oldStock = item.CurrentStock;
+
+            item.ItemCode = code;
             item.ItemName = itemName.Trim();
             item.CategoryId = categoryId;
             item.UnitId = unitId;
@@ -242,7 +448,51 @@ namespace HardwareManagementSystem.Controllers
             item.Status = status;
             item.Description = description;
 
+            if (!item.TenantId.HasValue && tenantId.HasValue)
+            {
+                item.TenantId = tenantId;
+            }
+
+            // ============================================
+            // AUTO-CREATE STOCK ADJUSTMENT RECORD (H-6)
+            // ============================================
+
+            if (oldStock != currentStock)
+            {
+                var currentBranch = await _branchService.GetCurrentBranchAsync(User);
+
+                var today      = DateTime.Now.ToString("yyyyMMdd");
+                var adjCount   = await _context.StockAdjustmentHeaders.CountAsync();
+                var adjNumber  = $"ADJ-{today}-{(adjCount + 1):D5}";
+                var adjType    = currentStock > oldStock ? "Increase" : "Decrease";
+                var adjQty     = Math.Abs(currentStock - oldStock);
+
+                var adjHeader = new StockAdjustmentHeader
+                {
+                    AdjustmentNumber = adjNumber,
+                    AdjustmentDate   = DateTime.Now,
+                    AdjustmentType   = adjType,
+                    Reason           = "Manual inventory edit",
+                    CreatedBy        = User.Identity?.Name,
+                    BranchId         = currentBranch?.Id,
+                    TenantId         = tenantId,
+                    StockAdjustmentDetails = new List<StockAdjustmentDetail>
+                    {
+                        new StockAdjustmentDetail
+                        {
+                            ItemId      = item.Id,
+                            Quantity    = adjQty,
+                            StockBefore = oldStock,
+                            StockAfter  = currentStock
+                        }
+                    }
+                };
+
+                _context.StockAdjustmentHeaders.Add(adjHeader);
+            }
+
             await _context.SaveChangesAsync();
+
             await _auditService.LogAsync(
                 User,
                 "Inventory",
@@ -252,25 +502,46 @@ namespace HardwareManagementSystem.Controllers
                 item.Id.ToString(),
                 HttpContext.Connection.RemoteIpAddress?.ToString()
             );
-            TempData["SuccessMessage"] = "Inventory item updated successfully.";
+
+            TempData["SuccessMessage"] =
+                "Inventory item updated successfully.";
+
             return RedirectToAction(nameof(Index));
         }
 
+        // Legacy: product deactivation is now handled by ProductsController.Delete.
+        // This action is kept to avoid breaking any existing references.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermissionAuthorize("Inventory", "Delete")]
         public async Task<IActionResult> Deactivate(int id)
         {
             var item = await _context.Items.FindAsync(id);
 
             if (item == null)
             {
-                TempData["ErrorMessage"] = "Inventory item not found.";
+                TempData["ErrorMessage"] =
+                    "Inventory item not found.";
+
                 return RedirectToAction(nameof(Index));
             }
 
+            if (!await _tenantGuard.CanAccessTenantAsync(item.TenantId))
+            {
+                return Forbid();
+            }
+
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+
             item.Status = "Inactive";
 
+            if (!item.TenantId.HasValue && tenantId.HasValue)
+            {
+                item.TenantId = tenantId;
+            }
+
             await _context.SaveChangesAsync();
+
             await _auditService.LogAsync(
                 User,
                 "Inventory",
@@ -280,9 +551,12 @@ namespace HardwareManagementSystem.Controllers
                 item.Id.ToString(),
                 HttpContext.Connection.RemoteIpAddress?.ToString()
             );
-            TempData["SuccessMessage"] = "Inventory item deactivated successfully.";
 
-            await _notificationService.CreateItemDeactivatedNotificationAsync(item.ItemName);
+            TempData["SuccessMessage"] =
+                "Inventory item deactivated successfully.";
+
+            await _notificationService
+                .CreateItemDeactivatedNotificationAsync(item.ItemName);
 
             return RedirectToAction(nameof(Index));
         }

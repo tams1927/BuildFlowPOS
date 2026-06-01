@@ -7,58 +7,105 @@ namespace HardwareManagementSystem.Data.Seeders
 {
     public static class DbSeeder
     {
+        // ─────────────────────────────────────────────────────────────
+        // ROLES + SUPERADMIN ACCOUNT
+        // Creates all required roles and the single platform SuperAdmin.
+        // No tenant-specific users are seeded here.
+        // ─────────────────────────────────────────────────────────────
+
         public static async Task SeedAdminAsync(IServiceProvider serviceProvider)
         {
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-            if (!await roleManager.RoleExistsAsync("Admin"))
+            // ── Operational roles (no default accounts) ──────────────
+            // Tenant admins create user accounts through the Users page.
+            // "Admin" is intentionally removed — TenantAdmin is the single
+            // tenant-level admin role.
+            var operationalRoles = new[]
             {
-                await roleManager.CreateAsync(new IdentityRole("Admin"));
+                "TenantAdmin",
+                "Cashier",
+                "BranchManager",
+                "InventoryStaff"
+            };
+
+            foreach (var roleName in operationalRoles)
+            {
+                if (!await roleManager.RoleExistsAsync(roleName))
+                    await roleManager.CreateAsync(new IdentityRole(roleName));
             }
 
-            var adminUsername = "admin";
-            var adminEmail = "admin@hardwarepos.local";
-            var adminPassword = "admin123";
+            // ── Platform-only SuperAdmin role + account ───────────────
+            if (!await roleManager.RoleExistsAsync("SuperAdmin"))
+                await roleManager.CreateAsync(new IdentityRole("SuperAdmin"));
 
-            var existingAdmin = await userManager.FindByNameAsync(adminUsername);
+            const string superAdminUsername = "superadmin";
+            const string superAdminEmail    = "superadmin@hardbuild.local";
+            const string superAdminPassword = "SuperAdmin123!";
 
-            if (existingAdmin == null)
+            var existingSuperAdmin = await userManager.FindByNameAsync(superAdminUsername);
+
+            if (existingSuperAdmin == null)
             {
-                var admin = new ApplicationUser
+                var superAdmin = new ApplicationUser
                 {
-                    UserName = adminUsername,
-                    Email = adminEmail,
-                    FullName = "System Administrator",
+                    UserName       = superAdminUsername,
+                    Email          = superAdminEmail,
+                    FullName       = "Super Administrator",
                     EmailConfirmed = true,
-                    IsActive = true
+                    IsActive       = true,
+                    TenantId       = null   // SuperAdmin is platform-global — no tenant
                 };
 
-                var result = await userManager.CreateAsync(admin, adminPassword);
+                var result = await userManager.CreateAsync(superAdmin, superAdminPassword);
 
                 if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(admin, "Admin");
-                }
+                    await userManager.AddToRoleAsync(superAdmin, "SuperAdmin");
             }
         }
 
+        // ─────────────────────────────────────────────────────────────
+        // ROLE PERMISSIONS
+        // Seeds full permission rows for Admin, SuperAdmin, and TenantAdmin.
+        //
+        // SuperAdmin  : full access to all modules
+        // Admin       : full access to all modules
+        // TenantAdmin : full access to all tenant-operational modules;
+        //               SaaS-only modules (Tenants, SubscriptionPlans,
+        //               SuperAdmin) are seeded with all false — but those
+        //               controllers are additionally protected by
+        //               [Authorize(Roles = "SuperAdmin")] so TenantAdmin
+        //               cannot reach them regardless.
+        //
+        // This seeder is idempotent: it only adds missing rows and never
+        // modifies existing ones.
+        // ─────────────────────────────────────────────────────────────
+
+        // SaaS-platform-only modules. TenantAdmin gets CanView=false for
+        // these; all other tenant modules get full access.
+        private static readonly HashSet<string> _saasOnlyModules = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Tenants",
+            "SubscriptionPlans",
+            "SuperAdmin"
+        };
+
         public static async Task SeedRolePermissionsAsync(IServiceProvider services)
         {
-            var context = services.GetRequiredService<ApplicationDbContext>();
+            var context     = services.GetRequiredService<ApplicationDbContext>();
             var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
 
-            var roles = await roleManager.Roles
-                .Select(r => r.Name!)
-                .ToListAsync();
+            // "Admin" is removed; SuperAdmin, TenantAdmin, and BranchManager are the seeded roles.
+            var requiredRoles = new[] { "SuperAdmin", "TenantAdmin", "BranchManager" };
 
-            if (!roles.Contains("Admin"))
+            foreach (var roleName in requiredRoles)
             {
-                await roleManager.CreateAsync(new IdentityRole("Admin"));
-                roles.Add("Admin");
+                if (!await roleManager.RoleExistsAsync(roleName))
+                    await roleManager.CreateAsync(new IdentityRole(roleName));
             }
 
-            var modules = GetControllerModules();
+            var modules = GetAllModules();
 
             var existingPermissions = await context.RolePermissions
                 .Select(p => p.RoleName + "|" + p.ModuleName)
@@ -66,28 +113,59 @@ namespace HardwareManagementSystem.Data.Seeders
 
             var permissionsToAdd = new List<RolePermission>();
 
-            foreach (var role in roles)
+            foreach (var role in requiredRoles)
             {
                 foreach (var module in modules)
                 {
                     var key = role + "|" + module;
-
                     if (existingPermissions.Contains(key))
+                        continue;
+
+                    // Lock SaaS-only modules for non-SuperAdmin roles
+                    bool isSaasModule  = _saasOnlyModules.Contains(module);
+                    bool isSuperAdmin  = role == "SuperAdmin";
+                    bool isBranchMgr   = role == "BranchManager";
+
+                    // SaaS modules: SuperAdmin only
+                    if (isSaasModule && !isSuperAdmin)
                     {
+                        permissionsToAdd.Add(new RolePermission
+                        {
+                            RoleName   = role,
+                            ModuleName = module,
+                            CanView    = false,
+                            CanCreate  = false,
+                            CanEdit    = false,
+                            CanDelete  = false,
+                            CanPrint   = false,
+                            CanExport  = false
+                        });
                         continue;
                     }
 
+                    // BranchManager: operational modules — View/Create/Edit/Print/Export but no Delete
+                    // on sensitive management modules (Users, Branches, Tenants, Settings)
+                    var branchMgrNoDeleteModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        "Users", "Branches", "Settings", "Roles", "RolePermissions"
+                    };
+
+                    bool canDelete = isBranchMgr && branchMgrNoDeleteModules.Contains(module)
+                        ? false
+                        : true;
+
+                    bool grantAccess = true;
+
                     permissionsToAdd.Add(new RolePermission
                     {
-                        RoleName = role,
+                        RoleName   = role,
                         ModuleName = module,
-
-                        CanView = role == "Admin",
-                        CanCreate = role == "Admin",
-                        CanEdit = role == "Admin",
-                        CanDelete = role == "Admin",
-                        CanPrint = role == "Admin",
-                        CanExport = role == "Admin"
+                        CanView    = grantAccess,
+                        CanCreate  = grantAccess,
+                        CanEdit    = grantAccess,
+                        CanDelete  = isBranchMgr ? canDelete : grantAccess,
+                        CanPrint   = grantAccess,
+                        CanExport  = grantAccess
                     });
                 }
             }
@@ -99,22 +177,71 @@ namespace HardwareManagementSystem.Data.Seeders
             }
         }
 
-        private static List<string> GetControllerModules()
+        // SeedDefaultTenantAsync intentionally removed.
+        // The SaaS model requires tenants to be created explicitly by SuperAdmin.
+        // No default tenant is auto-provisioned on startup.
+
+        // ─────────────────────────────────────────────────────────────
+        // HELPERS
+        // ─────────────────────────────────────────────────────────────
+
+        private static List<string> GetAllModules()
         {
-            var excludedControllers = new[]
+            var excludedFromNav = new HashSet<string>
             {
                 "Account",
-                "Notifications"
+                "Notifications",
+                "Home"
             };
+
+            var discovered = typeof(Program).Assembly
+                .GetTypes()
+                .Where(t =>
+                    typeof(Microsoft.AspNetCore.Mvc.Controller).IsAssignableFrom(t) &&
+                    !t.IsAbstract &&
+                    t.Name.EndsWith("Controller"))
+                .Select(t => t.Name.Replace("Controller", ""))
+                .Where(name => !excludedFromNav.Contains(name))
+                .ToHashSet();
+
+            // Ensure SaaS modules are always present
+            discovered.Add("SuperAdmin");
+            discovered.Add("Tenants");
+            discovered.Add("SubscriptionPlans");
+            discovered.Add("Quotations");
+            discovered.Add("Dashboard");
+
+            // AR/AP permission modules (not tied to a dedicated controller)
+            discovered.Add("CustomerStatements");
+            discovered.Add("SupplierStatements");
+            discovered.Add("CustomerAging");
+            discovered.Add("SupplierAging");
+
+            // Phase 4.6 — Inventory Intelligence modules
+            discovered.Add("FastMovingItems");
+            discovered.Add("SlowMovingItems");
+            discovered.Add("DeadStock");
+            discovered.Add("ReorderSuggestions");
+            discovered.Add("StockAging");
+            discovered.Add("InventoryValuation");
+            discovered.Add("ABCAnalysis");
+
+            return discovered.OrderBy(n => n).ToList();
+        }
+
+        /// <summary>Legacy helper kept for backward compatibility.</summary>
+        private static List<string> GetControllerModules()
+        {
+            var excluded = new[] { "Account", "Notifications" };
 
             return typeof(Program).Assembly
                 .GetTypes()
                 .Where(t =>
-                    typeof(Controller).IsAssignableFrom(t) &&
+                    typeof(Microsoft.AspNetCore.Mvc.Controller).IsAssignableFrom(t) &&
                     !t.IsAbstract &&
                     t.Name.EndsWith("Controller"))
                 .Select(t => t.Name.Replace("Controller", ""))
-                .Where(name => !excludedControllers.Contains(name))
+                .Where(name => !excluded.Contains(name))
                 .OrderBy(name => name)
                 .ToList();
         }

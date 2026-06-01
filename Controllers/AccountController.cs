@@ -1,9 +1,12 @@
-﻿using HardwareManagementSystem.Models;
+﻿using HardwareManagementSystem.Data;
+using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
 using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 
 namespace HardwareManagementSystem.Controllers
 {
@@ -12,29 +15,34 @@ namespace HardwareManagementSystem.Controllers
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly AuditService _auditService;
+        private readonly ApplicationDbContext _db;
 
         public AccountController(
             SignInManager<ApplicationUser> signInManager,
             UserManager<ApplicationUser> userManager,
-            AuditService auditService)
+            AuditService auditService,
+            ApplicationDbContext db)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _auditService = auditService;
+            _db = db;
         }
 
         // ============================================
         // LOGIN
         // ============================================
 
-        public IActionResult Login()
+        public IActionResult Login(string? returnUrl = null)
         {
+            ViewBag.ReturnUrl = returnUrl;
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login(LoginViewModel model)
+        [EnableRateLimiting("login")]
+        public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null)
         {
             if (!ModelState.IsValid)
                 return View(model);
@@ -73,6 +81,43 @@ namespace HardwareManagementSystem.Controllers
                 return View(model);
             }
 
+            // ── Tenant suspension / expiry guard ────────────────────────────────
+            // SuperAdmin (TenantId == null) bypasses this check entirely.
+            if (user.TenantId.HasValue)
+            {
+                var tenant = await _db.Tenants
+                    .AsNoTracking()
+                    .Select(t => new { t.Id, t.Status, t.ExpirationDate })
+                    .FirstOrDefaultAsync(t => t.Id == user.TenantId.Value);
+
+                if (tenant != null)
+                {
+                    bool dateExpired = tenant.ExpirationDate.HasValue
+                        && tenant.ExpirationDate.Value.Date < DateTime.UtcNow.Date;
+
+                    bool isBlocked = tenant.Status == TenantStatus.Suspended
+                                  || tenant.Status == TenantStatus.Expired
+                                  || dateExpired;
+
+                    if (isBlocked)
+                    {
+                        await _auditService.LogAsync(
+                            User,
+                            "Authentication",
+                            "LOGIN_TENANT_BLOCKED",
+                            $"Login blocked for '{user.UserName}' — tenant status: {tenant.Status}.",
+                            "Login",
+                            user.Id,
+                            HttpContext.Connection.RemoteIpAddress?.ToString());
+
+                        TempData["ErrorMessage"] =
+                            "Your tenant account is suspended or expired. Please contact support.";
+
+                        return View(model);
+                    }
+                }
+            }
+
             var result = await _signInManager.PasswordSignInAsync(
                 user,
                 model.Password,
@@ -89,6 +134,19 @@ namespace HardwareManagementSystem.Controllers
                     "Login",
                     user.Id,
                     HttpContext.Connection.RemoteIpAddress?.ToString());
+
+                // If a SuperAdmin-forced password reset is pending, redirect immediately.
+                if (user.ForcePasswordChange)
+                    return RedirectToAction(nameof(ChangePassword), "Account");
+
+                // Explicit returnUrl always takes priority (e.g. from [Authorize] redirect)
+                if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                    return Redirect(returnUrl);
+
+                // SuperAdmin goes directly to the platform dashboard, not the store dashboard
+                var roles = await _userManager.GetRolesAsync(user);
+                if (roles.Contains("SuperAdmin"))
+                    return RedirectToAction("Dashboard", "SuperAdmin");
 
                 return RedirectToAction("Index", "Home");
             }
@@ -146,8 +204,10 @@ namespace HardwareManagementSystem.Controllers
 
         [Authorize]
         [HttpGet]
-        public IActionResult ChangePassword()
+        public async Task<IActionResult> ChangePassword()
         {
+            var user = await _userManager.GetUserAsync(User);
+            ViewBag.ForcePasswordChange = user?.ForcePasswordChange ?? false;
             return View(new ChangePasswordViewModel());
         }
 
@@ -174,20 +234,26 @@ namespace HardwareManagementSystem.Controllers
 
             if (result.Succeeded)
             {
+                // Clear the forced-change flag if it was set by a SuperAdmin reset
+                if (user.ForcePasswordChange)
+                {
+                    user.ForcePasswordChange = false;
+                    await _userManager.UpdateAsync(user);
+                }
+
                 await _signInManager.RefreshSignInAsync(user);
 
                 await _auditService.LogAsync(
                     User,
                     "Account",
                     "PASSWORD_CHANGED",
-                    "User changed account password",
+                    "User changed account password.",
                     "User",
                     user.Id,
                     HttpContext.Connection.RemoteIpAddress?.ToString()
                 );
 
-                TempData["SuccessMessage"] =
-                    "Password changed successfully.";
+                TempData["SuccessMessage"] = "Password changed successfully.";
 
                 return RedirectToAction(nameof(ChangePassword));
             }
@@ -220,6 +286,16 @@ namespace HardwareManagementSystem.Controllers
         // ============================================
 
         public IActionResult AccessDenied()
+        {
+            return View();
+        }
+
+        // ============================================
+        // SUSPENDED / EXPIRED TENANT
+        // ============================================
+
+        [AllowAnonymous]
+        public IActionResult Suspended()
         {
             return View();
         }

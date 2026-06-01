@@ -1,0 +1,189 @@
+@model HardwareManagementSystem.Models.DeliveryReceipt
+@{
+    ViewData["Title"] = "New Delivery Receipt";
+    var customers   = ViewBag.Customers as List<HardwareManagementSystem.Models.Customer>;
+    var items       = ViewBag.Items as List<HardwareManagementSystem.Models.Item>;
+    var recentSales = ViewBag.RecentSales as List<HardwareManagementSystem.Models.SalesHeader>;
+}
+
+<div class="page-header-row mb-4">
+    <div>
+        <h2 class="page-section-title">New Delivery Receipt</h2>
+        <p class="text-muted mb-0">Create a delivery slip for customer order</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<form asp-action="Create" method="post" id="drForm">
+    @Html.AntiForgeryToken()
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="hb-card h-100">
+                <div class="hb-card-body">
+                    <h6 class="fw-bold text-uppercase text-muted small mb-3">Delivery Info</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">DR Number</label>
+                            <input type="text" name="DRNumber" value="@Model.DRNumber"
+                                   class="form-control" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Delivery Date</label>
+                            <input type="date" name="DeliveryDate"
+                                   value="@Model.DeliveryDate.ToString("yyyy-MM-dd")"
+                                   class="form-control" required />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Customer</label>
+                            <select name="CustomerId" class="form-select">
+                                <option value="">Walk-in / No Customer</option>
+                                @if (customers != null)
+                                {
+                                    foreach (var c in customers)
+                                    {
+                                        <option value="@c.Id">@c.CustomerName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Delivery Address</label>
+                            <input type="text" name="DeliveryAddress" class="form-control"
+                                   placeholder="Full delivery address" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Driver Name</label>
+                            <input type="text" name="DriverName" class="form-control"
+                                   placeholder="Name of driver or courier" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="hb-card h-100">
+                <div class="hb-card-body">
+                    <h6 class="fw-bold text-uppercase text-muted small mb-3">Additional Info</h6>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Linked Sale (optional)</label>
+                            <select name="SalesHeaderId" class="form-select">
+                                <option value="">No linked sale</option>
+                                @if (recentSales != null)
+                                {
+                                    foreach (var s in recentSales)
+                                    {
+                                        <option value="@s.Id">
+                                            @s.SalesNumber · ₱@s.TotalAmount.ToString("N2") · @s.SalesDate.ToString("MMM dd")
+                                        </option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Notes / Instructions</label>
+                            <textarea name="Notes" class="form-control" rows="4"
+                                      placeholder="Special delivery instructions, handling notes, etc."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LINE ITEMS -->
+    <div class="hb-card mb-4">
+        <div class="hb-card-header">
+            <div>
+                <h2 class="hb-section-title">Items to Deliver</h2>
+                <div class="hb-section-subtitle">List items included in this delivery</div>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addLine()">
+                <i class="bi bi-plus-circle me-1"></i> Add Line
+            </button>
+        </div>
+        <div class="hb-card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0" id="linesTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:35%">Product (optional)</th>
+                            <th>Description</th>
+                            <th style="width:100px">Qty</th>
+                            <th style="width:100px">Unit</th>
+                            <th style="width:50px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="linesBody">
+                        <tr class="line-row">
+                            <td>
+                                <select name="itemIds" class="form-select form-select-sm item-select">
+                                    <option value="0">— free text —</option>
+                                    @if (items != null)
+                                    {
+                                        foreach (var it in items)
+                                        {
+                                            <option value="@it.Id"
+                                                    data-name="@it.ItemName"
+                                                    data-unit="@(it.Unit?.ShortName ?? "")">
+                                                @it.ItemName (@it.ItemCode)
+                                            </option>
+                                        }
+                                    }
+                                </select>
+                            </td>
+                            <td><input type="text" name="itemDescs" class="form-control form-control-sm" placeholder="Item description" required /></td>
+                            <td><input type="number" name="quantities" step="0.001" min="0.001" value="1" class="form-control form-control-sm" /></td>
+                            <td><input type="text" name="units" class="form-control form-control-sm" placeholder="pcs / bag / etc" /></td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLine(this)" title="Remove">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check2 me-1"></i> Create Delivery Receipt
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        // Auto-fill description and unit when a product is selected
+        document.addEventListener('change', function (e) {
+            if (!e.target.classList.contains('item-select')) return;
+            const opt  = e.target.options[e.target.selectedIndex];
+            const row  = e.target.closest('tr');
+            const desc = row.querySelector('input[name="itemDescs"]');
+            const unit = row.querySelector('input[name="units"]');
+            if (opt.value !== '0') {
+                desc.value = opt.dataset.name || '';
+                unit.value = opt.dataset.unit || '';
+            }
+        });
+
+        function addLine() {
+            const template = document.querySelector('.line-row').cloneNode(true);
+            template.querySelectorAll('input').forEach(i => i.value = i.type === 'number' ? '1' : '');
+            template.querySelector('select').value = '0';
+            document.getElementById('linesBody').appendChild(template);
+        }
+
+        function removeLine(btn) {
+            const rows = document.querySelectorAll('.line-row');
+            if (rows.length > 1) btn.closest('tr').remove();
+        }
+    </script>
+}

@@ -1,0 +1,265 @@
+@using HardwareManagementSystem.Models
+@using HardwareManagementSystem.Services
+@{
+    ViewData["Title"] = "SuperAdmin Dashboard";
+    var tenants = ViewBag.Tenants as List<Tenant> ?? new List<Tenant>();
+    var usages  = ViewBag.Usages  as List<TenantUsageSummary> ?? new List<TenantUsageSummary>();
+    var plans   = ViewBag.Plans   as List<SubscriptionPlan>   ?? new List<SubscriptionPlan>();
+}
+
+<div class="page-header-row mb-4">
+    <div>
+        <h2 class="page-section-title"><i class="bi bi-shield-lock me-2"></i>SuperAdmin Dashboard</h2>
+        <p class="text-muted mb-0">Platform-wide overview — all tenants, branches, and usage.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-controller="Tenants" asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> New Tenant
+        </a>
+        <a asp-controller="SubscriptionPlans" asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-card-list me-1"></i> Plans
+        </a>
+    </div>
+</div>
+
+<!-- PLATFORM KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-buildings"></i></div>
+            <div class="kpi-label">Total Tenants</div>
+            <div class="kpi-value">@ViewBag.TotalTenants</div>
+            <div class="kpi-trend">@ViewBag.ActiveTenants active, @ViewBag.TrialTenants trial</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-building"></i></div>
+            <div class="kpi-label">Active Branches</div>
+            <div class="kpi-value">@ViewBag.TotalBranches</div>
+            <div class="kpi-trend">Across all tenants</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-people"></i></div>
+            <div class="kpi-label">Active Users</div>
+            <div class="kpi-value">@ViewBag.TotalUsers</div>
+            <div class="kpi-trend">All tenants combined</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
+            <div class="kpi-label">Total Products</div>
+            <div class="kpi-value">@ViewBag.TotalProducts</div>
+            <div class="kpi-trend">All tenants combined</div>
+        </div>
+    </div>
+</div>
+
+@if (ViewBag.SuspendedTenants > 0)
+{
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+        <span><strong>@ViewBag.SuspendedTenants suspended tenant(s)</strong> require attention.</span>
+    </div>
+}
+
+<!-- TENANT TABLE -->
+<div class="hb-card">
+    <div class="hb-card-header">
+        <h5 class="hb-section-title mb-0">Tenant Overview</h5>
+    </div>
+    <div class="hb-card-body p-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Tenant</th>
+                        <th>Plan</th>
+                        <th>Status</th>
+                        <th>Expires</th>
+                        <th class="text-center">Branches</th>
+                        <th class="text-center">Users</th>
+                        <th class="text-center">Products</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in tenants)
+                    {
+                        var usage = usages.FirstOrDefault(u => u.TenantId == t.Id);
+                        <tr class="@(t.Status == TenantStatus.Suspended ? "table-danger" : t.IsExpired ? "table-warning" : "")">
+                            <td>
+                                <div class="fw-semibold">@t.Name</div>
+                                <div class="text-muted small">@t.Code &bull; @(t.OwnerName ?? "—")</div>
+                            </td>
+                            <td>
+                                @if (t.SubscriptionPlan != null)
+                                {
+                                    <span class="badge badge-soft-primary">@t.SubscriptionPlan.Name</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Custom</span>
+                                }
+                            </td>
+                            <td>
+                                @switch (t.Status)
+                                {
+                                    case TenantStatus.Active:
+                                        <span class="badge badge-soft-success">Active</span>
+                                        break;
+                                    case TenantStatus.Trial:
+                                        <span class="badge badge-soft-info">Trial</span>
+                                        break;
+                                    case TenantStatus.Suspended:
+                                        <span class="badge badge-soft-danger">Suspended</span>
+                                        break;
+                                    case TenantStatus.Expired:
+                                        <span class="badge badge-soft-warning">Expired</span>
+                                        break;
+                                }
+                            </td>
+                            <td>
+                                @if (t.ExpirationDate.HasValue)
+                                {
+                                    <span class="@(t.IsExpired ? "text-danger fw-semibold" : "text-muted") small">
+                                        @t.ExpirationDate.Value.ToString("MMM dd, yyyy")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">—</span>
+                                }
+                            </td>
+                            @if (usage != null)
+                            {
+                                <td class="text-center">
+                                    <div class="small">@usage.Branches / @usage.MaxBranches</div>
+                                    <div class="progress" style="height:4px;width:60px;margin:2px auto 0;">
+                                        <div class="progress-bar @(usage.BranchPct >= 90 ? "bg-danger" : usage.BranchPct >= 70 ? "bg-warning" : "bg-success")"
+                                             style="width:@usage.BranchPct%"></div>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="small">@usage.Users / @usage.MaxUsers</div>
+                                    <div class="progress" style="height:4px;width:60px;margin:2px auto 0;">
+                                        <div class="progress-bar @(usage.UserPct >= 90 ? "bg-danger" : usage.UserPct >= 70 ? "bg-warning" : "bg-success")"
+                                             style="width:@usage.UserPct%"></div>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="small">@usage.Products / @usage.MaxProducts</div>
+                                    <div class="progress" style="height:4px;width:60px;margin:2px auto 0;">
+                                        <div class="progress-bar @(usage.ProductPct >= 90 ? "bg-danger" : usage.ProductPct >= 70 ? "bg-warning" : "bg-success")"
+                                             style="width:@usage.ProductPct%"></div>
+                                    </div>
+                                </td>
+                            }
+                            else
+                            {
+                                <td class="text-center text-muted small">—</td>
+                                <td class="text-center text-muted small">—</td>
+                                <td class="text-center text-muted small">—</td>
+                            }
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end">
+                                    <a asp-controller="Tenants" asp-action="Edit" asp-route-id="@t.Id"
+                                       class="btn btn-sm btn-outline-primary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    @if (t.Status != TenantStatus.Suspended)
+                                    {
+                                        <form asp-controller="Tenants" asp-action="Suspend" asp-route-id="@t.Id"
+                                              method="post" class="d-inline"
+                                              onsubmit="return confirm('Suspend @Html.Raw(t.Name.Replace("'","\'"))?')">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-warning" title="Suspend">
+                                                <i class="bi bi-pause-circle"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form asp-controller="Tenants" asp-action="Reactivate" asp-route-id="@t.Id"
+                                              method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-success" title="Reactivate">
+                                                <i class="bi bi-play-circle"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!tenants.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">No tenants yet.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (plans.Any())
+{
+    <div class="hb-card mt-4">
+        <div class="hb-card-header">
+            <h5 class="hb-section-title mb-0">Subscription Plans</h5>
+            <a asp-controller="SubscriptionPlans" asp-action="Create" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-plus-lg me-1"></i> New Plan
+            </a>
+        </div>
+        <div class="hb-card-body p-0">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Plan</th>
+                        <th>Description</th>
+                        <th class="text-end">Price / Mo</th>
+                        <th class="text-center">Max Branches</th>
+                        <th class="text-center">Max Users</th>
+                        <th class="text-center">Max Products</th>
+                        <th class="text-center">Active</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in plans)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@p.Name</td>
+                            <td class="text-muted small">@(p.Description ?? "—")</td>
+                            <td class="text-end">₱@p.MonthlyPrice.ToString("N2")</td>
+                            <td class="text-center">@p.MaxBranches</td>
+                            <td class="text-center">@p.MaxUsers</td>
+                            <td class="text-center">@p.MaxProducts</td>
+                            <td class="text-center">
+                                @if (p.IsActive)
+                                {
+                                    <span class="badge badge-soft-success">Yes</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-soft-secondary">No</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-controller="SubscriptionPlans" asp-action="Edit" asp-route-id="@p.Id"
+                                   class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

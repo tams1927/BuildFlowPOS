@@ -1,0 +1,183 @@
+@using HardwareManagementSystem.Models
+@model HardwareManagementSystem.Models.Quotation
+@{
+    ViewData["Title"] = "New Quotation";
+    var customers = ViewBag.Customers as List<Customer> ?? new List<Customer>();
+    var items     = ViewBag.Items     as List<Item>     ?? new List<Item>();
+}
+
+<div class="page-header-row mb-3">
+    <div>
+        <h2 class="page-section-title">New Quotation</h2>
+        <p class="text-muted mb-0">Create a price quotation for a customer.</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+<form asp-action="Create" method="post" id="quotationForm">
+    @Html.AntiForgeryToken()
+
+    <div class="row g-3 mb-4">
+        <!-- Header Info -->
+        <div class="col-md-3">
+            <label class="form-label fw-semibold">Quotation #</label>
+            <input asp-for="QuotationNo" class="form-control" readonly />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="QuotationDate" class="form-label fw-semibold">Date</label>
+            <input asp-for="QuotationDate" class="form-control" type="date" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="ValidUntil" class="form-label fw-semibold">Valid Until</label>
+            <input asp-for="ValidUntil" class="form-control" type="date" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Status" class="form-label fw-semibold">Status</label>
+            <select asp-for="Status" class="form-select">
+                <option value="Draft">Draft</option>
+                <option value="Sent">Sent</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="CustomerId" class="form-label fw-semibold">Customer Account</label>
+            <select asp-for="CustomerId" class="form-select">
+                <option value="">— Walk-in / Ad-hoc —</option>
+                @foreach (var c in customers)
+                {
+                    <option value="@c.Id">@c.CustomerName</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="CustomerName" class="form-label fw-semibold">Customer Name (override / walk-in)</label>
+            <input asp-for="CustomerName" class="form-control" placeholder="Name to print on quotation" />
+        </div>
+        <div class="col-12">
+            <label asp-for="Notes" class="form-label fw-semibold">Notes / Terms</label>
+            <textarea asp-for="Notes" class="form-control" rows="2" placeholder="Payment terms, delivery notes..."></textarea>
+        </div>
+    </div>
+
+    <!-- LINE ITEMS -->
+    <div class="hb-card mb-3">
+        <div class="hb-card-header">
+            <h6 class="hb-section-title mb-0">Line Items</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addRowBtn">
+                <i class="bi bi-plus-circle me-1"></i> Add Item
+            </button>
+        </div>
+        <div class="hb-card-body p-0">
+            <table class="table align-middle mb-0" id="itemsTable">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:30%">Product / Description</th>
+                        <th style="width:20%">Item (optional)</th>
+                        <th style="width:10%">Qty</th>
+                        <th style="width:13%">Unit Price</th>
+                        <th style="width:10%">Disc %</th>
+                        <th style="width:12%" class="text-end">Subtotal</th>
+                        <th style="width:5%"></th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody">
+                    <!-- rows added by JS -->
+                </tbody>
+                <tfoot>
+                    <tr class="table-light fw-bold">
+                        <td colspan="5" class="text-end pe-3">Total</td>
+                        <td class="text-end" id="grandTotal">₱0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i> Save Quotation
+        </button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+    const itemsData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        items.Select(i => new { id = i.Id, name = i.ItemName, price = i.SellingPrice }).ToList()
+    ));
+
+    const itemOptions = itemsData.map(i =>
+        `<option value="${i.id}" data-price="${i.price}">${i.name}</option>`
+    ).join('');
+
+    function addRow(desc = '', itemId = 0, qty = 1, price = 0, disc = 0) {
+        const tbody = document.getElementById('itemsBody');
+        const idx   = tbody.rows.length;
+        const row   = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="text" name="descriptions[]" class="form-control form-control-sm"
+                       value="${desc}" placeholder="Description" required /></td>
+            <td>
+                <select name="itemIds[]" class="form-select form-select-sm item-select" onchange="onItemSelect(this, ${idx})">
+                    <option value="0">— custom —</option>${itemOptions}
+                </select>
+            </td>
+            <td><input type="number" name="quantities[]" class="form-control form-control-sm qty"
+                       value="${qty}" min="0.0001" step="0.0001" onchange="recalcRow(this.closest('tr'))" /></td>
+            <td><input type="number" name="unitPrices[]" class="form-control form-control-sm price"
+                       value="${price}" min="0" step="0.01" onchange="recalcRow(this.closest('tr'))" /></td>
+            <td><input type="number" name="discountPercents[]" class="form-control form-control-sm disc"
+                       value="${disc}" min="0" max="100" step="0.01" onchange="recalcRow(this.closest('tr'))" /></td>
+            <td class="text-end subtotal fw-semibold">₱0.00</td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); recalcTotal();">
+                <i class="bi bi-x"></i></button></td>
+        `;
+        tbody.appendChild(row);
+        if (itemId > 0) {
+            const sel = row.querySelector('.item-select');
+            sel.value = itemId;
+        }
+        recalcRow(row);
+    }
+
+    function onItemSelect(sel, idx) {
+        const row = sel.closest('tr');
+        const opt = sel.options[sel.selectedIndex];
+        const p   = parseFloat(opt.dataset.price) || 0;
+        const descInput = row.querySelector('input[name="descriptions[]"]');
+        if (descInput.value === '' || !isNaN(parseFloat(descInput.value))) {
+            descInput.value = opt.text !== '— custom —' ? opt.text : '';
+        }
+        row.querySelector('.price').value = p.toFixed(2);
+        recalcRow(row);
+    }
+
+    function recalcRow(row) {
+        const qty    = parseFloat(row.querySelector('.qty').value)   || 0;
+        const price  = parseFloat(row.querySelector('.price').value) || 0;
+        const disc   = parseFloat(row.querySelector('.disc').value)  || 0;
+        const sub    = qty * price * (1 - disc / 100);
+        row.querySelector('.subtotal').textContent = '₱' + sub.toFixed(2);
+        recalcTotal();
+    }
+
+    function recalcTotal() {
+        let total = 0;
+        document.querySelectorAll('.subtotal').forEach(el => {
+            total += parseFloat(el.textContent.replace('₱', '')) || 0;
+        });
+        document.getElementById('grandTotal').textContent = '₱' + total.toFixed(2);
+    }
+
+    document.getElementById('addRowBtn').addEventListener('click', () => addRow());
+
+    // Start with one empty row
+    addRow();
+</script>
+}
