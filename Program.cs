@@ -3,6 +3,7 @@ using HardwareManagementSystem.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using HardwareManagementSystem.Data.Seeders;
+using HardwareManagementSystem.Filters;
 using HardwareManagementSystem.Services;
 using HardwareManagementSystem.Services.TenantDatabases;
 using QuestPDF.Infrastructure;
@@ -43,6 +44,9 @@ builder.Services.AddScoped<DocumentPdfService>();
 builder.Services.AddScoped<ExcelImportService>();
 
 builder.Services.AddScoped<BranchService>();
+
+builder.Services.AddScoped<ItemUnitConversionService>();
+builder.Services.AddScoped<ICurrencyFormatter, CurrencyFormatter>();
 
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 
@@ -148,6 +152,7 @@ builder.Services.AddControllersWithViews(options =>
     // Globally enforces tenant suspension/expiry mid-session for all MVC actions.
     // SuperAdmin, Account controller, and [AllowAnonymous] actions are exempt.
     options.Filters.Add<TenantStatusFilter>();
+    options.Filters.Add<TenantCurrencyFilter>();
 });
 
 // ============================================
@@ -219,6 +224,30 @@ if (args.Contains("--qa-phase50d1"))
 if (args.Contains("--qa-phase50d2"))
 {
     await HardwareManagementSystem.Tools.Phase50D2QaRunner.RunAsync(app);
+    return;
+}
+
+// ============================================
+// PHASE UM-1 — DEV-ONLY DEMO DATA SEEDER (for user-manual screenshots)
+// ============================================
+// Runs ONLY when launched explicitly with "--seed-demo" AND in Development.
+// Seeds a clean, professionally-named sample tenant and exits WITHOUT starting
+// the web server. Idempotent. Never runs during normal startup.
+if (args.Contains("--seed-demo"))
+{
+    await HardwareManagementSystem.Tools.DemoManualSeeder.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-phase51"))
+{
+    await HardwareManagementSystem.Tools.Phase51QaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-rc12"))
+{
+    await HardwareManagementSystem.Tools.Rc12QaRunner.RunAsync(app);
     return;
 }
 

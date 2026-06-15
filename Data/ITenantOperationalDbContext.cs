@@ -27,6 +27,7 @@ namespace HardwareManagementSystem.Data
         DbSet<Category> Categories { get; }
         DbSet<Unit> Units { get; }
         DbSet<Item> Items { get; }
+        DbSet<ItemUnitConversion> ItemUnitConversions { get; }
 
         DbSet<Supplier> Suppliers { get; }
         DbSet<StockInHeader> StockInHeaders { get; }

@@ -1,4 +1,4 @@
-﻿@model IEnumerable<HardwareManagementSystem.Models.Item>
+@model IEnumerable<HardwareManagementSystem.Models.Item>
 
 @{
     ViewData["Title"] = "POS";
@@ -150,7 +150,7 @@
                                     </td>
 
                                     <td>
-                                        ₱@item.SellingPrice.ToString("N2")
+                                        @(ViewBag.CurrencySymbol)@item.SellingPrice.ToString("N2")
                                     </td>
 
                                     <td>
@@ -264,7 +264,7 @@
                             <span>Subtotal</span>
 
                             <strong id="subTotalDisplay">
-                                ₱0.00
+                                @(ViewBag.CurrencySymbol)0.00
                             </strong>
 
                         </div>
@@ -328,7 +328,7 @@
                             <span>Discount</span>
 
                             <strong id="discountDisplay">
-                                ₱0.00
+                                @(ViewBag.CurrencySymbol)0.00
                             </strong>
 
                         </div>
@@ -342,7 +342,7 @@
                                 </span>
 
                                 <strong id="vatDisplay">
-                                    ₱0.00
+                                    @(ViewBag.CurrencySymbol)0.00
                                 </strong>
 
                             </div>
@@ -383,7 +383,7 @@
                             <strong class="fs-5 text-primary"
                                     id="totalDisplay">
 
-                                ₱0.00
+                                @(ViewBag.CurrencySymbol)0.00
 
                             </strong>
 
@@ -488,7 +488,7 @@
                             <span class="fw-bold fs-4 text-success"
                                   id="changeDisplay">
 
-                                ₱0.00
+                                @(ViewBag.CurrencySymbol)0.00
 
                             </span>
 
@@ -717,7 +717,7 @@
                         </td>
 
                         <td>
-                            ₱${lineTotal.toFixed(2)}
+                            @(ViewBag.CurrencySymbol)${lineTotal.toFixed(2)}
                         </td>
 
                         <td>
@@ -781,14 +781,14 @@
             totalBeforeVat + vatAmount;
 
             subTotalDisplay.innerText =
-                `₱${subTotal.toFixed(2)}`;
+                `@(ViewBag.CurrencySymbol)${subTotal.toFixed(2)}`;
 
             discountDisplay.innerText =
-                `₱${discountAmount.toFixed(2)}`;
+                `@(ViewBag.CurrencySymbol)${discountAmount.toFixed(2)}`;
                     if (vatDisplay) {
 
             vatDisplay.innerText =
-                `₱${vatAmount.toFixed(2)}`;
+                `@(ViewBag.CurrencySymbol)${vatAmount.toFixed(2)}`;
 
             }
 
@@ -800,7 +800,7 @@
             }
 
             totalDisplay.innerText =
-                `₱${total.toFixed(2)}`;
+                `@(ViewBag.CurrencySymbol)${total.toFixed(2)}`;
 
             subTotalInput.value =
                 subTotal.toFixed(2);
@@ -873,7 +873,7 @@
             }
 
             changeDisplay.innerText =
-                `₱${change.toFixed(2)}`;
+                `@(ViewBag.CurrencySymbol)${change.toFixed(2)}`;
 
             changeAmountInput.value =
                 change.toFixed(2);

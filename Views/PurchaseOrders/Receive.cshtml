@@ -3,6 +3,7 @@
 
 @{
     ViewData["Title"] = $"Receive — {Model.PONumber}";
+    var currency = ViewBag.CurrencySymbol as string ?? "₱";
 }
 
 <div class="hb-card">
@@ -48,7 +49,7 @@
                             <th class="text-end">Ordered</th>
                             <th class="text-end">Already Received</th>
                             <th class="text-end text-warning">Remaining</th>
-                            <th class="text-end">Unit Cost</th>
+                            <th class="text-end">Cost / Ordered Unit</th>
                             <th style="width:150px">Receive Now</th>
                         </tr>
                     </thead>
@@ -76,7 +77,7 @@
                                     else
                                     { <span class="fw-semibold text-warning">@remaining.ToString("0.###")</span> }
                                 </td>
-                                <td class="text-end small">₱@pi.UnitCost.ToString("N2")</td>
+                                <td class="text-end small">@currency@((pi.CostPerOrderedUnit > 0 ? pi.CostPerOrderedUnit : pi.UnitCost * (pi.ConversionQuantity > 0 ? pi.ConversionQuantity : 1m)).ToString("N2"))</td>
                                 <td>
                                     @if (complete)
                                     {

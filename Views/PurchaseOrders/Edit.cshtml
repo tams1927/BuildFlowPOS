@@ -7,6 +7,7 @@
     var items      = ViewBag.Items       as List<Item>       ?? new();
     var branches   = ViewBag.AllBranches as List<Branch>;
     var currBranch = ViewBag.CurrentBranch as Branch;
+    var currency = ViewBag.CurrencySymbol as string ?? "₱";
 }
 
 <div class="hb-card">
@@ -74,6 +75,9 @@
             </div>
 
             <h5 class="fw-semibold mb-3"><i class="bi bi-list-ul me-2"></i>Order Items</h5>
+            <p class="form-text mb-2">
+                Supplier cost is <strong>per ordered unit</strong> (e.g. per sack), not per base inventory unit.
+            </p>
 
             <div class="table-responsive mb-3">
                 <table class="table table-bordered" id="poItemsTable">
@@ -81,7 +85,7 @@
                         <tr>
                             <th style="min-width:250px">Item</th>
                             <th style="width:110px">Qty Ordered</th>
-                            <th style="width:130px">Unit Cost</th>
+                            <th style="width:150px">Cost / Ordered Unit</th>
                             <th style="width:130px">Total Cost</th>
                             <th style="width:50px"></th>
                         </tr>
@@ -109,9 +113,9 @@
                                 </td>
                                 <td>
                                     <input type="number" name="unitCosts" class="form-control form-control-sm cost-input"
-                                           value="@pi.UnitCost" min="0" step="0.01" />
+                                           value="@(pi.CostPerOrderedUnit > 0 ? pi.CostPerOrderedUnit : pi.UnitCost * (pi.ConversionQuantity > 0 ? pi.ConversionQuantity : 1m))" min="0" step="0.01" />
                                 </td>
-                                <td class="total-cell fw-semibold">₱@pi.TotalCost.ToString("N2")</td>
+                                <td class="total-cell fw-semibold">@currency@pi.TotalCost.ToString("N2")</td>
                                 <td>
                                     <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn">
                                         <i class="bi bi-x"></i>
@@ -123,7 +127,7 @@
                     <tfoot>
                         <tr class="table-light">
                             <td colspan="3" class="text-end fw-semibold">Total Amount:</td>
-                            <td class="fw-bold" id="grandTotal">₱@Model.TotalAmount.ToString("N2")</td>
+                            <td class="fw-bold" id="grandTotal">@currency@Model.TotalAmount.ToString("N2")</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -180,7 +184,7 @@
     function recalcRow(row) {
         const qty  = parseFloat(row.querySelector('.qty-input').value)  || 0;
         const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
-        row.querySelector('.total-cell').textContent = '₱' + (qty * cost).toFixed(2);
+        row.querySelector('.total-cell').textContent = '@currency' + (qty * cost).toFixed(2);
         recalcGrandTotal();
     }
     function recalcGrandTotal() {
@@ -189,7 +193,7 @@
             grand += (parseFloat(row.querySelector('.qty-input')?.value) || 0) *
                      (parseFloat(row.querySelector('.cost-input')?.value) || 0);
         });
-        document.getElementById('grandTotal').textContent = '₱' + grand.toFixed(2);
+        document.getElementById('grandTotal').textContent = '@currency' + grand.toFixed(2);
     }
     document.getElementById('addRowBtn').addEventListener('click', function () {
         const tmpl = document.getElementById('rowTemplate').content.cloneNode(true);

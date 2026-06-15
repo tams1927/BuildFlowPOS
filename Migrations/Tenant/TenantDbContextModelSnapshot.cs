@@ -703,6 +703,9 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int>("BaseUnitId")
+                        .HasColumnType("int");
+
                     b.Property<int>("CategoryId")
                         .HasColumnType("int");
 
@@ -754,6 +757,8 @@ namespace HardwareManagementSystem.Migrations.Tenant
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BaseUnitId");
+
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("SupplierId");
@@ -764,6 +769,52 @@ namespace HardwareManagementSystem.Migrations.Tenant
                     b.HasIndex("UnitId");
 
                     b.ToTable("Items");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.ItemUnitConversion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("ConversionQuantity")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefaultPurchaseUnit")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_ItemUnitConversions_TenantId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("ItemId", "UnitId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ItemUnitConversions_ItemId_UnitId");
+
+                    b.ToTable("ItemUnitConversions");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.Notification", b =>
@@ -885,7 +936,25 @@ namespace HardwareManagementSystem.Migrations.Tenant
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("BaseQuantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("ConversionQuantity")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("CostPerBaseUnit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CostPerOrderedUnit")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OrderedQuantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<int?>("OrderedUnitId")
                         .HasColumnType("int");
 
                     b.Property<int>("PurchaseOrderId")
@@ -906,6 +975,8 @@ namespace HardwareManagementSystem.Migrations.Tenant
                     b.HasKey("Id");
 
                     b.HasIndex("ItemId");
+
+                    b.HasIndex("OrderedUnitId");
 
                     b.HasIndex("PurchaseOrderId");
 
@@ -1373,11 +1444,29 @@ namespace HardwareManagementSystem.Migrations.Tenant
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("BaseQuantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("ConversionQuantity")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("CostPerBaseUnit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CostPerReceivedUnit")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("ItemId")
                         .HasColumnType("int");
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("ReceivedQuantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<int?>("ReceivedUnitId")
+                        .HasColumnType("int");
 
                     b.Property<int>("StockInHeaderId")
                         .HasColumnType("int");
@@ -1391,6 +1480,8 @@ namespace HardwareManagementSystem.Migrations.Tenant
                     b.HasKey("Id");
 
                     b.HasIndex("ItemId");
+
+                    b.HasIndex("ReceivedUnitId");
 
                     b.HasIndex("StockInHeaderId");
 
@@ -1631,6 +1722,16 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("ContactNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("CurrencyName")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
@@ -1893,6 +1994,12 @@ namespace HardwareManagementSystem.Migrations.Tenant
 
             modelBuilder.Entity("HardwareManagementSystem.Models.Item", b =>
                 {
+                    b.HasOne("HardwareManagementSystem.Models.Unit", "BaseUnit")
+                        .WithMany()
+                        .HasForeignKey("BaseUnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("HardwareManagementSystem.Models.Category", "Category")
                         .WithMany()
                         .HasForeignKey("CategoryId")
@@ -1909,9 +2016,30 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("BaseUnit");
+
                     b.Navigation("Category");
 
                     b.Navigation("Supplier");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.ItemUnitConversion", b =>
+                {
+                    b.HasOne("HardwareManagementSystem.Models.Item", "Item")
+                        .WithMany("UnitConversions")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HardwareManagementSystem.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Item");
 
                     b.Navigation("Unit");
                 });
@@ -1942,6 +2070,11 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("HardwareManagementSystem.Models.Unit", "OrderedUnit")
+                        .WithMany()
+                        .HasForeignKey("OrderedUnitId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("HardwareManagementSystem.Models.PurchaseOrder", "PurchaseOrder")
                         .WithMany("Items")
                         .HasForeignKey("PurchaseOrderId")
@@ -1949,6 +2082,8 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .IsRequired();
 
                     b.Navigation("Item");
+
+                    b.Navigation("OrderedUnit");
 
                     b.Navigation("PurchaseOrder");
                 });
@@ -2105,6 +2240,11 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("HardwareManagementSystem.Models.Unit", "ReceivedUnit")
+                        .WithMany()
+                        .HasForeignKey("ReceivedUnitId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("HardwareManagementSystem.Models.StockInHeader", "StockInHeader")
                         .WithMany("StockInDetails")
                         .HasForeignKey("StockInHeaderId")
@@ -2112,6 +2252,8 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .IsRequired();
 
                     b.Navigation("Item");
+
+                    b.Navigation("ReceivedUnit");
 
                     b.Navigation("StockInHeader");
                 });
@@ -2177,6 +2319,11 @@ namespace HardwareManagementSystem.Migrations.Tenant
             modelBuilder.Entity("HardwareManagementSystem.Models.ImportBatch", b =>
                 {
                     b.Navigation("ImportBatchRows");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.Item", b =>
+                {
+                    b.Navigation("UnitConversions");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.PurchaseOrder", b =>

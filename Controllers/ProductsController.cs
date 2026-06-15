@@ -16,17 +16,20 @@ namespace HardwareManagementSystem.Controllers
         private readonly AuditService _auditService;
         private readonly ITenantContext _tenantContext;
         private readonly TenantGuard _tenantGuard;
+        private readonly ItemUnitConversionService _conversionService;
 
         public ProductsController(
             ITenantOperationalContextProvider ctxProvider,
             AuditService auditService,
             ITenantContext tenantContext,
-            TenantGuard tenantGuard)
+            TenantGuard tenantGuard,
+            ItemUnitConversionService conversionService)
             : base(ctxProvider)
         {
             _auditService = auditService;
             _tenantContext = tenantContext;
             _tenantGuard = tenantGuard;
+            _conversionService = conversionService;
         }
 
         public async Task<IActionResult> Index(
@@ -60,6 +63,7 @@ namespace HardwareManagementSystem.Controllers
                 .AsNoTracking()
                 .Include(i => i.Category)
                 .Include(i => i.Unit)
+                .Include(i => i.BaseUnit)
                 .Include(i => i.Supplier)
                 .AsQueryable();
 
@@ -134,6 +138,7 @@ namespace HardwareManagementSystem.Controllers
             string itemName,
             int categoryId,
             int unitId,
+            int baseUnitId,
             int? supplierId,
             decimal reorderLevel,
             decimal costPrice,
@@ -142,6 +147,7 @@ namespace HardwareManagementSystem.Controllers
             string? barcode)
         {
             var tenantId = await _tenantContext.GetCurrentTenantIdAsync();
+            if (baseUnitId <= 0) baseUnitId = unitId;
 
             if (string.IsNullOrWhiteSpace(itemName))
             {
@@ -181,6 +187,7 @@ namespace HardwareManagementSystem.Controllers
                 ItemName = itemName.Trim(),
                 CategoryId = categoryId,
                 UnitId = unitId,
+                BaseUnitId = baseUnitId,
                 SupplierId = supplierId,
                 CurrentStock = 0,
                 ReorderLevel = reorderLevel,
@@ -194,6 +201,8 @@ namespace HardwareManagementSystem.Controllers
 
             _context.Items.Add(item);
             await _context.SaveChangesAsync();
+
+            await _conversionService.EnsureBaseConversionAsync(item, tenantId);
 
             await _auditService.LogAsync(
                 User,
@@ -218,6 +227,7 @@ namespace HardwareManagementSystem.Controllers
             string itemName,
             int categoryId,
             int unitId,
+            int baseUnitId,
             int? supplierId,
             decimal reorderLevel,
             decimal costPrice,
@@ -227,6 +237,7 @@ namespace HardwareManagementSystem.Controllers
             string? barcode)
         {
             var item = await _context.Items.FindAsync(id);
+            if (baseUnitId <= 0) baseUnitId = unitId;
 
             if (item == null)
             {
@@ -270,6 +281,7 @@ namespace HardwareManagementSystem.Controllers
             item.ItemName = itemName.Trim();
             item.CategoryId = categoryId;
             item.UnitId = unitId;
+            item.BaseUnitId = baseUnitId;
             item.SupplierId = supplierId;
             item.ReorderLevel = reorderLevel;
             item.CostPrice = costPrice;
@@ -284,6 +296,8 @@ namespace HardwareManagementSystem.Controllers
             }
 
             await _context.SaveChangesAsync();
+
+            await _conversionService.EnsureBaseConversionAsync(item, tenantId);
 
             await _auditService.LogAsync(
                 User,
@@ -381,6 +395,140 @@ namespace HardwareManagementSystem.Controllers
             );
 
             TempData["SuccessMessage"] = "Product deleted successfully.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetConversions(int itemId)
+        {
+            var item = await _context.Items.AsNoTracking()
+                .Include(i => i.BaseUnit)
+                .FirstOrDefaultAsync(i => i.Id == itemId);
+            if (item == null) return NotFound();
+            if (!await _tenantGuard.CanAccessTenantAsync(item.TenantId)) return Forbid();
+
+            var conversions = await _conversionService.GetActiveConversionsAsync(itemId);
+            return Json(new
+            {
+                itemId,
+                baseUnitId = _conversionService.GetBaseUnitId(item),
+                baseUnitName = item.BaseUnit?.UnitName ?? item.Unit?.UnitName,
+                conversions = conversions.Select(c => new
+                {
+                    c.Id,
+                    c.UnitId,
+                    unitName = c.Unit?.UnitName,
+                    shortName = c.Unit?.ShortName,
+                    c.ConversionQuantity,
+                    c.IsDefaultPurchaseUnit,
+                    c.IsActive
+                })
+            });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetUnitsForItem(int itemId)
+        {
+            var item = await _context.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId);
+            if (item == null) return NotFound();
+            if (!await _tenantGuard.CanAccessTenantAsync(item.TenantId)) return Forbid();
+
+            var conversions = await _conversionService.GetActiveConversionsAsync(itemId);
+            var baseId = _conversionService.GetBaseUnitId(item);
+            var list = new List<object>();
+            if (!conversions.Any(c => c.UnitId == baseId))
+            {
+                var baseUnit = await _context.Units.AsNoTracking().FirstOrDefaultAsync(u => u.Id == baseId);
+                list.Add(new { unitId = baseId, label = $"{baseUnit?.UnitName} (base)", conversionQuantity = 1m, isDefaultPurchaseUnit = true });
+            }
+            foreach (var c in conversions)
+            {
+                list.Add(new
+                {
+                    unitId = c.UnitId,
+                    label = $"{c.Unit?.UnitName} (1 = {c.ConversionQuantity:0.###} base)",
+                    conversionQuantity = c.ConversionQuantity,
+                    isDefaultPurchaseUnit = c.IsDefaultPurchaseUnit
+                });
+            }
+            return Json(list);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermissionAuthorize("Products", "Edit")]
+        public async Task<IActionResult> SaveConversion(
+            int itemId, int unitId, decimal conversionQuantity, bool isDefaultPurchaseUnit)
+        {
+            if (conversionQuantity <= 0)
+            {
+                TempData["ErrorMessage"] = "Conversion quantity must be greater than zero.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var item = await _context.Items.FirstOrDefaultAsync(i => i.Id == itemId);
+            if (item == null) { TempData["ErrorMessage"] = "Product not found."; return RedirectToAction(nameof(Index)); }
+            if (!await _tenantGuard.CanAccessTenantAsync(item.TenantId)) return Forbid();
+
+            var tenantId = await _tenantContext.GetCurrentTenantIdAsync();
+            var existing = await _context.ItemUnitConversions
+                .FirstOrDefaultAsync(c => c.ItemId == itemId && c.UnitId == unitId);
+
+            if (isDefaultPurchaseUnit)
+            {
+                var others = await _context.ItemUnitConversions.Where(c => c.ItemId == itemId && c.IsDefaultPurchaseUnit).ToListAsync();
+                foreach (var o in others) o.IsDefaultPurchaseUnit = false;
+            }
+
+            if (existing != null)
+            {
+                existing.ConversionQuantity = conversionQuantity;
+                existing.IsDefaultPurchaseUnit = isDefaultPurchaseUnit;
+                existing.IsActive = true;
+                existing.UpdatedAtUtc = DateTime.UtcNow;
+            }
+            else
+            {
+                _context.ItemUnitConversions.Add(new ItemUnitConversion
+                {
+                    TenantId = tenantId ?? item.TenantId,
+                    ItemId = itemId,
+                    UnitId = unitId,
+                    ConversionQuantity = conversionQuantity,
+                    IsDefaultPurchaseUnit = isDefaultPurchaseUnit,
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow
+                });
+            }
+
+            await _context.SaveChangesAsync();
+            await _conversionService.EnsureBaseConversionAsync(item, tenantId);
+            TempData["SuccessMessage"] = "Unit conversion saved.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermissionAuthorize("Products", "Edit")]
+        public async Task<IActionResult> DeactivateConversion(int id)
+        {
+            var conv = await _context.ItemUnitConversions.Include(c => c.Item).FirstOrDefaultAsync(c => c.Id == id);
+            if (conv == null) { TempData["ErrorMessage"] = "Conversion not found."; return RedirectToAction(nameof(Index)); }
+            if (conv.Item != null && !await _tenantGuard.CanAccessTenantAsync(conv.Item.TenantId)) return Forbid();
+
+            var baseId = conv.Item != null ? _conversionService.GetBaseUnitId(conv.Item) : 0;
+            if (conv.UnitId == baseId)
+            {
+                TempData["ErrorMessage"] = "Cannot deactivate the base unit conversion.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            conv.IsActive = false;
+            conv.IsDefaultPurchaseUnit = false;
+            conv.UpdatedAtUtc = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Unit conversion deactivated.";
             return RedirectToAction(nameof(Index));
         }
     }

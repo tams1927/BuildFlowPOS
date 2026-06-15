@@ -75,7 +75,9 @@ namespace HardwareManagementSystem.Controllers
             setting.BusinessAddress   = model.BusinessAddress;
             setting.ContactNumber     = model.ContactNumber;
             setting.Email             = model.Email;
-            setting.CurrencySymbol    = model.CurrencySymbol;
+            setting.CurrencyCode      = string.IsNullOrWhiteSpace(model.CurrencyCode) ? "PHP" : model.CurrencyCode.Trim().ToUpperInvariant();
+            setting.CurrencySymbol    = string.IsNullOrWhiteSpace(model.CurrencySymbol) ? "₱" : model.CurrencySymbol.Trim();
+            setting.CurrencyName      = string.IsNullOrWhiteSpace(model.CurrencyName) ? "Philippine Peso" : model.CurrencyName.Trim();
             setting.DefaultVatPercent = model.DefaultVatPercent;
             setting.TaxMode           = model.TaxMode;
             setting.ReceiptFooter     = model.ReceiptFooter;
@@ -86,6 +88,16 @@ namespace HardwareManagementSystem.Controllers
             setting.VATRegNumber      = model.VATRegNumber?.Trim();
 
             await _context.SaveChangesAsync();
+
+            var currencyChanged = model.CurrencyCode != null || model.CurrencySymbol != null;
+            if (currencyChanged)
+            {
+                await _auditService.LogAsync(
+                    User, "Settings", "SETTINGS_CURRENCY_UPDATED",
+                    $"Currency updated: {setting.CurrencyCode} {setting.CurrencySymbol} ({setting.CurrencyName})",
+                    "SystemSetting", setting.Id.ToString(),
+                    HttpContext.Connection.RemoteIpAddress?.ToString());
+            }
 
             await _auditService.LogAsync(
                 User,

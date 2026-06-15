@@ -1,7 +1,8 @@
 ﻿using HardwareManagementSystem.Models;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace HardwareManagementSystem.Data.Seeders
 {
@@ -17,6 +18,8 @@ namespace HardwareManagementSystem.Data.Seeders
         {
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var config = serviceProvider.GetRequiredService<IConfiguration>();
+            var logger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbSeeder");
 
             // ── Operational roles (no default accounts) ──────────────
             // Tenant admins create user accounts through the Users page.
@@ -42,7 +45,19 @@ namespace HardwareManagementSystem.Data.Seeders
 
             const string superAdminUsername = "superadmin";
             const string superAdminEmail    = "superadmin@hardbuild.local";
-            const string superAdminPassword = "SuperAdmin123!";
+            const string defaultPassword    = "SuperAdmin123!";
+
+            var configuredPassword = config["SeedSettings:InitialSuperAdminPassword"];
+            var usingDefaultPassword = string.IsNullOrWhiteSpace(configuredPassword);
+            var superAdminPassword = usingDefaultPassword ? defaultPassword : configuredPassword!;
+
+            if (usingDefaultPassword)
+            {
+                logger.LogWarning(
+                    "SeedSettings:InitialSuperAdminPassword is not configured. " +
+                    "The SuperAdmin account uses the built-in default password. " +
+                    "Set a strong password in configuration before go-live.");
+            }
 
             var existingSuperAdmin = await userManager.FindByNameAsync(superAdminUsername);
 
@@ -50,18 +65,25 @@ namespace HardwareManagementSystem.Data.Seeders
             {
                 var superAdmin = new ApplicationUser
                 {
-                    UserName       = superAdminUsername,
-                    Email          = superAdminEmail,
-                    FullName       = "Super Administrator",
-                    EmailConfirmed = true,
-                    IsActive       = true,
-                    TenantId       = null   // SuperAdmin is platform-global — no tenant
+                    UserName             = superAdminUsername,
+                    Email                = superAdminEmail,
+                    FullName             = "Super Administrator",
+                    EmailConfirmed       = true,
+                    IsActive             = true,
+                    TenantId             = null,
+                    ForcePasswordChange  = true
                 };
 
                 var result = await userManager.CreateAsync(superAdmin, superAdminPassword);
 
                 if (result.Succeeded)
                     await userManager.AddToRoleAsync(superAdmin, "SuperAdmin");
+            }
+            else if (existingSuperAdmin.ForcePasswordChange == false && usingDefaultPassword)
+            {
+                logger.LogWarning(
+                    "SuperAdmin account exists and SeedSettings:InitialSuperAdminPassword is not set. " +
+                    "Rotate the SuperAdmin password and enable ForcePasswordChange before go-live.");
             }
         }
 
@@ -97,7 +119,7 @@ namespace HardwareManagementSystem.Data.Seeders
             var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
 
             // "Admin" is removed; SuperAdmin, TenantAdmin, and BranchManager are the seeded roles.
-            var requiredRoles = new[] { "SuperAdmin", "TenantAdmin", "BranchManager" };
+            var requiredRoles = new[] { "SuperAdmin", "TenantAdmin", "BranchManager", "Cashier", "InventoryStaff" };
 
             foreach (var roleName in requiredRoles)
             {
@@ -170,12 +192,110 @@ namespace HardwareManagementSystem.Data.Seeders
                 }
             }
 
+            var pilotPerms = BuildPilotRolePermissions(existingPermissions, modules);
+            foreach (var p in pilotPerms)
+                existingPermissions.Add(p.RoleName + "|" + p.ModuleName);
+            permissionsToAdd.AddRange(pilotPerms);
+
             if (permissionsToAdd.Any())
             {
                 await context.RolePermissions.AddRangeAsync(permissionsToAdd);
                 await context.SaveChangesAsync();
             }
         }
+
+        /// <summary>Default permissions for pilot roles not covered by the admin seed loop.</summary>
+        private static List<RolePermission> BuildPilotRolePermissions(
+            List<string> existingKeys,
+            List<string> modules)
+        {
+            var result = new List<RolePermission>();
+
+            var cashierAccess = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "POS", "Sales", "Customers", "SalesReturn"
+            };
+
+            var inventoryAccess = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Products", "Inventory", "StockIn", "StockAdjustment", "PurchaseOrders",
+                "Suppliers", "Categories", "Units", "Import", "InventoryMovement",
+                "BranchTransfers", "InventoryValuation", "ReorderSuggestions", "StockAging",
+                "FastMovingItems", "SlowMovingItems", "DeadStock", "ABCAnalysis"
+            };
+
+            foreach (var role in new[] { "Cashier", "InventoryStaff" })
+            {
+                var allowed = role == "Cashier" ? cashierAccess : inventoryAccess;
+
+                foreach (var module in modules)
+                {
+                    var key = role + "|" + module;
+                    if (existingKeys.Contains(key))
+                        continue;
+
+                    if (_saasOnlyModules.Contains(module))
+                    {
+                        result.Add(DenyAll(role, module));
+                        continue;
+                    }
+
+                    if (!allowed.Contains(module))
+                    {
+                        result.Add(DenyAll(role, module));
+                        continue;
+                    }
+
+                    if (role == "Cashier")
+                    {
+                        var viewOnly = module.Equals("Customers", StringComparison.OrdinalIgnoreCase)
+                            || module.Equals("Sales", StringComparison.OrdinalIgnoreCase);
+                        result.Add(new RolePermission
+                        {
+                            RoleName   = role,
+                            ModuleName = module,
+                            CanView    = true,
+                            CanCreate  = !viewOnly,
+                            CanEdit    = false,
+                            CanDelete  = false,
+                            CanPrint   = true,
+                            CanExport  = false
+                        });
+                    }
+                    else
+                    {
+                        var reportsOnly = module is "InventoryValuation" or "ReorderSuggestions"
+                            or "StockAging" or "FastMovingItems" or "SlowMovingItems"
+                            or "DeadStock" or "ABCAnalysis";
+                        result.Add(new RolePermission
+                        {
+                            RoleName   = role,
+                            ModuleName = module,
+                            CanView    = true,
+                            CanCreate  = !reportsOnly,
+                            CanEdit    = !reportsOnly,
+                            CanDelete  = false,
+                            CanPrint   = true,
+                            CanExport  = reportsOnly
+                        });
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private static RolePermission DenyAll(string role, string module) => new()
+        {
+            RoleName   = role,
+            ModuleName = module,
+            CanView    = false,
+            CanCreate  = false,
+            CanEdit    = false,
+            CanDelete  = false,
+            CanPrint   = false,
+            CanExport  = false
+        };
 
         // SeedDefaultTenantAsync intentionally removed.
         // The SaaS model requires tenants to be created explicitly by SuperAdmin.

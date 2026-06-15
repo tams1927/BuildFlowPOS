@@ -8,6 +8,7 @@
     int pageSize   = ViewBag.PageSize ?? 20;
     string? searchTerm   = ViewBag.SearchTerm;
     string? statusFilter = ViewBag.StatusFilter;
+    var currency = ViewBag.CurrencySymbol as string ?? "₱";
 }
 
 <div class="hb-card mb-4">
@@ -80,7 +81,7 @@
                                 <td class="small @(isExpiredNow ? "text-danger" : "text-muted")">
                                     @(q.ValidUntil.HasValue ? q.ValidUntil.Value.ToString("MMM dd, yyyy") : "—")
                                 </td>
-                                <td class="text-end fw-semibold">₱@q.TotalAmount.ToString("N2")</td>
+                                <td class="text-end fw-semibold">@currency@q.TotalAmount.ToString("N2")</td>
                                 <td>
                                     @{
                                         var badgeCss = q.Status switch {

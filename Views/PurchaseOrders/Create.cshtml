@@ -9,6 +9,7 @@
     var currBranch = ViewBag.CurrentBranch as Branch;
     var lowStock   = ViewBag.LowStockItems as List<Item>;
     bool isLowStockMode = lowStock != null;
+    var currency = ViewBag.CurrencySymbol as string ?? "₱";
 }
 
 <div class="hb-card">
@@ -101,13 +102,16 @@
                 <i class="bi bi-list-ul me-2"></i>Order Items
             </h5>
 
+            <p class="form-text mb-2">
+                Enter supplier cost <strong>per ordered unit</strong> (e.g. @currency 1,000 per sack). Line total = quantity × cost per unit.
+            </p>
             <div class="table-responsive mb-3">
                 <table class="table table-bordered" id="poItemsTable">
                     <thead class="table-light">
                         <tr>
                             <th style="min-width:250px">Item</th>
                             <th style="width:110px">Qty Ordered</th>
-                            <th style="width:130px">Unit Cost</th>
+                            <th style="width:150px">Cost / Ordered Unit</th>
                             <th style="width:130px">Total Cost</th>
                             <th style="width:50px"></th>
                         </tr>
@@ -182,7 +186,7 @@
                     <tfoot>
                         <tr class="table-light">
                             <td colspan="3" class="text-end fw-semibold">Total Amount:</td>
-                            <td class="fw-bold" id="grandTotal">₱0.00</td>
+                            <td class="fw-bold" id="grandTotal">@currency 0.00</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -271,7 +275,7 @@
         const qty  = parseFloat(row.querySelector('.qty-input').value)  || 0;
         const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
         const total = qty * cost;
-        row.querySelector('.total-cell').textContent = '₱' + total.toFixed(2);
+        row.querySelector('.total-cell').textContent = '@currency' + total.toFixed(2);
         recalcGrandTotal();
     }
 
@@ -282,7 +286,7 @@
             const cost = parseFloat(row.querySelector('.cost-input')?.value) || 0;
             grand += qty * cost;
         });
-        document.getElementById('grandTotal').textContent = '₱' + grand.toFixed(2);
+        document.getElementById('grandTotal').textContent = '@currency' + grand.toFixed(2);
     }
 
     // Add row

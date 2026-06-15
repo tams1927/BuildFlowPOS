@@ -27,8 +27,14 @@ namespace HardwareManagementSystem.Models
         [StringLength(100)]
         public string? Email { get; set; }
 
+        [StringLength(3)]
+        public string CurrencyCode { get; set; } = "PHP";
+
         [StringLength(10)]
         public string CurrencySymbol { get; set; } = "₱";
+
+        [StringLength(50)]
+        public string CurrencyName { get; set; } = "Philippine Peso";
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal DefaultVatPercent { get; set; } = 0;

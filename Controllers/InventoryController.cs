@@ -112,6 +112,7 @@ namespace HardwareManagementSystem.Controllers
                 .AsNoTracking()
                 .Include(i => i.Category)
                 .Include(i => i.Unit)
+                .Include(i => i.BaseUnit)
                 .Include(i => i.Supplier)
                 .AsQueryable();
 

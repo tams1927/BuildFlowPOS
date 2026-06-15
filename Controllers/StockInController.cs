@@ -18,6 +18,8 @@ namespace HardwareManagementSystem.Controllers
         private readonly BranchService _branchService;
         private readonly ITenantContext _tenantContext;
         private readonly TenantGuard _tenantGuard;
+        private readonly ItemUnitConversionService _conversionService;
+        private readonly ICurrencyFormatter _currency;
 
         public StockInController(
             ITenantOperationalContextProvider ctxProvider,
@@ -25,7 +27,9 @@ namespace HardwareManagementSystem.Controllers
             NotificationService notificationService,
             BranchService branchService,
             ITenantContext tenantContext,
-            TenantGuard tenantGuard)
+            TenantGuard tenantGuard,
+            ItemUnitConversionService conversionService,
+            ICurrencyFormatter currency)
             : base(ctxProvider)
         {
             _auditService = auditService;
@@ -33,6 +37,8 @@ namespace HardwareManagementSystem.Controllers
             _branchService = branchService;
             _tenantContext = tenantContext;
             _tenantGuard = tenantGuard;
+            _conversionService = conversionService;
+            _currency = currency;
         }
 
         public async Task<IActionResult> Index(
@@ -51,6 +57,7 @@ namespace HardwareManagementSystem.Controllers
             var itemsQuery = _context.Items
                 .AsNoTracking()
                 .Include(i => i.Unit)
+                .Include(i => i.BaseUnit)
                 .Where(i => i.Status == "Active");
 
             if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
@@ -79,7 +86,9 @@ namespace HardwareManagementSystem.Controllers
                 .Include(h => h.Branch)
                 .Include(h => h.StockInDetails)
                     .ThenInclude(d => d.Item)
-                        .ThenInclude(i => i!.Unit)
+                        .ThenInclude(i => i!.BaseUnit)
+                .Include(h => h.StockInDetails)
+                    .ThenInclude(d => d.ReceivedUnit)
                 .AsQueryable();
 
             if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
@@ -130,6 +139,7 @@ namespace HardwareManagementSystem.Controllers
             DateTime dateReceived,
             int itemId,
             decimal quantity,
+            int? receivedUnitId,
             decimal unitCost,
             string? remarks,
             int? branchId)
@@ -180,7 +190,7 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var item = await itemQuery.FirstOrDefaultAsync();
+            var item = await itemQuery.Include(i => i.BaseUnit).Include(i => i.Unit).FirstOrDefaultAsync();
 
             if (item == null)
             {
@@ -230,7 +240,22 @@ namespace HardwareManagementSystem.Controllers
                 }
             }
 
-            var totalCost = quantity * unitCost;
+            var resolvedUnitId = receivedUnitId ?? _conversionService.GetBaseUnitId(item);
+            decimal conversionQty;
+            decimal baseQty;
+            try
+            {
+                conversionQty = await _conversionService.GetFactorAsync(itemId, resolvedUnitId);
+                baseQty = quantity * conversionQty;
+            }
+            catch
+            {
+                TempData["ErrorMessage"] = "Invalid received unit for this item.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var cost = ItemUnitConversionService.ComputePurchaseCost(quantity, unitCost, conversionQty);
+            var totalCost = cost.TotalCost;
             var stockInNumber = await GenerateStockInNumberAsync(tenantId);
 
             var header = new StockInHeader
@@ -252,8 +277,14 @@ namespace HardwareManagementSystem.Controllers
             var detail = new StockInDetail
             {
                 ItemId = itemId,
-                Quantity = quantity,
-                UnitCost = unitCost,
+                Quantity = baseQty,
+                ReceivedUnitId = resolvedUnitId,
+                ReceivedQuantity = quantity,
+                ConversionQuantity = conversionQty,
+                BaseQuantity = baseQty,
+                CostPerReceivedUnit = cost.CostPerReceivedUnit,
+                CostPerBaseUnit = cost.CostPerBaseUnit,
+                UnitCost = cost.CostPerBaseUnit,
                 TotalCost = totalCost
             };
 
@@ -261,16 +292,16 @@ namespace HardwareManagementSystem.Controllers
 
             if (resolvedBranchId.HasValue)
             {
-                await _branchService.AddStockAsync(resolvedBranchId.Value, itemId, quantity);
+                await _branchService.AddStockAsync(resolvedBranchId.Value, itemId, baseQty);
             }
             else
             {
-                item.CurrentStock += quantity;
+                item.CurrentStock += baseQty;
             }
 
-            if (item.CostPrice != unitCost && unitCost > 0)
+            if (item.CostPrice != cost.CostPerBaseUnit && cost.CostPerBaseUnit > 0)
             {
-                item.CostPrice = unitCost;
+                item.CostPrice = cost.CostPerBaseUnit;
             }
 
             if (!item.TenantId.HasValue && tenantId.HasValue)
@@ -291,15 +322,19 @@ namespace HardwareManagementSystem.Controllers
                 User,
                 "StockIn",
                 "CREATED",
-                $"Stock-in saved. Stock In #: {stockInNumber}, Branch: {resolvedBranchId?.ToString() ?? "N/A"}, Supplier: {supplier.SupplierName}, Item: {item.ItemName}, Quantity: {quantity:0.###}, Unit Cost: {unitCost:N2}, Total Cost: {totalCost:N2}",
+                $"Stock-in saved. Stock In #: {stockInNumber}, Branch: {resolvedBranchId?.ToString() ?? "N/A"}, Supplier: {supplier.SupplierName}, Item: {item.ItemName}, Received: {quantity:0.###}, Base Qty: {baseQty:0.###}, Cost/Received: {cost.CostPerReceivedUnit:N2}, Cost/Base: {cost.CostPerBaseUnit:N2}, Total: {totalCost:N2}",
                 "StockInHeader",
                 header.Id.ToString(),
                 HttpContext.Connection.RemoteIpAddress?.ToString()
             );
 
-            TempData["SuccessMessage"] = $"Stock-in saved. {item.ItemName} stock increased by {quantity:0.###}.";
+            var receivedUnit = await _context.Units.AsNoTracking().FirstOrDefaultAsync(u => u.Id == resolvedUnitId);
+            var unitLabel = receivedUnit?.ShortName ?? receivedUnit?.UnitName ?? "units";
+            var baseLabel = item.BaseUnit?.ShortName ?? item.Unit?.ShortName ?? "base";
+            TempData["SuccessMessage"] =
+                $"Stock-in saved. Received {quantity:0.###} {unitLabel} → inventory +{baseQty:0.###} {baseLabel}.";
 
-            await _notificationService.CreateStockInNotificationAsync(stockInNumber, supplier.SupplierName, item.ItemName, quantity);
+            await _notificationService.CreateStockInNotificationAsync(stockInNumber, supplier.SupplierName, item.ItemName, baseQty);
 
             var stockForNotification = resolvedBranchId.HasValue
                 ? await _branchService.GetBranchStockAsync(resolvedBranchId.Value, itemId)

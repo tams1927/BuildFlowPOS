@@ -17,19 +17,22 @@ namespace HardwareManagementSystem.Controllers
         private readonly BranchService _branchService;
         private readonly ITenantContext _tenantContext;
         private readonly TenantGuard _tenantGuard;
+        private readonly ItemUnitConversionService _conversionService;
 
         public PurchaseOrdersController(
             ITenantOperationalContextProvider ctxProvider,
             AuditService auditService,
             BranchService branchService,
             ITenantContext tenantContext,
-            TenantGuard tenantGuard)
+            TenantGuard tenantGuard,
+            ItemUnitConversionService conversionService)
             : base(ctxProvider)
         {
             _auditService = auditService;
             _branchService = branchService;
             _tenantContext = tenantContext;
             _tenantGuard = tenantGuard;
+            _conversionService = conversionService;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -164,7 +167,8 @@ namespace HardwareManagementSystem.Controllers
             // line items — parallel arrays
             int[] itemIds,
             decimal[] quantities,
-            decimal[] unitCosts)
+            decimal[] unitCosts,
+            int[]? orderedUnitIds)
         {
             var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
 
@@ -220,14 +224,34 @@ namespace HardwareManagementSystem.Controllers
                 if (!validCreateIds.Contains(itemIds[i])) continue;
 
                 var unitCost  = i < unitCosts.Length ? unitCosts[i] : 0;
-                var totalCost = quantities[i] * unitCost;
+                var orderedQty = quantities[i];
+                int orderedUnitId = (orderedUnitIds != null && i < orderedUnitIds.Length && orderedUnitIds[i] > 0)
+                    ? orderedUnitIds[i]
+                    : 0;
+
+                var itemEntity = await _context.Items.AsNoTracking().FirstAsync(x => x.Id == itemIds[i]);
+                if (orderedUnitId <= 0)
+                    orderedUnitId = _conversionService.GetBaseUnitId(itemEntity);
+
+                decimal factor;
+                try { factor = await _conversionService.GetFactorAsync(itemIds[i], orderedUnitId); }
+                catch { continue; }
+
+                var baseQty = orderedQty * factor;
+                var cost = ItemUnitConversionService.ComputePurchaseCost(orderedQty, unitCost, factor);
 
                 po.Items.Add(new PurchaseOrderItem
                 {
-                    ItemId    = itemIds[i],
-                    Quantity  = quantities[i],
-                    UnitCost  = unitCost,
-                    TotalCost = totalCost
+                    ItemId = itemIds[i],
+                    Quantity = orderedQty,
+                    OrderedQuantity = orderedQty,
+                    OrderedUnitId = orderedUnitId,
+                    ConversionQuantity = factor,
+                    BaseQuantity = baseQty,
+                    CostPerOrderedUnit = cost.CostPerReceivedUnit,
+                    CostPerBaseUnit = cost.CostPerBaseUnit,
+                    UnitCost = cost.CostPerBaseUnit,
+                    TotalCost = cost.TotalCost
                 });
             }
 
@@ -340,15 +364,26 @@ namespace HardwareManagementSystem.Controllers
                 if (itemIds[i] <= 0 || quantities[i] <= 0) continue;
                 if (!validEditIds.Contains(itemIds[i])) continue;
 
-                var unitCost  = i < unitCosts.Length ? unitCosts[i] : 0;
-                var totalCost = quantities[i] * unitCost;
+                var unitCost = i < unitCosts.Length ? unitCosts[i] : 0;
+                var itemEntity = await _context.Items.AsNoTracking().FirstAsync(x => x.Id == itemIds[i]);
+                var orderedUnitId = _conversionService.GetBaseUnitId(itemEntity);
+                decimal factor;
+                try { factor = await _conversionService.GetFactorAsync(itemIds[i], orderedUnitId); }
+                catch { factor = 1m; }
+                var cost = ItemUnitConversionService.ComputePurchaseCost(quantities[i], unitCost, factor);
 
                 po.Items.Add(new PurchaseOrderItem
                 {
-                    ItemId    = itemIds[i],
-                    Quantity  = quantities[i],
-                    UnitCost  = unitCost,
-                    TotalCost = totalCost
+                    ItemId = itemIds[i],
+                    Quantity = quantities[i],
+                    OrderedQuantity = quantities[i],
+                    OrderedUnitId = orderedUnitId,
+                    ConversionQuantity = factor,
+                    BaseQuantity = quantities[i] * factor,
+                    CostPerOrderedUnit = cost.CostPerReceivedUnit,
+                    CostPerBaseUnit = cost.CostPerBaseUnit,
+                    UnitCost = cost.CostPerBaseUnit,
+                    TotalCost = cost.TotalCost
                 });
             }
 
@@ -530,37 +565,49 @@ namespace HardwareManagementSystem.Controllers
                 var poItem = po.Items.FirstOrDefault(pi => pi.Id == poItemIds[i]);
                 if (poItem == null) continue;
 
-                var remaining = poItem.Quantity - poItem.QuantityReceived;
-                var receiveNow = Math.Min(receivedQtys[i], remaining);
+                var factor = poItem.ConversionQuantity > 0 ? poItem.ConversionQuantity : 1m;
+                var orderedRemaining = poItem.Quantity - (poItem.QuantityReceived / factor);
+                var receiveNow = Math.Min(receivedQtys[i], orderedRemaining);
                 if (receiveNow <= 0) continue;
 
-                poItem.QuantityReceived += receiveNow;
+                var receiveBase = receiveNow * factor;
+                poItem.QuantityReceived += receiveBase;
 
-                var lineCost = receiveNow * poItem.UnitCost;
+                var costPerOrdered = poItem.CostPerOrderedUnit > 0
+                    ? poItem.CostPerOrderedUnit
+                    : poItem.UnitCost * factor;
+                var costPerBase = poItem.CostPerBaseUnit > 0
+                    ? poItem.CostPerBaseUnit
+                    : (factor > 0 ? costPerOrdered / factor : costPerOrdered);
+                var lineCost = receiveNow * costPerOrdered;
                 totalCost += lineCost;
 
-                // Update item stock
+                var orderedUnitId = poItem.OrderedUnitId ?? (poItem.Item != null ? _conversionService.GetBaseUnitId(poItem.Item) : 0);
+
+                // Update item stock (base unit)
                 var item = poItem.Item;
                 if (item != null)
                 {
                     if (po.BranchId.HasValue)
-                    {
-                        await _branchService.AddStockAsync(po.BranchId.Value, item.Id, receiveNow);
-                    }
+                        await _branchService.AddStockAsync(po.BranchId.Value, item.Id, receiveBase);
                     else
-                    {
-                        item.CurrentStock += receiveNow;
-                    }
+                        item.CurrentStock += receiveBase;
 
-                    if (poItem.UnitCost > 0 && item.CostPrice != poItem.UnitCost)
-                        item.CostPrice = poItem.UnitCost;
+                    if (costPerBase > 0 && item.CostPrice != costPerBase)
+                        item.CostPrice = costPerBase;
                 }
 
                 stockInHeader.StockInDetails.Add(new StockInDetail
                 {
-                    ItemId    = poItem.ItemId,
-                    Quantity  = receiveNow,
-                    UnitCost  = poItem.UnitCost,
+                    ItemId = poItem.ItemId,
+                    Quantity = receiveBase,
+                    ReceivedUnitId = orderedUnitId > 0 ? orderedUnitId : null,
+                    ReceivedQuantity = receiveNow,
+                    ConversionQuantity = factor,
+                    BaseQuantity = receiveBase,
+                    CostPerReceivedUnit = costPerOrdered,
+                    CostPerBaseUnit = costPerBase,
+                    UnitCost = costPerBase,
                     TotalCost = lineCost
                 });
             }
@@ -577,7 +624,8 @@ namespace HardwareManagementSystem.Controllers
             _context.StockInHeaders.Add(stockInHeader);
 
             // Determine PO final status
-            bool allReceived = po.Items.All(pi => pi.QuantityReceived >= pi.Quantity);
+            bool allReceived = po.Items.All(pi =>
+                pi.QuantityReceived >= (pi.BaseQuantity > 0 ? pi.BaseQuantity : pi.Quantity));
             po.Status       = allReceived ? "Received" : "PartiallyReceived";
             po.UpdatedAtUtc = DateTime.UtcNow;
 

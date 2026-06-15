@@ -226,6 +226,7 @@ namespace HardwareManagementSystem.Tools
                         ItemName     = itemName,
                         CategoryId   = category.Id,
                         UnitId       = unit.Id,
+                        BaseUnitId   = unit.Id,
                         SupplierId   = supplier.Id,
                         CostPrice    = 50m,
                         SellingPrice = 80m,

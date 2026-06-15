@@ -37,7 +37,7 @@
             <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;">Description</th>
             <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;text-align:right;">Qty</th>
             <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;">Unit</th>
-            <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;text-align:right;">Unit Cost</th>
+            <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;text-align:right;">Cost / Ordered Unit</th>
             <th style="border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;padding:6px;text-align:right;">Total</th>
         </tr>
     </thead>
@@ -55,7 +55,7 @@
                 </td>
                 <td style="border:1px solid #ddd;padding:5px;text-align:right;">@pi.Quantity.ToString("0.###")</td>
                 <td style="border:1px solid #ddd;padding:5px;">@(pi.Item?.Unit?.ShortName ?? "—")</td>
-                <td style="border:1px solid #ddd;padding:5px;text-align:right;">@currency@pi.UnitCost.ToString("N2")</td>
+                <td style="border:1px solid #ddd;padding:5px;text-align:right;">@currency@((pi.CostPerOrderedUnit > 0 ? pi.CostPerOrderedUnit : pi.UnitCost * (pi.ConversionQuantity > 0 ? pi.ConversionQuantity : 1m)).ToString("N2"))</td>
                 <td style="border:1px solid #ddd;padding:5px;text-align:right;font-weight:700;">@currency@pi.TotalCost.ToString("N2")</td>
             </tr>
             lineNo++;

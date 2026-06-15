@@ -1,0 +1,320 @@
+[
+  {
+    "key": "login",
+    "url": "/Account/Login",
+    "final": "https://localhost:7232/Account/Login",
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_dashboard",
+    "url": "/Home/Index",
+    "final": "https://localhost:7232/SuperAdmin/Dashboard",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_tenants",
+    "url": "/Tenants/Index",
+    "final": "https://localhost:7232/Tenants/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_create_tenant",
+    "url": "/Tenants/Create",
+    "final": "https://localhost:7232/Tenants/Create",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_tenant_details",
+    "url": "/Tenants/Details/9",
+    "final": "https://localhost:7232/Tenants/Details/9",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_db_diagnostics",
+    "url": "/Tenants/DatabaseInfo/9",
+    "final": "https://localhost:7232/Tenants/DatabaseInfo/9",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_plans",
+    "url": "/SubscriptionPlans/Index",
+    "final": "https://localhost:7232/SubscriptionPlans/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_users",
+    "url": "/Users/Index",
+    "final": "https://localhost:7232/Users/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_roles",
+    "url": "/Roles/Index",
+    "final": "https://localhost:7232/Roles/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_audit",
+    "url": "/AuditTrail/Index",
+    "final": "https://localhost:7232/AuditTrail/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "cashier_branch",
+    "url": "/Home/Index (branch dropdown)",
+    "final": "https://localhost:7232/Home/Index",
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_dashboard",
+    "url": "/Home/Index",
+    "final": "https://localhost:7232/Home/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_settings",
+    "url": "/Settings/Index",
+    "final": "https://localhost:7232/Settings/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_branches",
+    "url": "/Branches/Index",
+    "final": "https://localhost:7232/Branches/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_userbranches",
+    "url": "/UserBranches/Index",
+    "final": "https://localhost:7232/UserBranches/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_categories",
+    "url": "/Categories/Index",
+    "final": "https://localhost:7232/Categories/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_units",
+    "url": "/Units/Index",
+    "final": "https://localhost:7232/Units/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_products",
+    "url": "/Products/Index",
+    "final": "https://localhost:7232/Products/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_inventory",
+    "url": "/Inventory/Index",
+    "final": "https://localhost:7232/Inventory/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_suppliers",
+    "url": "/Suppliers/Index",
+    "final": "https://localhost:7232/Suppliers/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_customers",
+    "url": "/Customers/Index",
+    "final": "https://localhost:7232/Customers/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_purchaseorders",
+    "url": "/PurchaseOrders/Index",
+    "final": "https://localhost:7232/PurchaseOrders/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_stockin",
+    "url": "/StockIn/Index",
+    "final": "https://localhost:7232/StockIn/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_stockadjustment",
+    "url": "/StockAdjustment/Index",
+    "final": "https://localhost:7232/StockAdjustment/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_branchtransfers",
+    "url": "/BranchTransfers/Index",
+    "final": "https://localhost:7232/BranchTransfers/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_quotations",
+    "url": "/Quotations/Index",
+    "final": "https://localhost:7232/Quotations/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_deliveryreceipts",
+    "url": "/DeliveryReceipts/Index",
+    "final": "https://localhost:7232/DeliveryReceipts/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_pos",
+    "url": "/POS/Index",
+    "final": "https://localhost:7232/POS/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_sales",
+    "url": "/Sales/Index",
+    "final": "https://localhost:7232/Sales/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_collections",
+    "url": "/CustomerCollections/Index",
+    "final": "https://localhost:7232/CustomerCollections/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_supplierpayments",
+    "url": "/SupplierPayments/Index",
+    "final": "https://localhost:7232/SupplierPayments/Index",
+    "status": 404,
+    "ok": false,
+    "note": "status 404"
+  },
+  {
+    "key": "owner_expenses",
+    "url": "/Expenses/Index",
+    "final": "https://localhost:7232/Expenses/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_reports",
+    "url": "/Reports/Index",
+    "final": "https://localhost:7232/Reports/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_inv_intel",
+    "url": "/Reports/FastMovingItems",
+    "final": "https://localhost:7232/Reports/FastMovingItems",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_inv_valuation",
+    "url": "/Reports/InventoryValuation",
+    "final": "https://localhost:7232/Reports/InventoryValuation",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_import",
+    "url": "/Import/Index",
+    "final": "https://localhost:7232/Import/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "owner_audit",
+    "url": "/AuditTrail/Index",
+    "final": "https://localhost:7232/AuditTrail/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "cashier_pos",
+    "url": "/POS/Index",
+    "final": "https://localhost:7232/POS/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "cashier_receipt",
+    "url": "/Sales/Receipt/13",
+    "final": "https://localhost:7232/Sales/Receipt/13",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "cashier_saleshistory",
+    "url": "/Sales/Index",
+    "final": "https://localhost:7232/Sales/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  }
+]

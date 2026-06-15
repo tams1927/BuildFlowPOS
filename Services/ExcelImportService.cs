@@ -32,7 +32,7 @@ namespace HardwareManagementSystem.Services
 
         public static readonly Dictionary<string, List<string>> OptionalFields = new()
         {
-            ["Products"] = ["ItemCode", "Barcode", "CategoryName", "SupplierName", "CostPrice", "OpeningQtyToAdd", "ReorderLevel", "Description"],
+            ["Products"] = ["ItemCode", "Barcode", "CategoryName", "SupplierName", "CostPrice", "OpeningQtyToAdd", "ReorderLevel", "Description", "BaseUnit", "PurchaseUnit", "ConversionQuantity"],
             ["OpeningStock"] = ["ItemCode"],
             ["Customers"] = ["ContactNumber", "Email", "Address", "CustomerType"],
             ["Suppliers"] = ["ContactPerson", "ContactNumber", "Email", "Address", "Remarks"]
@@ -569,10 +569,12 @@ namespace HardwareManagementSystem.Services
                             : "";
 
                     var unitName = Get("UnitName");
+                    var baseUnitName = Get("BaseUnit");
+                    if (string.IsNullOrWhiteSpace(baseUnitName))
+                        baseUnitName = unitName;
 
                     var unit = units.FirstOrDefault(u =>
-                        u.UnitName.Equals(unitName,
-                            StringComparison.OrdinalIgnoreCase));
+                        u.UnitName.Equals(unitName, StringComparison.OrdinalIgnoreCase));
 
                     if (unit == null)
                     {
@@ -581,6 +583,10 @@ namespace HardwareManagementSystem.Services
                         failed++;
                         continue;
                     }
+
+                    var baseUnit = units.FirstOrDefault(u =>
+                        u.UnitName.Equals(baseUnitName, StringComparison.OrdinalIgnoreCase))
+                        ?? unit;
 
                     var catName = Get("CategoryName");
 
@@ -618,6 +624,7 @@ namespace HardwareManagementSystem.Services
                         ItemName = Get("ItemName"),
                         CategoryId = cat?.Id ?? (categories.FirstOrDefault()?.Id ?? 1),
                         UnitId = unit.Id,
+                        BaseUnitId = baseUnit.Id,
                         SupplierId = sup?.Id,
                         CostPrice = cp,
                         SellingPrice = sp,
@@ -629,6 +636,42 @@ namespace HardwareManagementSystem.Services
                     };
 
                     db.Items.Add(item);
+                    await db.SaveChangesAsync();
+
+                    db.ItemUnitConversions.Add(new ItemUnitConversion
+                    {
+                        TenantId = effectiveTenantId,
+                        ItemId = item.Id,
+                        UnitId = baseUnit.Id,
+                        ConversionQuantity = 1,
+                        IsDefaultPurchaseUnit = true,
+                        IsActive = true,
+                        CreatedAtUtc = DateTime.UtcNow,
+                        UpdatedAtUtc = DateTime.UtcNow
+                    });
+
+                    var purchaseUnitName = Get("PurchaseUnit");
+                    if (!string.IsNullOrWhiteSpace(purchaseUnitName))
+                    {
+                        var pu = units.FirstOrDefault(u =>
+                            u.UnitName.Equals(purchaseUnitName, StringComparison.OrdinalIgnoreCase));
+                        if (pu != null && pu.Id != baseUnit.Id)
+                        {
+                            decimal.TryParse(Get("ConversionQuantity"), out var convQty);
+                            if (convQty <= 0) convQty = 1;
+                            db.ItemUnitConversions.Add(new ItemUnitConversion
+                            {
+                                TenantId = effectiveTenantId,
+                                ItemId = item.Id,
+                                UnitId = pu.Id,
+                                ConversionQuantity = convQty,
+                                IsDefaultPurchaseUnit = true,
+                                IsActive = true,
+                                CreatedAtUtc = DateTime.UtcNow,
+                                UpdatedAtUtc = DateTime.UtcNow
+                            });
+                        }
+                    }
 
                     row.Status = "Imported";
                     success++;

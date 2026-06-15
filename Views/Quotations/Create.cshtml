@@ -4,6 +4,7 @@
     ViewData["Title"] = "New Quotation";
     var customers = ViewBag.Customers as List<Customer> ?? new List<Customer>();
     var items     = ViewBag.Items     as List<Item>     ?? new List<Item>();
+    var currency  = ViewBag.CurrencySymbol as string ?? "₱";
 }
 
 <div class="page-header-row mb-3">
@@ -90,7 +91,7 @@
                 <tfoot>
                     <tr class="table-light fw-bold">
                         <td colspan="5" class="text-end pe-3">Total</td>
-                        <td class="text-end" id="grandTotal">₱0.00</td>
+                        <td class="text-end" id="grandTotal">@currency 0.00</td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -134,7 +135,7 @@
                        value="${price}" min="0" step="0.01" onchange="recalcRow(this.closest('tr'))" /></td>
             <td><input type="number" name="discountPercents[]" class="form-control form-control-sm disc"
                        value="${disc}" min="0" max="100" step="0.01" onchange="recalcRow(this.closest('tr'))" /></td>
-            <td class="text-end subtotal fw-semibold">₱0.00</td>
+            <td class="text-end subtotal fw-semibold">@currency 0.00</td>
             <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); recalcTotal();">
                 <i class="bi bi-x"></i></button></td>
         `;
@@ -163,16 +164,16 @@
         const price  = parseFloat(row.querySelector('.price').value) || 0;
         const disc   = parseFloat(row.querySelector('.disc').value)  || 0;
         const sub    = qty * price * (1 - disc / 100);
-        row.querySelector('.subtotal').textContent = '₱' + sub.toFixed(2);
+        row.querySelector('.subtotal').textContent = '@currency' + sub.toFixed(2);
         recalcTotal();
     }
 
     function recalcTotal() {
         let total = 0;
         document.querySelectorAll('.subtotal').forEach(el => {
-            total += parseFloat(el.textContent.replace('₱', '')) || 0;
+            total += parseFloat(el.textContent.replace('@currency', '').replace(/[^\d.-]/g, '')) || 0;
         });
-        document.getElementById('grandTotal').textContent = '₱' + total.toFixed(2);
+        document.getElementById('grandTotal').textContent = '@currency' + total.toFixed(2);
     }
 
     document.getElementById('addRowBtn').addEventListener('click', () => addRow());

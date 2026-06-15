@@ -43,6 +43,7 @@ namespace HardwareManagementSystem.Data
         public DbSet<Category> Categories { get; set; }
         public DbSet<Unit> Units { get; set; }
         public DbSet<Item> Items { get; set; }
+        public DbSet<ItemUnitConversion> ItemUnitConversions { get; set; }
 
         // ── Supplier & Purchasing ─────────────────────────────────────────────
         public DbSet<Supplier> Suppliers { get; set; }
@@ -323,7 +324,33 @@ namespace HardwareManagementSystem.Data
                       .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(i => i.Unit).WithMany().HasForeignKey(i => i.UnitId)
                       .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(i => i.BaseUnit).WithMany().HasForeignKey(i => i.BaseUnitId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
+
+            builder.Entity<ItemUnitConversion>(entity =>
+            {
+                entity.HasIndex(c => c.TenantId).HasDatabaseName("IX_ItemUnitConversions_TenantId");
+                entity.HasIndex(c => new { c.ItemId, c.UnitId })
+                      .IsUnique()
+                      .HasDatabaseName("UX_ItemUnitConversions_ItemId_UnitId");
+                entity.HasOne(c => c.Item).WithMany(i => i.UnitConversions)
+                      .HasForeignKey(c => c.ItemId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(c => c.Unit).WithMany()
+                      .HasForeignKey(c => c.UnitId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<StockInDetail>()
+                .HasOne(d => d.ReceivedUnit).WithMany()
+                .HasForeignKey(d => d.ReceivedUnitId)
+                .OnDelete(DeleteBehavior.NoAction).IsRequired(false);
+
+            builder.Entity<PurchaseOrderItem>()
+                .HasOne(pi => pi.OrderedUnit).WithMany()
+                .HasForeignKey(pi => pi.OrderedUnitId)
+                .OnDelete(DeleteBehavior.NoAction).IsRequired(false);
 
             // ── Suppliers ─────────────────────────────────────────────────────
             builder.Entity<Supplier>(entity =>

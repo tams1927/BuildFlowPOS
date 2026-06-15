@@ -1,4 +1,4 @@
-﻿@model HardwareManagementSystem.Models.SalesHeader
+@model HardwareManagementSystem.Models.SalesHeader
 @{
     ViewData["Title"] = "Receipt";
 
@@ -8,7 +8,7 @@
 
     var taxMode           = settings?.TaxMode ?? "VAT";
     var defaultVatPercent = settings?.DefaultVatPercent ?? 0;
-    var currency          = settings?.CurrencySymbol ?? "₱";
+    var currency          = settings?.CurrencySymbol ?? (ViewBag.CurrencySymbol as string) ?? "?";
     var paperSize         = settings?.ReceiptPaperSize ?? "80mm";
     var footerNote        = settings?.ReceiptFooter ?? "Thank you for your purchase!";
 
@@ -19,7 +19,7 @@
 
 @section Styles {
 <style>
-    /* ── Receipt wrapper ──────────────────────────────────── */
+    /* -- Receipt wrapper ------------------------------------ */
     .receipt-wrapper {
         max-width: @(paperSize == "58mm" ? "260px" : "360px");
         margin: 0 auto;
@@ -107,7 +107,7 @@
                 </div>
                 <div>
                     <div class="label">Cashier</div>
-                    <div class="value">@(Model.CashierName ?? "—")</div>
+                    <div class="value">@(Model.CashierName ?? "�")</div>
                 </div>
                 <div>
                     <div class="label">Payment</div>
@@ -139,7 +139,7 @@
                         <div class="item-sub">
                             @detail.Quantity.ToString("0.###")
                             @(detail.Item?.Unit?.ShortName ?? "")
-                            × @currency@detail.UnitPrice.ToString("N2")
+                            � @currency@detail.UnitPrice.ToString("N2")
                         </div>
                     </div>
                     <div class="item-total">@currency@detail.LineTotal.ToString("N2")</div>

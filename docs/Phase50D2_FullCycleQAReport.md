@@ -1,10 +1,10 @@
 # Phase 5.0D.2 + 5.0D.4 — Full & Final Module Cutover QA Report
 
-- **Test run:** 2026-06-01 18:54:34 (local), id `20260601_185428`
+- **Test run:** 2026-06-05 13:38:49 (local), id `20260605_133843`
 - **Runner:** dev-only `Tools/Phase50D2QaRunner.cs` via `dotnet run -- --qa-phase50d2` (web server NOT started)
 - **Environment:** Development
-- **Tenant created:** `QA_Tenant_20260601_185428` (TenantId = 9)
-- **Dedicated database:** `QA_TenantDb_20260601_185428`
+- **Tenant created:** `QA_Tenant_20260605_133843` (TenantId = 14)
+- **Dedicated database:** `QA_TenantDb_20260605_133843`
 - **Overall result:** PASS — 50/50 steps passed
 
 ## Steps
@@ -12,33 +12,33 @@
 | # | Step | Result | Detail |
 |---|------|--------|--------|
 | 1 | Ensure SuperAdmin exists | PASS | superadmin present |
-| 2 | Create Tenant (Dedicated) | PASS | TenantId=9, Db=QA_TenantDb_20260601_185428 |
-| 3 | Create TenantAdmin | PASS | qa_admin_20260601_185428 |
-| 4 | Provision dedicated DB | PASS | Dedicated database 'QA_TenantDb_20260601_185428' provisioned successfully. The tenant continues to use the shared database (routing inactive). (created=True, migrated=True, seeded=True) |
+| 2 | Create Tenant (Dedicated) | PASS | TenantId=14, Db=QA_TenantDb_20260605_133843 |
+| 3 | Create TenantAdmin | PASS | qa_admin_20260605_133843 |
+| 4 | Provision dedicated DB | PASS | Dedicated database 'QA_TenantDb_20260605_133843' provisioned successfully. The tenant continues to use the shared database (routing inactive). (created=True, migrated=True, seeded=True) |
 | 5 | Test connection (dedicated) | PASS | Connection successful. |
-| 6 | Migrate tenant data | PASS | Migrated 1 rows across 23 tables. All counts validated. (rows=1, tables=23) |
+| 6 | Migrate tenant data | PASS | Migrated 1 rows across 24 tables. All counts validated. (rows=1, tables=24) |
 | 7 | Enable routing + diagnostics (Runtime=Dedicated) | PASS | Provisioned=True, DataMigrated=True, RoutingEnabled=True, RuntimeDatabase=Dedicated |
 | 8 | Operational context routes to TenantDbContext | PASS | Resolved context = TenantDbContext |
 | 9 | Create Branch x2 / Category / Unit / Supplier / Customer | PASS | Branch=1/2, Cat=1, Unit=1, Sup=1, Cust=1 |
-| 10 | Create Product | PASS | ItemId=1, Code=QAITM20260601_185428 |
-| 11 | Create Purchase Order | PASS | POId=1, No=QAPO20260601_185428, Status=Sent |
+| 10 | Create Product | PASS | ItemId=1, Code=QAITM20260605_133843 |
+| 11 | Create Purchase Order | PASS | POId=1, No=QAPO20260605_133843, Status=Sent |
 | 12 | Receive Purchase Order | PASS | Item.CurrentStock=20 |
 | 13 | Stock-In header + detail | PASS | StockInId=1, Item.CurrentStock=30 |
 | 14 | Stock Adjustment | PASS | AdjId=1, Item.CurrentStock=35 |
-| 15 | Branch Transfer | PASS | TransferId=1, No=QATR20260601_185428 |
-| 16 | Create Quotation | PASS | QuoteId=1, No=QAQT20260601_185428 |
-| 17 | Convert Quotation to Sale | PASS | SaleId=1, No=QAQSALE20260601_185428 |
-| 18 | Create Delivery Receipt | PASS | DRId=1, No=QADR20260601_185428 |
-| 19 | POS Sale (cash) | PASS | SaleId=2, No=QASALE20260601_185428 |
-| 20 | Credit Sale + ledger CHARGE | PASS | SaleId=3, No=QACRED20260601_185428 |
-| 21 | Customer Collection (ledger PAYMENT) | PASS | Ref=QACOL20260601_185428, balance 240→140 |
-| 22 | Sales Return | PASS | ReturnId=1, No=QARET20260601_185428 |
-| 23 | Supplier Payment | PASS | PaymentId=1, Ref=QASP20260601_185428 |
-| 24 | Expense | PASS | ExpenseId=1, No=QAEXP20260601_185428 |
+| 15 | Branch Transfer | PASS | TransferId=1, No=QATR20260605_133843 |
+| 16 | Create Quotation | PASS | QuoteId=1, No=QAQT20260605_133843 |
+| 17 | Convert Quotation to Sale | PASS | SaleId=1, No=QAQSALE20260605_133843 |
+| 18 | Create Delivery Receipt | PASS | DRId=1, No=QADR20260605_133843 |
+| 19 | POS Sale (cash) | PASS | SaleId=2, No=QASALE20260605_133843 |
+| 20 | Credit Sale + ledger CHARGE | PASS | SaleId=3, No=QACRED20260605_133843 |
+| 21 | Customer Collection (ledger PAYMENT) | PASS | Ref=QACOL20260605_133843, balance 240→140 |
+| 22 | Sales Return | PASS | ReturnId=1, No=QARET20260605_133843 |
+| 23 | Supplier Payment | PASS | PaymentId=1, Ref=QASP20260605_133843 |
+| 24 | Expense | PASS | ExpenseId=1, No=QAEXP20260605_133843 |
 | 25 | Set Main Branch (single main enforced) | PASS | mainBranchCount after switch=1 |
 | 26 | Assign User Branch | PASS | UserBranch rows for admin@mainBranch=1 (no cross-db FK — UserId is a plain string) |
-| 27 | Write tenant audit record to dedicated context | PASS | Action=QA_AUDIT_READ_20260601_185428 |
-| 28 | Update tenant settings via routed context | PASS | BusinessName=QA_Biz_20260601_185428, TIN=QA-TIN-20260601_185428, VAT=8%, Footer set |
+| 27 | Write tenant audit record to dedicated context | PASS | Action=QA_AUDIT_READ_20260605_133843 |
+| 28 | Update tenant settings via routed context | PASS | BusinessName=QA_Biz_20260605_133843, TIN=QA-TIN-20260605_133843, VAT=8%, Footer set |
 | 29 | Import service routes to TenantDbContext (ambient principal) | PASS | Resolved context = TenantDbContext |
 | 30 | Import Suppliers via ExcelImportService | PASS | success=1, failed=0 |
 | 31 | Import Customers via ExcelImportService | PASS | success=1, failed=0 |
@@ -54,7 +54,7 @@
 | 41 | Reorder Suggestions query runs on dedicated | PASS | reorderCandidates=1 |
 | 42 | ABC Analysis aggregates dedicated inventory | PASS | totalInventoryValue=1500.00000 |
 | 43 | Dashboard KPIs read dedicated | PASS | sales=3, salesTotal=480.00, expenses=350.00 |
-| 44 | Receipt/PDF header uses dedicated settings | PASS | BusinessName=QA_Biz_20260601_185428, TIN=QA-TIN-20260601_185428, VAT=8.00, FooterSet=True |
+| 44 | Receipt/PDF header uses dedicated settings | PASS | BusinessName=QA_Biz_20260605_133843, TIN=QA-TIN-20260605_133843, VAT=8.00, FooterSet=True |
 | 45 | Read Audit Entries from dedicated (not shared) | PASS | dedicated=1, shared=0 |
 | 46 | Branch selector reads dedicated assignments | PASS | assignedBranches(dedicated)=1 |
 | 47 | Rollback: runtime returns Shared | PASS | RuntimeDatabase=Shared |

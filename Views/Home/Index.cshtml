@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Dashboard";
 
     decimal todaySales = ViewBag.TodaySales ?? 0;
@@ -57,7 +57,7 @@
                 </h2>
                 <div class="hb-section-subtitle">
                     Plan: <strong>@subUsage.PlanName</strong>
-                    &nbsp;·&nbsp;
+                    &nbsp;�&nbsp;
                     Status:&nbsp;
                     @if (subUsage.Status.ToString() == "Active")
                     {
@@ -74,7 +74,7 @@
                     @if (subUsage.ExpirationDate.HasValue)
                     {
                         <span class="ms-2 text-muted small">
-                            &nbsp;·&nbsp; Expires: @subUsage.ExpirationDate.Value.ToString("MMM dd, yyyy")
+                            &nbsp;�&nbsp; Expires: @subUsage.ExpirationDate.Value.ToString("MMM dd, yyyy")
                         </span>
                     }
                 </div>
@@ -86,7 +86,7 @@
                 <div class="col-md-4">
                     <div class="d-flex justify-content-between mb-1">
                         <span class="small fw-semibold">Branches</span>
-                        <span class="small text-muted">@subUsage.Branches / @(subUsage.MaxBranches == 0 ? "∞" : subUsage.MaxBranches.ToString())</span>
+                        <span class="small text-muted">@subUsage.Branches / @(subUsage.MaxBranches == 0 ? "8" : subUsage.MaxBranches.ToString())</span>
                     </div>
                     <div class="progress" style="height:8px;">
                         <div class="progress-bar @(subUsage.BranchPct >= 90 ? "bg-danger" : subUsage.BranchPct >= 70 ? "bg-warning" : "bg-success")"
@@ -102,7 +102,7 @@
                 <div class="col-md-4">
                     <div class="d-flex justify-content-between mb-1">
                         <span class="small fw-semibold">Users</span>
-                        <span class="small text-muted">@subUsage.Users / @(subUsage.MaxUsers == 0 ? "∞" : subUsage.MaxUsers.ToString())</span>
+                        <span class="small text-muted">@subUsage.Users / @(subUsage.MaxUsers == 0 ? "8" : subUsage.MaxUsers.ToString())</span>
                     </div>
                     <div class="progress" style="height:8px;">
                         <div class="progress-bar @(subUsage.UserPct >= 90 ? "bg-danger" : subUsage.UserPct >= 70 ? "bg-warning" : "bg-success")"
@@ -118,7 +118,7 @@
                 <div class="col-md-4">
                     <div class="d-flex justify-content-between mb-1">
                         <span class="small fw-semibold">Products</span>
-                        <span class="small text-muted">@subUsage.Products / @(subUsage.MaxProducts == 0 ? "∞" : subUsage.MaxProducts.ToString())</span>
+                        <span class="small text-muted">@subUsage.Products / @(subUsage.MaxProducts == 0 ? "8" : subUsage.MaxProducts.ToString())</span>
                     </div>
                     <div class="progress" style="height:8px;">
                         <div class="progress-bar @(subUsage.ProductPct >= 90 ? "bg-danger" : subUsage.ProductPct >= 70 ? "bg-warning" : "bg-success")"
@@ -144,7 +144,7 @@
                 <i class="bi bi-cash-stack"></i>
             </div>
             <div class="kpi-label">Today's Sales</div>
-            <div class="kpi-value">₱@todaySales.ToString("N2")</div>
+            <div class="kpi-value">@(ViewBag.CurrencySymbol)@todaySales.ToString("N2")</div>
             <div class="kpi-trend">Completed sales today</div>
         </div>
     </div>
@@ -155,7 +155,7 @@
                 <i class="bi bi-graph-up-arrow"></i>
             </div>
             <div class="kpi-label">Monthly Sales</div>
-            <div class="kpi-value">₱@monthlySales.ToString("N2")</div>
+            <div class="kpi-value">@(ViewBag.CurrencySymbol)@monthlySales.ToString("N2")</div>
             <div class="kpi-trend">Current month revenue</div>
         </div>
     </div>
@@ -177,7 +177,7 @@
                 <i class="bi bi-box-seam"></i>
             </div>
             <div class="kpi-label">Inventory Value</div>
-            <div class="kpi-value">₱@inventoryValue.ToString("N2")</div>
+            <div class="kpi-value">@(ViewBag.CurrencySymbol)@inventoryValue.ToString("N2")</div>
             <div class="kpi-trend">Current stock valuation</div>
         </div>
     </div>
@@ -188,7 +188,7 @@
                 <i class="bi bi-wallet2"></i>
             </div>
             <div class="kpi-label">Today's Expenses</div>
-            <div class="kpi-value">₱@todayExpenses.ToString("N2")</div>
+            <div class="kpi-value">@(ViewBag.CurrencySymbol)@todayExpenses.ToString("N2")</div>
             <div class="kpi-trend">Expenses recorded today</div>
         </div>
     </div>
@@ -200,8 +200,8 @@
                     <i class="bi bi-people"></i>
                 </div>
                 <div class="kpi-label">Receivables</div>
-                <div class="kpi-value @(totalReceivables > 0 ? "text-warning" : "")">₱@totalReceivables.ToString("N2")</div>
-                <div class="kpi-trend">Outstanding customer balances · View →</div>
+                <div class="kpi-value @(totalReceivables > 0 ? "text-warning" : "")">@(ViewBag.CurrencySymbol)@totalReceivables.ToString("N2")</div>
+                <div class="kpi-trend">Outstanding customer balances � View ?</div>
             </div>
         </a>
     </div>
@@ -213,8 +213,8 @@
                     <i class="bi bi-truck"></i>
                 </div>
                 <div class="kpi-label">Payables</div>
-                <div class="kpi-value @(totalPayables > 0 ? "text-danger" : "")">₱@totalPayables.ToString("N2")</div>
-                <div class="kpi-trend">Unpaid supplier balance due · View →</div>
+                <div class="kpi-value @(totalPayables > 0 ? "text-danger" : "")">@(ViewBag.CurrencySymbol)@totalPayables.ToString("N2")</div>
+                <div class="kpi-trend">Unpaid supplier balance due � View ?</div>
             </div>
         </a>
     </div>
@@ -227,7 +227,7 @@
                 </div>
                 <div class="kpi-label">Overdue Receivables</div>
                 <div class="kpi-value @(overdueARCount > 0 ? "text-warning" : "")">@overdueARCount Cust.</div>
-                <div class="kpi-trend">30+ days unpaid · AR Aging →</div>
+                <div class="kpi-trend">30+ days unpaid � AR Aging ?</div>
             </div>
         </a>
     </div>
@@ -239,8 +239,8 @@
                     <i class="bi bi-clock-history"></i>
                 </div>
                 <div class="kpi-label">Overdue Payables</div>
-                <div class="kpi-value @(overdueAPAmount > 0 ? "text-danger" : "")">₱@overdueAPAmount.ToString("N2")</div>
-                <div class="kpi-trend">30+ days unpaid · AP Aging →</div>
+                <div class="kpi-value @(overdueAPAmount > 0 ? "text-danger" : "")">@(ViewBag.CurrencySymbol)@overdueAPAmount.ToString("N2")</div>
+                <div class="kpi-trend">30+ days unpaid � AP Aging ?</div>
             </div>
         </a>
     </div>
@@ -269,7 +269,7 @@
                 </div>
                 <div class="kpi-label">Draft POs</div>
                 <div class="kpi-value">@pendingPOCount</div>
-                <div class="kpi-trend">Awaiting review &amp; send · View →</div>
+                <div class="kpi-trend">Awaiting review &amp; send � View ?</div>
             </div>
         </a>
     </div>
@@ -282,7 +282,7 @@
                 </div>
                 <div class="kpi-label">Sent POs</div>
                 <div class="kpi-value">@sentPOCount</div>
-                <div class="kpi-trend">Awaiting delivery · View →</div>
+                <div class="kpi-trend">Awaiting delivery � View ?</div>
             </div>
         </a>
     </div>
@@ -295,7 +295,7 @@
                 </div>
                 <div class="kpi-label">Partially Received</div>
                 <div class="kpi-value">@partiallyReceivedPOCount</div>
-                <div class="kpi-trend">Incomplete delivery · View →</div>
+                <div class="kpi-trend">Incomplete delivery � View ?</div>
             </div>
         </a>
     </div>
@@ -308,7 +308,7 @@
                 </div>
                 <div class="kpi-label">Critical / Low Stock</div>
                 <div class="kpi-value">@(criticalStockCount + reorderStockCount)</div>
-                <div class="kpi-trend">Generate reorder PO →</div>
+                <div class="kpi-trend">Generate reorder PO ?</div>
             </div>
         </a>
     </div>
@@ -406,7 +406,7 @@
                                         </td>
 
                                         <td>
-                                            <strong>₱@sale.TotalAmount.ToString("N2")</strong>
+                                            <strong>@(ViewBag.CurrencySymbol)@sale.TotalAmount.ToString("N2")</strong>
                                         </td>
 
                                         <td>
@@ -464,7 +464,7 @@
                         }
                         else
                         {
-                            <span>All branches · items below reorder level</span>
+                            <span>All branches � items below reorder level</span>
                         }
                     </div>
                 </div>
@@ -499,7 +499,7 @@
                                     <code>@item.ItemCode</code>
                                     @if (item.Category != null)
                                     {
-                                        <span class="ms-1">· @item.Category.CategoryName</span>
+                                        <span class="ms-1">� @item.Category.CategoryName</span>
                                     }
                                 </div>
                             </div>
@@ -543,7 +543,7 @@
 
 </div>
 
-@* ── INVENTORY INTELLIGENCE SECTION ──────────────────────────────── *@
+@* -- INVENTORY INTELLIGENCE SECTION -------------------------------- *@
 <div class="row g-3 mt-2">
 
     <div class="col-12">
@@ -561,7 +561,7 @@
             <div class="kpi-card">
                 <div class="kpi-icon" style="background:rgba(37,99,235,.12);color:#2563eb;"><i class="bi bi-currency-exchange"></i></div>
                 <div class="kpi-label">Inventory Value</div>
-                <div class="kpi-value fs-6">₱@totalInventoryValue.ToString("N0")</div>
+                <div class="kpi-value fs-6">@(ViewBag.CurrencySymbol)@totalInventoryValue.ToString("N0")</div>
                 <div class="kpi-trend">Total &#64; cost</div>
             </div>
         </a>
@@ -612,7 +612,7 @@
                 <div class="kpi-icon" style="background:rgba(139,92,246,.12);color:#7c3aed;"><i class="bi bi-bar-chart-steps"></i></div>
                 <div class="kpi-label">ABC Analysis</div>
                 <div class="kpi-value fs-6">Revenue</div>
-                <div class="kpi-trend">Classify A/B/C items →</div>
+                <div class="kpi-trend">Classify A/B/C items ?</div>
             </div>
         </a>
     </div>
@@ -702,7 +702,7 @@
                                         <div class="text-muted" style="font-size:.75rem;"><code>@item.ItemCode</code></div>
                                     </div>
                                 </div>
-                                <span class="badge badge-soft-primary">₱@((decimal)item.Value).ToString("N0")</span>
+                                <span class="badge badge-soft-primary">@(ViewBag.CurrencySymbol)@((decimal)item.Value).ToString("N0")</span>
                             </div>
                         }
                     }

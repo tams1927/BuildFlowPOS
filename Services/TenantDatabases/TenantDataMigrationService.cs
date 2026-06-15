@@ -85,6 +85,7 @@ namespace HardwareManagementSystem.Services.TenantDatabases
                 Step<Supplier>("Suppliers",                  _app.Suppliers.Where(x => x.TenantId == tenantId)),
                 Step<Customer>("Customers",                  _app.Customers.Where(x => x.TenantId == tenantId)),
                 Step<Item>("Items",                          _app.Items.Where(x => x.TenantId == tenantId)),
+                Step<ItemUnitConversion>("ItemUnitConversions", _app.ItemUnitConversions.Where(x => x.TenantId == tenantId)),
                 Step<BranchProductStock>("BranchProductStocks", _app.BranchProductStocks.Where(x => x.TenantId == tenantId)),
                 Step<UserBranch>("UserBranches",             _app.UserBranches.Where(x => branchIds.Contains(x.BranchId))),
                 Step<SalesHeader>("SalesHeaders",            _app.SalesHeaders.Where(x => x.TenantId == tenantId)),

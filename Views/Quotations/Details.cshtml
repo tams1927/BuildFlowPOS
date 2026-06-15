@@ -2,6 +2,7 @@
 @model HardwareManagementSystem.Models.Quotation
 @{
     ViewData["Title"] = $"Quotation {Model.QuotationNo}";
+    var currency = ViewBag.CurrencySymbol as string ?? "₱";
     var statusBadge = Model.Status switch {
         "Draft"     => "badge-soft-secondary",
         "Sent"      => "badge-soft-info",
@@ -161,16 +162,16 @@
                             }
                         </td>
                         <td class="text-end">@item.Quantity.ToString("N4").TrimEnd('0').TrimEnd('.')</td>
-                        <td class="text-end">₱@item.UnitPrice.ToString("N2")</td>
+                        <td class="text-end">@currency@item.UnitPrice.ToString("N2")</td>
                         <td class="text-end">@(item.DiscountPercent > 0 ? $"{item.DiscountPercent:N2}%" : "—")</td>
-                        <td class="text-end fw-semibold">₱@item.Subtotal.ToString("N2")</td>
+                        <td class="text-end fw-semibold">@currency@item.Subtotal.ToString("N2")</td>
                     </tr>
                 }
             </tbody>
             <tfoot>
                 <tr class="table-light">
                     <td colspan="5" class="text-end fw-bold pe-3">TOTAL</td>
-                    <td class="text-end fw-bold fs-5 text-primary">₱@Model.TotalAmount.ToString("N2")</td>
+                    <td class="text-end fw-bold fs-5 text-primary">@currency@Model.TotalAmount.ToString("N2")</td>
                 </tr>
             </tfoot>
         </table>

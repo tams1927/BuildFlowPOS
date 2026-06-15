@@ -128,7 +128,7 @@
                         <th class="text-end">Ordered Qty</th>
                         <th class="text-end">Received Qty</th>
                         <th class="text-end">Remaining</th>
-                        <th class="text-end">Unit Cost</th>
+                        <th class="text-end">Cost / Ordered Unit</th>
                         <th class="text-end">Total Cost</th>
                     </tr>
                 </thead>
@@ -166,7 +166,7 @@
                                     <span class="badge badge-soft-success">Complete</span>
                                 }
                             </td>
-                            <td class="text-end">@currency@pi.UnitCost.ToString("N2")</td>
+                            <td class="text-end">@currency@((pi.CostPerOrderedUnit > 0 ? pi.CostPerOrderedUnit : pi.UnitCost * (pi.ConversionQuantity > 0 ? pi.ConversionQuantity : 1m)).ToString("N2"))</td>
                             <td class="text-end fw-semibold">@currency@pi.TotalCost.ToString("N2")</td>
                         </tr>
                         lineNo++;

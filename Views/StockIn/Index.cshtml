@@ -37,7 +37,7 @@
             <div class="kpi-label">Total Inventory Cost</div>
 
             <div class="kpi-value">
-                ₱@Model.Items.Sum(h => h.TotalCost).ToString("N2")
+                @(ViewBag.CurrencySymbol)@Model.Items.Sum(h => h.TotalCost).ToString("N2")
             </div>
 
             <div class="kpi-trend">
@@ -387,33 +387,62 @@
                         <div class="col-md-3">
 
                             <label class="form-label fw-semibold">
-                                Quantity
+                                Received Unit
                             </label>
 
-                            <input type="number"
-                                   step="0.001"
-                                   min="0.001"
-                                   name="quantity"
-                                   class="form-control"
-                                   value="1"
-                                   required />
+                            <select id="stockInReceivedUnit"
+                                    name="receivedUnitId"
+                                    class="form-select"
+                                    required>
+                                <option value="">Select item first</option>
+                            </select>
 
                         </div>
 
                         <div class="col-md-3">
 
                             <label class="form-label fw-semibold">
-                                Unit Cost
+                                Received Quantity
+                            </label>
+
+                            <input type="number"
+                                   step="0.001"
+                                   min="0.001"
+                                   name="quantity"
+                                   id="stockInReceivedQty"
+                                   class="form-control"
+                                   value="1"
+                                   required />
+
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Inventory (base unit)</label>
+                            <input type="text" id="stockInBasePreview" class="form-control" readonly placeholder="Base qty will appear here" />
+                        </div>
+
+                        <div class="col-md-3">
+
+                            <label class="form-label fw-semibold">
+                                Cost Per Received Unit
                             </label>
 
                             <input type="number"
                                    step="0.01"
                                    min="0"
                                    name="unitCost"
+                                   id="stockInUnitCost"
                                    class="form-control"
                                    value="0"
                                    required />
+                            <div class="form-text">Supplier invoice cost for one received unit (e.g. per sack).</div>
 
+                        </div>
+
+                        <div class="col-12">
+                            <div class="alert alert-light border small mb-0" id="stockInCostPreview">
+                                <strong>Cost preview:</strong> enter received unit, quantity, and cost to see base-unit cost.
+                            </div>
                         </div>
 
                         <div class="col-md-6">
@@ -506,7 +535,7 @@
                     return;
                 }
                 if (unitCostVal < 0) {
-                    Swal.fire({ icon: 'warning', title: 'Invalid Unit Cost', text: 'Unit cost cannot be negative.', confirmButtonColor: '#1e40af' });
+                    Swal.fire({ icon: 'warning', title: 'Invalid Cost', text: 'Cost per received unit cannot be negative.', confirmButtonColor: '#1e40af' });
                     form.querySelector('[name="unitCost"]').focus();
                     return;
                 }
@@ -541,22 +570,59 @@
         const stockInCurrentStockDisplay =
             document.getElementById('stockInCurrentStockDisplay');
 
-        if (stockInItemSelect) {
+        const stockInReceivedUnit = document.getElementById('stockInReceivedUnit');
+        const stockInBasePreview = document.getElementById('stockInBasePreview');
+        const stockInReceivedQty = document.getElementById('stockInReceivedQty');
 
-            stockInItemSelect.addEventListener('change', function () {
-
-                const selected =
-                    this.options[this.selectedIndex];
-
-                stockInUnitDisplay.value =
-                    selected.getAttribute('data-unit') || '';
-
-                stockInCurrentStockDisplay.value =
-                    selected.getAttribute('data-stock') || '0';
-
+        async function loadStockInUnits(itemId) {
+            if (!itemId || !stockInReceivedUnit) return;
+            stockInReceivedUnit.innerHTML = '<option value="">Loading…</option>';
+            const res = await fetch(`/Products/GetUnitsForItem?itemId=${itemId}`);
+            const units = await res.json();
+            stockInReceivedUnit.innerHTML = '';
+            units.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.unitId;
+                opt.textContent = u.label;
+                opt.dataset.factor = u.conversionQuantity;
+                if (u.isDefaultPurchaseUnit) opt.selected = true;
+                stockInReceivedUnit.appendChild(opt);
             });
-
+            updateBasePreview();
         }
+
+        const sym = '@(ViewBag.CurrencySymbol ?? "₱")';
+
+        function updateBasePreview() {
+            const opt = stockInReceivedUnit?.selectedOptions[0];
+            const factor = parseFloat(opt?.dataset.factor || '1');
+            const qty = parseFloat(stockInReceivedQty?.value || '0');
+            const costPerReceived = parseFloat(document.getElementById('stockInUnitCost')?.value || '0');
+            const base = (qty * factor).toFixed(3);
+            const costPerBase = factor > 0 ? (costPerReceived / factor) : costPerReceived;
+            const total = (qty * costPerReceived).toFixed(2);
+            if (stockInBasePreview) stockInBasePreview.value = `${base} (inventory base unit)`;
+            const preview = document.getElementById('stockInCostPreview');
+            if (preview && opt) {
+                const unitLabel = opt.textContent.split('(')[0].trim();
+                preview.innerHTML = `<strong>Cost preview:</strong> ${qty} ${unitLabel} &#64; ${sym}${costPerReceived.toFixed(2)}<br/>
+                    Conversion: 1 unit = ${factor} base<br/>
+                    Computed cost: <strong>${sym}${costPerBase.toFixed(2)} per base unit</strong><br/>
+                    Line total: <strong>${sym}${total}</strong>`;
+            }
+        }
+
+        if (stockInItemSelect) {
+            stockInItemSelect.addEventListener('change', function () {
+                const selected = this.options[this.selectedIndex];
+                stockInUnitDisplay.value = selected.getAttribute('data-unit') || '';
+                stockInCurrentStockDisplay.value = selected.getAttribute('data-stock') || '0';
+                loadStockInUnits(this.value);
+            });
+        }
+        if (stockInReceivedUnit) stockInReceivedUnit.addEventListener('change', updateBasePreview);
+        if (stockInReceivedQty) stockInReceivedQty.addEventListener('input', updateBasePreview);
+        document.getElementById('stockInUnitCost')?.addEventListener('input', updateBasePreview);
 
         const stockInSearchInput =
             document.getElementById('stockInSearchInput');

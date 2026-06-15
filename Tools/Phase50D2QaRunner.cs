@@ -219,7 +219,8 @@ namespace HardwareManagementSystem.Tools
                     var item = new Item
                     {
                         TenantId = tenantId, ItemCode = itemCode, ItemName = itemName,
-                        CategoryId = category.Id, UnitId = unit.Id, SupplierId = supplier.Id,
+                        CategoryId = category.Id, UnitId = unit.Id, BaseUnitId = unit.Id,
+                        SupplierId = supplier.Id,
                         CostPrice = 50m, SellingPrice = 80m, CurrentStock = 0m, ReorderLevel = 5m,
                         Status = "Active", CreatedAt = DateTime.Now
                     };

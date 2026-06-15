@@ -216,6 +216,8 @@ namespace HardwareManagementSystem.Services.TenantDatabases
             {
                 var permissions = await _appContext.RolePermissions
                     .AsNoTracking()
+                    .GroupBy(p => new { p.RoleName, p.ModuleName })
+                    .Select(g => g.First())
                     .ToListAsync();
 
                 foreach (var p in permissions)

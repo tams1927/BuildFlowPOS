@@ -54,9 +54,40 @@
                     <input asp-for="VATRegNumber" class="form-control" placeholder="VAT Reg. No." />
                 </div>
 
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Currency Symbol</label>
-                    <input asp-for="CurrencySymbol" class="form-control" required />
+                <div class="col-12">
+                    <h6 class="fw-bold text-primary mt-2">Currency</h6>
+                    <p class="text-muted small mb-0">Used on dashboard, POS, receipts, reports, and PDF exports.</p>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Currency</label>
+                    <select id="currencyPreset" class="form-select">
+                        <option value="PHP|₱|Philippine Peso">PHP — Philippine Peso (₱)</option>
+                        <option value="USD|$|US Dollar">USD — US Dollar ($)</option>
+                        <option value="EUR|€|Euro">EUR — Euro (€)</option>
+                        <option value="GBP|£|British Pound">GBP — British Pound (£)</option>
+                        <option value="JPY|¥|Japanese Yen">JPY — Japanese Yen (¥)</option>
+                        <option value="SGD|S$|Singapore Dollar">SGD — Singapore Dollar (S$)</option>
+                        <option value="AED|د.إ|UAE Dirham">AED — UAE Dirham</option>
+                        <option value="AUD|A$|Australian Dollar">AUD — Australian Dollar</option>
+                        <option value="CAD|C$|Canadian Dollar">CAD — Canadian Dollar</option>
+                        <option value="CUSTOM">Custom…</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Code</label>
+                    <input asp-for="CurrencyCode" class="form-control" maxlength="3" required />
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Symbol</label>
+                    <input asp-for="CurrencySymbol" id="currencySymbolInput" class="form-control" required />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Currency Name</label>
+                    <input asp-for="CurrencyName" id="currencyNameInput" class="form-control" required />
                 </div>
 
                 <div class="col-md-3">
@@ -554,6 +585,31 @@
         if (result.isConfirmed) form.requestSubmit();
         });
     });
+
+    const currencyPreset = document.getElementById('currencyPreset');
+    const currencyCode = document.querySelector('[name="CurrencyCode"]');
+    const currencySymbol = document.getElementById('currencySymbolInput');
+    const currencyName = document.getElementById('currencyNameInput');
+    if (currencyPreset && currencyCode) {
+        function syncPresetFromFields() {
+            const key = `${currencyCode.value}|${currencySymbol?.value}|${currencyName?.value}`;
+            let matched = false;
+            for (const opt of currencyPreset.options) {
+                if (opt.value === key) { currencyPreset.value = key; matched = true; break; }
+            }
+            if (!matched) currencyPreset.value = 'CUSTOM';
+        }
+        syncPresetFromFields();
+        currencyPreset.addEventListener('change', function () {
+            if (this.value === 'CUSTOM') return;
+            const parts = this.value.split('|');
+            if (parts.length >= 3) {
+                currencyCode.value = parts[0];
+                if (currencySymbol) currencySymbol.value = parts[1];
+                if (currencyName) currencyName.value = parts[2];
+            }
+        });
+    }
 
     // Logo preview
     const logoInput    = document.getElementById('logoFileInput');

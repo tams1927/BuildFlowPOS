@@ -20,6 +20,12 @@ namespace HardwareManagementSystem.Models
 
         public int UnitId { get; set; }
 
+        /// <summary>
+        /// Unit used for inventory, reports, valuation, POS deduction, and stock balance.
+        /// Defaults to <see cref="UnitId"/> for existing products.
+        /// </summary>
+        public int BaseUnitId { get; set; }
+
         public int? SupplierId { get; set; }
 
         [Column(TypeName = "decimal(18,3)")]
@@ -61,6 +67,11 @@ namespace HardwareManagementSystem.Models
         public Category? Category { get; set; }
 
         public Unit? Unit { get; set; }
+
+        [ForeignKey(nameof(BaseUnitId))]
+        public Unit? BaseUnit { get; set; }
+
+        public ICollection<ItemUnitConversion> UnitConversions { get; set; } = new List<ItemUnitConversion>();
 
         public Supplier? Supplier { get; set; }
     }
