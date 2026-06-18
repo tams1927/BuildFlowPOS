@@ -1,0 +1,170 @@
+[
+  {
+    "key": "login",
+    "url": "/Account/Login",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_dashboard",
+    "url": "/Home/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_tenants",
+    "url": "/Tenants/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_plans",
+    "url": "/SubscriptionPlans/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_users",
+    "url": "/Users/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "super_audit",
+    "url": "/AuditTrail/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "tenant_dashboard",
+    "url": "/Home/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "settings",
+    "url": "/Settings/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "branches",
+    "url": "/Branches/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "users",
+    "url": "/Users/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "products",
+    "url": "/Products/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "inventory",
+    "url": "/Inventory/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "stockin",
+    "url": "/StockIn/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "pos",
+    "url": "/POS/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "sales",
+    "url": "/Sales/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "customers",
+    "url": "/Customers/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "suppliers",
+    "url": "/Suppliers/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "purchaseorders",
+    "url": "/PurchaseOrders/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "quotations",
+    "url": "/Quotations/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "deliveryreceipts",
+    "url": "/DeliveryReceipts/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "reports",
+    "url": "/Reports/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "import",
+    "url": "/Import/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "audit",
+    "url": "/AuditTrail/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "currency_symbol_pos",
+    "url": "/POS/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  }
+]
