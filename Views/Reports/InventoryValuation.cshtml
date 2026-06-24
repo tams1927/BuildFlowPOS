@@ -145,10 +145,12 @@
                         <th>Product Name</th>
                         <th>Category</th>
                         <th>Unit</th>
-                        <th class="text-end">Quantity</th>
+                        <th class="text-end">Sellable</th>
+                        <th class="text-end">Damaged</th>
+                        <th class="text-end">Physical</th>
                         <th class="text-end">Cost Price</th>
-                        <th class="text-end">Cost Value</th>
-                        <th class="text-end">Selling Value</th>
+                        <th class="text-end">Sellable Cost</th>
+                        <th class="text-end">Damaged Cost</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -163,9 +165,11 @@
                                 <td>@item.CategoryName</td>
                                 <td>@item.UnitName</td>
                                 <td class="text-end">@item.Quantity.ToString("0.###")</td>
-                                <td class="text-end">?@item.CostPrice.ToString("N2")</td>
-                                <td class="text-end fw-semibold">?@item.CostValue.ToString("N2")</td>
-                                <td class="text-end">?@item.SellingValue.ToString("N2")</td>
+                                <td class="text-end text-warning">@item.DamagedQuantity.ToString("0.###")</td>
+                                <td class="text-end">@item.PhysicalQuantity.ToString("0.###")</td>
+                                <td class="text-end">₱@item.CostPrice.ToString("N2")</td>
+                                <td class="text-end fw-semibold">₱@item.CostValue.ToString("N2")</td>
+                                <td class="text-end text-warning">₱@item.DamagedCostValue.ToString("N2")</td>
                                 <td>
                                     @if (item.StockStatus == "Out of Stock")
                                     {
@@ -186,7 +190,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="9" class="text-center py-5">
+                            <td colspan="11" class="text-center py-5">
                                 <div class="text-muted">
                                     <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                     No inventory records found.

@@ -68,6 +68,10 @@ namespace HardwareManagementSystem.Data
         // ── Inventory Operations ──────────────────────────────────────────────
         public DbSet<StockAdjustmentHeader> StockAdjustmentHeaders { get; set; }
         public DbSet<StockAdjustmentDetail> StockAdjustmentDetails { get; set; }
+        public DbSet<DamagedGoodsHeader> DamagedGoodsHeaders { get; set; }
+        public DbSet<DamagedGoodsDetail> DamagedGoodsDetails { get; set; }
+        public DbSet<SupplierReturnHeader> SupplierReturnHeaders { get; set; }
+        public DbSet<SupplierReturnDetail> SupplierReturnDetails { get; set; }
 
         // ── Expenses ──────────────────────────────────────────────────────────
         public DbSet<Expense> Expenses { get; set; }
@@ -155,6 +159,8 @@ namespace HardwareManagementSystem.Data
             builder.Entity<SalesReturnHeader>().Ignore(e => e.Tenant);
             builder.Entity<StockInHeader>().Ignore(e => e.Tenant);
             builder.Entity<StockAdjustmentHeader>().Ignore(e => e.Tenant);
+            builder.Entity<DamagedGoodsHeader>().Ignore(e => e.Tenant);
+            builder.Entity<SupplierReturnHeader>().Ignore(e => e.Tenant);
             builder.Entity<Quotation>().Ignore(e => e.Tenant);
             builder.Entity<DeliveryReceipt>().Ignore(e => e.Tenant);
             builder.Entity<PurchaseOrder>().Ignore(e => e.Tenant);
@@ -436,6 +442,56 @@ namespace HardwareManagementSystem.Data
             {
                 entity.HasIndex(s => s.TenantId).HasDatabaseName("IX_StockAdjustmentHeaders_TenantId");
             });
+
+            // ── Phase 5.3 Damaged Goods / Supplier Returns ────────────────────
+            builder.Entity<DamagedGoodsHeader>(entity =>
+            {
+                entity.HasIndex(d => d.TenantId).HasDatabaseName("IX_DamagedGoodsHeaders_TenantId");
+                entity.HasIndex(d => new { d.TenantId, d.DamageNumber })
+                    .IsUnique()
+                    .HasFilter("[TenantId] IS NOT NULL")
+                    .HasDatabaseName("UX_DamagedGoodsHeaders_TenantId_DamageNumber");
+            });
+
+            builder.Entity<DamagedGoodsDetail>()
+                .HasOne(d => d.DamagedGoodsHeader)
+                .WithMany(h => h.Details)
+                .HasForeignKey(d => d.DamagedGoodsHeaderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<DamagedGoodsDetail>()
+                .HasOne(d => d.Item)
+                .WithMany()
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<SupplierReturnHeader>(entity =>
+            {
+                entity.HasIndex(s => s.TenantId).HasDatabaseName("IX_SupplierReturnHeaders_TenantId");
+                entity.HasIndex(s => new { s.TenantId, s.ReturnNumber })
+                    .IsUnique()
+                    .HasFilter("[TenantId] IS NOT NULL")
+                    .HasDatabaseName("UX_SupplierReturnHeaders_TenantId_ReturnNumber");
+            });
+
+            builder.Entity<SupplierReturnDetail>()
+                .HasOne(d => d.SupplierReturnHeader)
+                .WithMany(h => h.Details)
+                .HasForeignKey(d => d.SupplierReturnHeaderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<SupplierReturnDetail>()
+                .HasOne(d => d.Item)
+                .WithMany()
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<SupplierReturnHeader>()
+                .HasOne(h => h.LinkedDamagedGoods)
+                .WithMany()
+                .HasForeignKey(h => h.LinkedDamagedGoodsId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired(false);
 
             // ── SalesReturnHeaders ────────────────────────────────────────────
             builder.Entity<SalesReturnHeader>(entity =>

@@ -74,6 +74,8 @@ namespace HardwareManagementSystem.Services.TenantDatabases
             var poIds           = await IdsAsync(_app.PurchaseOrders.Where(p => p.TenantId == tenantId).Select(p => p.Id));
             var quotationIds    = await IdsAsync(_app.Quotations.Where(q => q.TenantId == tenantId).Select(q => q.Id));
             var drIds           = await IdsAsync(_app.DeliveryReceipts.Where(d => d.TenantId == tenantId).Select(d => d.Id));
+            var damagedGoodsIds = await IdsAsync(_app.DamagedGoodsHeaders.Where(h => h.TenantId == tenantId).Select(h => h.Id));
+            var supplierReturnIds = await IdsAsync(_app.SupplierReturnHeaders.Where(h => h.TenantId == tenantId).Select(h => h.Id));
 
             // Each step: (table name, ordered loader). Order matters (parents → children).
             var steps = new List<CopyStep>
@@ -100,6 +102,10 @@ namespace HardwareManagementSystem.Services.TenantDatabases
                 Step<QuotationItem>("QuotationItems",        _app.QuotationItems.Where(x => quotationIds.Contains(x.QuotationId))),
                 Step<DeliveryReceipt>("DeliveryReceipts",    _app.DeliveryReceipts.Where(x => x.TenantId == tenantId)),
                 Step<DeliveryReceiptItem>("DeliveryReceiptItems", _app.DeliveryReceiptItems.Where(x => drIds.Contains(x.DeliveryReceiptId))),
+                Step<DamagedGoodsHeader>("DamagedGoodsHeaders", _app.DamagedGoodsHeaders.Where(x => x.TenantId == tenantId)),
+                Step<DamagedGoodsDetail>("DamagedGoodsDetails", _app.DamagedGoodsDetails.Where(x => damagedGoodsIds.Contains(x.DamagedGoodsHeaderId))),
+                Step<SupplierReturnHeader>("SupplierReturnHeaders", _app.SupplierReturnHeaders.Where(x => x.TenantId == tenantId)),
+                Step<SupplierReturnDetail>("SupplierReturnDetails", _app.SupplierReturnDetails.Where(x => supplierReturnIds.Contains(x.SupplierReturnHeaderId))),
                 Step<Notification>("Notifications",          _app.Notifications.Where(x => x.TenantId == tenantId)),
                 Step<AuditTrail>("AuditTrails",              _app.AuditTrails.Where(x => x.TenantId == tenantId)),
             };

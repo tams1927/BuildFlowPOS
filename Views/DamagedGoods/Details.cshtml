@@ -1,0 +1,88 @@
+@model HardwareManagementSystem.Models.DamagedGoodsHeader
+@{
+    ViewData["Title"] = $"Damage {Model.DamageNumber}";
+    var detail = Model.Details.FirstOrDefault();
+    var linkedReturn = ViewBag.LinkedReturn as HardwareManagementSystem.Models.SupplierReturnHeader;
+}
+
+<div class="page-header-row mb-4">
+    <div>
+        <h2 class="page-section-title">@Model.DamageNumber <span class="badge badge-soft-secondary ms-2">@Model.Status</span></h2>
+        <p class="text-muted mb-0">@Model.DamageDate.ToString("MMMM dd, yyyy") · @(Model.Branch?.Name ?? "All branches")</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
+</div>
+
+<div class="hb-card mb-4">
+    <div class="hb-card-body">
+        @if (detail != null)
+        {
+            <div class="row g-2">
+                <div class="col-md-4"><strong>Item:</strong> @(detail.Item?.ItemName)</div>
+                <div class="col-md-2"><strong>Qty:</strong> @detail.Quantity.ToString("0.###") @(detail.Unit?.ShortName)</div>
+                <div class="col-md-2"><strong>Base:</strong> @detail.BaseQuantity.ToString("0.###")</div>
+                <div class="col-md-2"><strong>Reason:</strong> @detail.Reason</div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(detail.Notes))
+            {
+                <p class="text-muted small mt-2">@detail.Notes</p>
+            }
+        }
+        @if (linkedReturn != null)
+        {
+            <div class="alert alert-info small mt-3 py-2">
+                Linked supplier return:
+                <a asp-controller="SupplierReturns" asp-action="Details" asp-route-id="@linkedReturn.Id">@linkedReturn.ReturnNumber</a>
+                (@linkedReturn.Status)
+            </div>
+        }
+    </div>
+</div>
+
+@if (Model.Status == "Pending")
+{
+    <div class="d-flex flex-wrap gap-2">
+        <form asp-action="Recover" method="post" class="d-inline action-form" data-title="Recover stock?" data-text="Move quantity from damaged back to sellable stock.">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="button" class="btn btn-success btn-action">Recover</button>
+        </form>
+        <form asp-action="Dispose" method="post" class="d-inline action-form" data-title="Dispose damaged stock?" data-text="Damaged quantity will be removed from inventory.">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="button" class="btn btn-outline-danger btn-action">Dispose</button>
+        </form>
+        @if (linkedReturn == null)
+        {
+            <form asp-action="ReturnToSupplier" method="post" class="d-inline action-form" data-title="Return to supplier?" data-text="Creates a supplier return linked to this damage record.">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="button" class="btn btn-outline-primary btn-action">Return to Supplier</button>
+            </form>
+        }
+        <form asp-action="Cancel" method="post" class="d-inline action-form" data-title="Cancel damage record?" data-text="Sellable stock will be restored.">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="button" class="btn btn-outline-secondary btn-action">Cancel</button>
+        </form>
+    </div>
+}
+
+@section Scripts {
+<script>
+document.querySelectorAll('.btn-action').forEach(btn => {
+    btn.addEventListener('click', function () {
+        const form = this.closest('form');
+        Swal.fire({
+            title: form.dataset.title,
+            text: form.dataset.text,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, continue'
+        }).then(r => { if (r.isConfirmed) form.submit(); });
+    });
+});
+</script>
+}

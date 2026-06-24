@@ -8,12 +8,16 @@
     var branches = ViewBag.Branches as List<HardwareManagementSystem.Models.Branch> ?? new();
     var selectedBranch = ViewBag.SelectedBranch as HardwareManagementSystem.Models.Branch;
     var branchStockMap = ViewBag.BranchStockMap as Dictionary<int, decimal>;
+    var branchDamagedMap = ViewBag.BranchDamagedMap as Dictionary<int, decimal>;
     var categoryFilter = ViewBag.CategoryFilter as string;
     var stockFilter = ViewBag.StockFilter as string;
     int? branchIdFilter = ViewBag.BranchIdFilter as int?;
 
     decimal GetBranchStock(int itemId) =>
         branchStockMap != null && branchStockMap.TryGetValue(itemId, out var q) ? q : 0;
+
+    decimal GetDamagedForItem(HardwareManagementSystem.Models.Item item) =>
+        branchDamagedMap != null && branchDamagedMap.TryGetValue(item.Id, out var d) ? d : item.DamagedStock;
 }
 
 <div class="row g-3 mb-4">
@@ -167,16 +171,9 @@
                         <th>Item Name</th>
                         <th>Category</th>
                         <th>Unit</th>
-                        <th>
-                            @if (selectedBranch != null)
-                            {
-                                <text>@selectedBranch.Code Stock</text>
-                            }
-                            else
-                            {
-                                <text>Stock</text>
-                            }
-                        </th>
+                        <th>Sellable</th>
+                        <th>Damaged</th>
+                        <th>Physical</th>
                         <th>Reorder Lvl</th>
                         <th>Stock Value</th>
                         <th>Status</th>
@@ -193,6 +190,8 @@
                             var displayStock = branchStockMap != null
                                 ? GetBranchStock(item.Id)
                                 : item.CurrentStock;
+                            var damagedStock = GetDamagedForItem(item);
+                            var physicalStock = displayStock + damagedStock;
 
                             var stockValue = displayStock * item.CostPrice;
 
@@ -215,8 +214,9 @@
                                     <strong class="@(displayStock <= 0 ? "text-danger" : displayStock <= item.ReorderLevel ? "text-warning" : "")">
                                         @displayStock.ToString("0.###")
                                     </strong>
-                                    <span class="text-muted small ms-1">@(item.Unit?.ShortName ?? "")</span>
                                 </td>
+                                <td class="text-muted">@damagedStock.ToString("0.###")</td>
+                                <td>@physicalStock.ToString("0.###")</td>
 
                                 <td class="text-muted">@item.ReorderLevel.ToString("0.###")</td>
 

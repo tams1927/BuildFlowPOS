@@ -173,10 +173,10 @@
                                     @if (t.Status != TenantStatus.Suspended)
                                     {
                                         <form asp-controller="Tenants" asp-action="Suspend" asp-route-id="@t.Id"
-                                              method="post" class="d-inline"
-                                              onsubmit="return confirm('Suspend @Html.Raw(t.Name.Replace("'","\'"))?')">
+                                              method="post" class="d-inline tenant-suspend-form">
                                             @Html.AntiForgeryToken()
-                                            <button type="submit" class="btn btn-sm btn-outline-warning" title="Suspend">
+                                            <button type="button" class="btn btn-sm btn-outline-warning btn-suspend-tenant"
+                                                    title="Suspend" data-tenant-name="@t.Name">
                                                 <i class="bi bi-pause-circle"></i>
                                             </button>
                                         </form>
@@ -262,4 +262,27 @@
             </table>
         </div>
     </div>
+}
+
+@section Scripts {
+<script>
+(function () {
+    document.querySelectorAll('.btn-suspend-tenant').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form = this.closest('form');
+            var name = this.dataset.tenantName || 'this tenant';
+            Swal.fire({
+                title: 'Suspend tenant?',
+                html: 'Suspend <strong>' + name + '</strong>? All tenant users will be blocked.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, suspend',
+                cancelButtonText: 'Cancel'
+            }).then(function (r) { if (r.isConfirmed) form.submit(); });
+        });
+    });
+})();
+</script>
 }

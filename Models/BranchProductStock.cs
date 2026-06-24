@@ -21,6 +21,10 @@ namespace HardwareManagementSystem.Models
         [Column(TypeName = "decimal(18,3)")]
         public decimal Quantity { get; set; } = 0;
 
+        /// <summary>Unsellable damaged quantity at this branch (sellable = <see cref="Quantity"/>).</summary>
+        [Column(TypeName = "decimal(18,3)")]
+        public decimal DamagedStock { get; set; } = 0;
+
         /// <summary>
         /// Optional branch-specific reorder level override.
         /// Falls back to Item.ReorderLevel when null.

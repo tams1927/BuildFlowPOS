@@ -31,6 +31,10 @@ namespace HardwareManagementSystem.Models
         [Column(TypeName = "decimal(18,3)")]
         public decimal CurrentStock { get; set; }
 
+        /// <summary>Sellable stock is <see cref="CurrentStock"/>; damaged bucket is tracked separately.</summary>
+        [Column(TypeName = "decimal(18,3)")]
+        public decimal DamagedStock { get; set; }
+
         [Column(TypeName = "decimal(18,3)")]
         public decimal ReorderLevel { get; set; }
 

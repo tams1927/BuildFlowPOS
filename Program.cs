@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using HardwareManagementSystem.Data.Seeders;
 using HardwareManagementSystem.Filters;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.Configuration;
+using HardwareManagementSystem.Services.Backups;
 using HardwareManagementSystem.Services.TenantDatabases;
 using QuestPDF.Infrastructure;
 using HardwareManagementSystem.Services.Pdf;
@@ -45,6 +47,8 @@ builder.Services.AddScoped<ExcelImportService>();
 
 builder.Services.AddScoped<BranchService>();
 
+builder.Services.AddScoped<DamagedStockService>();
+
 builder.Services.AddScoped<ItemUnitConversionService>();
 builder.Services.AddScoped<ICurrencyFormatter, CurrencyFormatter>();
 
@@ -67,6 +71,10 @@ builder.Services.AddScoped<ITenantDbContextFactory, TenantDbContextFactory>();
 builder.Services.AddScoped<ITenantDatabaseProvisioningService, TenantDatabaseProvisioningService>();
 builder.Services.AddScoped<ITenantDataMigrationService, TenantDataMigrationService>();
 builder.Services.AddScoped<ITenantOperationalContextProvider, TenantOperationalContextProvider>();
+
+builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
+builder.Services.AddScoped<IBackupService, BackupService>();
+builder.Services.AddHostedService<ScheduledBackupBackgroundService>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -248,6 +256,24 @@ if (args.Contains("--qa-phase51"))
 if (args.Contains("--qa-rc12"))
 {
     await HardwareManagementSystem.Tools.Rc12QaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-backup"))
+{
+    await HardwareManagementSystem.Tools.BackupQaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-phase53"))
+{
+    await HardwareManagementSystem.Tools.Phase53QaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-phase531"))
+{
+    await HardwareManagementSystem.Tools.Phase531QaRunner.RunAsync(app);
     return;
 }
 

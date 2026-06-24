@@ -33,7 +33,7 @@
         currentController == "Expenses" ||
         currentController == "Quotations" ||
         currentController == "DeliveryReceipts";
-    var isInventoryMenu = currentController == "Inventory" || currentController == "Products" || currentController == "StockIn" || currentController == "StockAdjustment" || currentController == "Suppliers" || currentController == "Categories" || currentController == "Units" || currentController == "Import" || currentController == "BranchTransfers" || currentController == "InventoryMovement";
+    var isInventoryMenu = currentController == "Inventory" || currentController == "Products" || currentController == "StockIn" || currentController == "StockAdjustment" || currentController == "Suppliers" || currentController == "Categories" || currentController == "Units" || currentController == "Import" || currentController == "BranchTransfers" || currentController == "InventoryMovement" || currentController == "DamagedGoods" || currentController == "SupplierReturns";
     var isCustomersMenu = currentController == "Customers";
     var isReportsMenu = currentController == "Reports" || currentController == "AuditTrail";
     var isSuperAdmin = User.IsInRole("SuperAdmin");
@@ -43,7 +43,8 @@
                         currentController == "Tenants" ||
                         currentController == "SuperAdmin" ||
                         currentController == "SubscriptionPlans" ||
-                        currentController == "AuditTrail");
+                        currentController == "AuditTrail" ||
+                        currentController == "BackupManagement");
     var isQuotationsMenu = currentController == "Quotations";
     // For SuperAdmin: AuditTrail lives under SaaS Management, not Reports
     var isReportsMenuEffective = !isSuperAdmin && isReportsMenu;
@@ -76,6 +77,8 @@
     var canImport = await PermissionService.HasPermissionAsync(User, "Import");
     var canBranches = await PermissionService.HasPermissionAsync(User, "Branches");
     var canBranchTransfers = await PermissionService.HasPermissionAsync(User, "BranchTransfers");
+    var canDamagedGoods = await PermissionService.HasPermissionAsync(User, "DamagedGoods");
+    var canSupplierReturns = await PermissionService.HasPermissionAsync(User, "SupplierReturns");
     var canUserBranches = await PermissionService.HasPermissionAsync(User, "UserBranches");
 
 
@@ -281,7 +284,7 @@
     }
 
     <!-- INVENTORY — hidden for SuperAdmin -->
-    @if (!isSuperAdmin && (canInventory || canProducts || canStockIn || canStockAdjustment || canSuppliers || canCategories || canUnits || canImport || canBranchTransfers))
+    @if (!isSuperAdmin && (canInventory || canProducts || canStockIn || canStockAdjustment || canDamagedGoods || canSupplierReturns || canSuppliers || canCategories || canUnits || canImport || canBranchTransfers))
     {
         <div class="sidebar-group">
 
@@ -367,6 +370,24 @@
 
                             Stock Adjustment
 
+                        </a>
+                    }
+
+                    @if (canDamagedGoods)
+                    {
+                        <a class="sidebar-link @(currentController == "DamagedGoods" ? "active" : "")"
+                           asp-controller="DamagedGoods"
+                           asp-action="Index">
+                            Damaged Goods
+                        </a>
+                    }
+
+                    @if (canSupplierReturns)
+                    {
+                        <a class="sidebar-link @(currentController == "SupplierReturns" ? "active" : "")"
+                           asp-controller="SupplierReturns"
+                           asp-action="Index">
+                            Supplier Returns
                         </a>
                     }
 
@@ -744,6 +765,12 @@
                         Global Audit Trail
                     </a>
 
+                    <a class="sidebar-link @(currentController == "BackupManagement" ? "active" : "")"
+                       asp-controller="BackupManagement"
+                       asp-action="Index">
+                        Backup Management
+                    </a>
+
                 </div>
 
             </div>
@@ -774,26 +801,29 @@
 
                 <div class="topbar-actions">
 
-                <!-- BRANCH SELECTOR -->
                     @if (User.Identity?.IsAuthenticated == true && availableBranches.Count > 0)
                     {
-                        @if (!string.IsNullOrEmpty(tenantDisplayName))
-                        {
-                            <span class="badge bg-primary me-1 d-none d-md-inline-flex align-items-center gap-1" style="font-size:.75rem;">
-                                <i class="bi bi-building-fill"></i> @tenantDisplayName
-                            </span>
-                        }
-                        <div class="dropdown me-2">
-                            <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                                    type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                                    title="Switch Branch">
-                                <i class="bi bi-building"></i>
-                                <span class="d-none d-md-inline">
-                                    @(currentBranch?.Name ?? "Select Branch")
+                        <div class="topbar-context-group">
+                            @if (!string.IsNullOrEmpty(tenantDisplayName))
+                            {
+                                <span class="topbar-tenant-badge" title="@tenantDisplayName">
+                                    <i class="bi bi-building-fill" aria-hidden="true"></i>
+                                    <span class="topbar-tenant-label">@tenantDisplayName</span>
                                 </span>
-                                <i class="bi bi-chevron-down" style="font-size:.7rem;"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:220px;">
+                            }
+                            <div class="dropdown topbar-branch-dropdown">
+                                <button class="btn btn-outline-secondary topbar-branch-btn"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        aria-expanded="false"
+                                        title="@(currentBranch?.Name ?? "Select Branch")">
+                                    <i class="bi bi-building" aria-hidden="true"></i>
+                                    <span class="topbar-branch-label d-none d-md-inline">
+                                        @(currentBranch?.Name ?? "Select Branch")
+                                    </span>
+                                    <i class="bi bi-chevron-down topbar-branch-chevron" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow topbar-branch-menu">
                                 <li class="px-3 py-1">
                                     <small class="text-muted fw-semibold text-uppercase" style="font-size:.7rem;">
                                         Switch Branch
@@ -838,13 +868,15 @@
                                 }
                             </ul>
                         </div>
+                        </div>
                     }
 
-                    <div class="dropdown">
-                        <button class="btn btn-outline-primary btn-sm position-relative"
+                    <div class="dropdown topbar-notify-dropdown">
+                        <button class="btn btn-outline-primary topbar-notify-btn position-relative"
                                 type="button"
                                 data-bs-toggle="dropdown"
-                                aria-expanded="false">
+                                aria-expanded="false"
+                                title="Notifications">
                             <i class="bi bi-bell"></i>
                             @if (unreadCount > 0)
                             {
@@ -936,12 +968,13 @@
                         </ul>
                     </div>
 
-                    <div class="dropdown">
+                    <div class="dropdown topbar-user-dropdown">
 
-                        <button class="user-chip border-0"
+                        <button class="user-chip topbar-user-chip border-0"
                                 type="button"
                                 data-bs-toggle="dropdown"
-                                aria-expanded="false">
+                                aria-expanded="false"
+                                title="@User.Identity?.Name">
 
                             <div class="user-avatar">
                                 @(User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "A")

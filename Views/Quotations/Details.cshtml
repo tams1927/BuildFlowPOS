@@ -53,23 +53,21 @@
         }
         @if (Model.Status == "Accepted" && !Model.ConvertedToSaleId.HasValue)
         {
-            <form asp-action="ConvertToSale" method="post"
-                  onsubmit="return confirm('Convert this quotation to a sale? Stock will be deducted.')">
+            <form asp-action="ConvertToSale" method="post" class="d-inline" id="formConvertQuotation">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
-                <button type="submit" class="btn btn-success">
+                <button type="button" class="btn btn-success" id="btnConvertQuotation">
                     <i class="bi bi-cart-check me-1"></i> Convert to Sale
                 </button>
             </form>
         }
         @if (Model.Status != "Voided" && Model.Status != "Accepted" && Model.Status != "Converted")
         {
-            <form asp-action="UpdateStatus" method="post"
-                  onsubmit="return confirm('Void this quotation?')">
+            <form asp-action="UpdateStatus" method="post" class="d-inline" id="formVoidQuotation">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
                 <input type="hidden" name="status" value="Voided" />
-                <button type="submit" class="btn btn-outline-danger">
+                <button type="button" class="btn btn-outline-danger" id="btnVoidQuotation">
                     <i class="bi bi-x-circle me-1"></i> Void
                 </button>
             </form>
@@ -177,3 +175,44 @@
         </table>
     </div>
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    var btnConvert = document.getElementById('btnConvertQuotation');
+    if (btnConvert) {
+        btnConvert.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Convert to sale?',
+                text: 'Stock will be deducted when this quotation is converted.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#198754',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, convert',
+                cancelButtonText: 'Cancel'
+            }).then(function (r) {
+                if (r.isConfirmed) document.getElementById('formConvertQuotation').submit();
+            });
+        });
+    }
+    var btnVoid = document.getElementById('btnVoidQuotation');
+    if (btnVoid) {
+        btnVoid.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Void quotation?',
+                text: 'This quotation will be marked void.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, void',
+                cancelButtonText: 'Cancel'
+            }).then(function (r) {
+                if (r.isConfirmed) document.getElementById('formVoidQuotation').submit();
+            });
+        });
+    }
+})();
+</script>
+}

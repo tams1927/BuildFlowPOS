@@ -81,6 +81,16 @@ namespace HardwareManagementSystem.Data
 
         public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
 
+        public DbSet<BackupRecord> BackupRecords { get; set; }
+
+        public DbSet<DamagedGoodsHeader> DamagedGoodsHeaders { get; set; }
+
+        public DbSet<DamagedGoodsDetail> DamagedGoodsDetails { get; set; }
+
+        public DbSet<SupplierReturnHeader> SupplierReturnHeaders { get; set; }
+
+        public DbSet<SupplierReturnDetail> SupplierReturnDetails { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -710,6 +720,126 @@ namespace HardwareManagementSystem.Data
             builder.Entity<PurchaseOrder>()
                 .HasIndex(po => new { po.TenantId, po.SupplierId })
                 .HasDatabaseName("IX_PurchaseOrders_TenantId_SupplierId");
+
+            // ============================================
+            // BACKUP RECORDS — platform-owned audit trail
+            // ============================================
+
+            builder.Entity<BackupRecord>()
+                .HasOne(b => b.Tenant)
+                .WithMany()
+                .HasForeignKey(b => b.TenantId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
+
+            builder.Entity<BackupRecord>()
+                .HasIndex(b => new { b.TenantId, b.StartedAtUtc })
+                .HasDatabaseName("IX_BackupRecords_TenantId_StartedAtUtc");
+
+            builder.Entity<BackupRecord>()
+                .HasIndex(b => b.StartedAtUtc)
+                .HasDatabaseName("IX_BackupRecords_StartedAtUtc");
+
+            builder.Entity<BackupRecord>()
+                .Property(b => b.DatabaseType)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            builder.Entity<BackupRecord>()
+                .Property(b => b.Status)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            builder.Entity<BackupRecord>()
+                .Property(b => b.BackupType)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // ============================================
+            // PHASE 5.3 — DAMAGED GOODS & SUPPLIER RETURNS
+            // ============================================
+
+            builder.Entity<DamagedGoodsHeader>()
+                .HasOne(h => h.Branch)
+                .WithMany()
+                .HasForeignKey(h => h.BranchId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired(false);
+
+            builder.Entity<DamagedGoodsHeader>()
+                .HasOne(h => h.Tenant)
+                .WithMany()
+                .HasForeignKey(h => h.TenantId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
+
+            builder.Entity<DamagedGoodsDetail>()
+                .HasOne(d => d.DamagedGoodsHeader)
+                .WithMany(h => h.Details)
+                .HasForeignKey(d => d.DamagedGoodsHeaderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<DamagedGoodsDetail>()
+                .HasOne(d => d.Item)
+                .WithMany()
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<DamagedGoodsDetail>()
+                .HasOne(d => d.Unit)
+                .WithMany()
+                .HasForeignKey(d => d.UnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<DamagedGoodsHeader>()
+                .HasIndex(h => new { h.TenantId, h.DamageNumber })
+                .IsUnique()
+                .HasFilter("[TenantId] IS NOT NULL")
+                .HasDatabaseName("UX_DamagedGoodsHeaders_TenantId_DamageNumber");
+
+            builder.Entity<SupplierReturnHeader>()
+                .HasOne(h => h.Supplier)
+                .WithMany()
+                .HasForeignKey(h => h.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<SupplierReturnHeader>()
+                .HasOne(h => h.Branch)
+                .WithMany()
+                .HasForeignKey(h => h.BranchId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired(false);
+
+            builder.Entity<SupplierReturnHeader>()
+                .HasOne(h => h.LinkedDamagedGoods)
+                .WithMany()
+                .HasForeignKey(h => h.LinkedDamagedGoodsId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired(false);
+
+            builder.Entity<SupplierReturnDetail>()
+                .HasOne(d => d.SupplierReturnHeader)
+                .WithMany(h => h.Details)
+                .HasForeignKey(d => d.SupplierReturnHeaderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<SupplierReturnDetail>()
+                .HasOne(d => d.Item)
+                .WithMany()
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<SupplierReturnDetail>()
+                .HasOne(d => d.Unit)
+                .WithMany()
+                .HasForeignKey(d => d.UnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<SupplierReturnHeader>()
+                .HasIndex(h => new { h.TenantId, h.ReturnNumber })
+                .IsUnique()
+                .HasFilter("[TenantId] IS NOT NULL")
+                .HasDatabaseName("UX_SupplierReturnHeaders_TenantId_ReturnNumber");
         }
     }
 }

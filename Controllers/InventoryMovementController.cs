@@ -222,6 +222,42 @@ namespace HardwareManagementSystem.Controllers
                 }));
             }
 
+            // ── 3b. DAMAGED GOODS ─────────────────────────────────────
+            if (string.IsNullOrWhiteSpace(movementType) || movementType == "Damaged")
+            {
+                var dmgQuery = _context.DamagedGoodsDetails
+                    .AsNoTracking()
+                    .Include(d => d.Item).ThenInclude(i => i!.Unit)
+                    .Include(d => d.DamagedGoodsHeader).ThenInclude(h => h!.Branch)
+                    .Where(d =>
+                        d.DamagedGoodsHeader != null &&
+                        d.DamagedGoodsHeader.DamageDate >= from &&
+                        d.DamagedGoodsHeader.DamageDate < to &&
+                        (productId == null || d.ItemId == productId) &&
+                        (branchId == null || d.DamagedGoodsHeader.BranchId == branchId));
+
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                    dmgQuery = dmgQuery.Where(d =>
+                        d.DamagedGoodsHeader!.TenantId == tenantId ||
+                        d.DamagedGoodsHeader!.TenantId == null);
+
+                var dmgRows = await dmgQuery.ToListAsync();
+                movements.AddRange(dmgRows.Select(d => new InventoryMovementVm
+                {
+                    Date = d.DamagedGoodsHeader!.DamageDate,
+                    MovementType = "Damaged Goods",
+                    Branch = d.DamagedGoodsHeader.Branch?.Name,
+                    ProductId = d.ItemId,
+                    ProductName = d.Item?.ItemName ?? "N/A",
+                    ProductCode = d.Item?.ItemCode ?? "",
+                    Unit = d.Unit?.ShortName ?? d.Item?.Unit?.ShortName ?? "",
+                    QuantityIn = null,
+                    QuantityOut = d.BaseQuantity,
+                    Reference = d.DamagedGoodsHeader.DamageNumber,
+                    Notes = d.Reason
+                }));
+            }
+
             // ── 4. TRANSFERS ─────────────────────────────────────────
             if (string.IsNullOrWhiteSpace(movementType) || movementType == "Transfer")
             {

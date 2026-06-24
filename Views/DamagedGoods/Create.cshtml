@@ -1,0 +1,97 @@
+@{
+    ViewData["Title"] = "Tag Damaged Stock";
+    var items = ViewBag.Items as List<HardwareManagementSystem.Models.Item>;
+    var units = ViewBag.Units as List<HardwareManagementSystem.Models.Unit>;
+    var branches = ViewBag.Branches as List<HardwareManagementSystem.Models.Branch>;
+    var currentBranch = ViewBag.CurrentBranch as HardwareManagementSystem.Models.Branch;
+    var reasons = ViewBag.Reasons as string[] ?? Array.Empty<string>();
+}
+
+<div class="hb-card">
+    <div class="hb-card-header">
+        <h2 class="hb-section-title">Tag Damaged Stock</h2>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Back</a>
+    </div>
+    <div class="hb-card-body">
+        <form asp-action="Create" method="post" id="damageForm">
+            @Html.AntiForgeryToken()
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Branch</label>
+                    <select name="branchId" class="form-select">
+                        @if (currentBranch != null)
+                        {
+                            <option value="@currentBranch.Id" selected>@currentBranch.Name</option>
+                        }
+                        @foreach (var b in branches ?? new List<HardwareManagementSystem.Models.Branch>())
+                        {
+                            if (currentBranch?.Id != b.Id)
+                            {
+                                <option value="@b.Id">@b.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">Item</label>
+                    <select name="itemId" id="itemId" class="form-select" required>
+                        <option value="">Select item</option>
+                        @foreach (var i in items ?? new List<HardwareManagementSystem.Models.Item>())
+                        {
+                            <option value="@i.Id" data-unit="@i.BaseUnitId">@i.ItemCode — @i.ItemName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Unit</label>
+                    <select name="unitId" id="unitId" class="form-select" required>
+                        @foreach (var u in units ?? new List<HardwareManagementSystem.Models.Unit>())
+                        {
+                            <option value="@u.Id">@u.UnitName (@u.ShortName)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Quantity</label>
+                    <input type="number" name="quantity" step="0.001" min="0.001" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Reason</label>
+                    <select name="reason" class="form-select" required>
+                        @foreach (var r in reasons) { <option value="@r">@r</option> }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="button" class="btn btn-primary" id="btnSubmitDamage">
+                    <i class="bi bi-exclamation-triangle me-1"></i> Save Damage Record
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.getElementById('itemId')?.addEventListener('change', function () {
+    const opt = this.selectedOptions[0];
+    const unitId = opt?.dataset.unit;
+    if (unitId) document.getElementById('unitId').value = unitId;
+});
+document.getElementById('btnSubmitDamage')?.addEventListener('click', function () {
+    Swal.fire({
+        title: 'Tag damaged stock?',
+        text: 'Sellable stock will decrease and damaged stock will increase.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, save'
+    }).then(r => { if (r.isConfirmed) document.getElementById('damageForm').submit(); });
+});
+</script>
+}

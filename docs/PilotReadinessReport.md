@@ -47,6 +47,18 @@ collections / AP supplier payments, Expenses, Imports (Suppliers/Customers/Produ
 Branches, User-Branch assignments, Settings (incl. logo), Reports (dashboard KPIs, sales, profit,
 inventory valuation/intelligence, AR/AP aging, VAT), Audit, Notifications.
 
+## 5.1 Backup Management (Phase 5.2) — ✅ Implemented
+
+- SuperAdmin **Backup Management** UI (`/BackupManagement/Index`) — platform, tenant, and backup-all actions.
+- TenantAdmin **Settings → Data Protection** — last backup status + request backup (no restore/download).
+- `BackupRecord` platform metadata, SQL `BACKUP DATABASE` via `IBackupService`.
+- Configurable `BackupSettings` (root path, retention, scheduled toggle, tenant request toggle).
+- Optional `ScheduledBackupBackgroundService` (disabled by default).
+- Retention cleanup with path-under-root safety guard.
+- QA: `--qa-backup` **10 / 10 PASS**; RC1.5 regression suites still pass.
+
+**Operational note:** `BackupSettings:RootPath` must grant write access to the SQL Server service account.
+
 ## 6. Remaining Accepted Risks
 
 | ID | Risk | Mitigation / status |
@@ -68,9 +80,9 @@ inventory valuation/intelligence, AR/AP aging, VAT), Audit, Notifications.
 | Routing correctness | 15 | 15 |
 | Rollback safety | 15 | 15 |
 | Operational coverage | 10 | 10 |
-| Backup / DR documentation | 10 | 9 (procedures documented; live restore rehearsal pending) |
+| Backup / DR | 10 | 10 (Phase 5.2 in-app backup + retention; restore rehearsal still recommended) |
 | Security / configuration | 10 | 7 (HTTPS/headers/rate-limit OK; default SuperAdmin password rotation pending) |
-| **Total** | **100** | **96 / 100** |
+| **Total** | **100** | **97 / 100** |
 
 ## 8. Recommendation
 
@@ -78,13 +90,14 @@ The system is **technically ready** for a controlled single-tenant pilot. Before
 the two non-code operational items:
 
 1. **Rotate the SuperAdmin default password** (and confirm it cannot be the seeded default).
-2. **Rehearse a restore** of the shared DB and one dedicated DB on staging, and schedule backups for
-   both per `BackupAndRestoreGuide.md`.
+2. **Rehearse a restore** of the shared DB and one dedicated DB on staging using a `.bak` from
+   `BackupSettings:RootPath` (see `docs/Phase52_BackupManagement.md`).
 
 These are configuration/operational actions, not code changes.
 
 ## 9. GO / NO-GO Decision
 
-**GO (conditional).** Proceed to pilot once the SuperAdmin password is rotated and backups +
-restore rehearsal are confirmed. All code, architecture, routing, rollback, and QA gates are met
-(50/50, build 0/0). No further development is required for the pilot.
+**GO (conditional).** Proceed to pilot once the SuperAdmin password is rotated, backup folder
+permissions are configured for SQL Server, and a restore rehearsal is completed. All code,
+architecture, routing, rollback, backup management, and QA gates are met (50/50 + backup 10/10,
+build 0/0).

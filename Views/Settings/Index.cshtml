@@ -424,6 +424,71 @@
 
 </div>
 
+@{
+    var dataProtection = ViewBag.DataProtection as HardwareManagementSystem.ViewModels.TenantDataProtectionVm;
+}
+@if (dataProtection != null)
+{
+<div class="hb-card mt-4">
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Data Protection</h2>
+            <div class="hb-section-subtitle">
+                Backup status for your tenant. Restore is managed by platform administrators only.
+            </div>
+        </div>
+    </div>
+    <div class="hb-card-body">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-8">
+                @if (dataProtection.LastBackup != null)
+                {
+                    <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+                        <span class="badge @(dataProtection.LastBackup.Status == HardwareManagementSystem.Models.BackupStatus.Success ? "badge-soft-success" : dataProtection.LastBackup.Status == HardwareManagementSystem.Models.BackupStatus.Failed ? "badge-soft-danger" : "badge-soft-warning")">
+                            @dataProtection.LastBackup.Status
+                        </span>
+                        <span class="small text-muted">
+                            Last backup:
+                            <strong>@dataProtection.LastBackup.CompletedAtUtc?.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</strong>
+                        </span>
+                        <span class="small text-muted">Type: @dataProtection.LastBackup.BackupType</span>
+                    </div>
+                    @if (dataProtection.LastBackup.Status == HardwareManagementSystem.Models.BackupStatus.Failed && !string.IsNullOrWhiteSpace(dataProtection.LastBackup.ErrorMessage))
+                    {
+                        <div class="alert alert-danger small py-2">@dataProtection.LastBackup.ErrorMessage</div>
+                    }
+                }
+                else
+                {
+                    <p class="text-muted mb-0">No backup recorded yet for your tenant scope.</p>
+                }
+                @if (!dataProtection.UsesDedicatedDatabase)
+                {
+                    <p class="text-muted small mt-2 mb-0">
+                        Your tenant uses the shared platform database. Platform backup covers your operational data.
+                    </p>
+                }
+            </div>
+            <div class="col-md-4 text-md-end">
+                @if (dataProtection.AllowTenantBackupRequest)
+                {
+                    <form asp-action="RequestBackup" method="post" id="requestBackupForm">
+                        @Html.AntiForgeryToken()
+                        <button type="button" class="btn btn-outline-primary" id="btnRequestBackup">
+                            <i class="bi bi-hdd-stack me-1"></i> Request Backup
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <span class="text-muted small">Backup requests are disabled by platform policy.</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+}
+
 <div class="hb-card mt-4">
 
     <div class="hb-card-header">
@@ -657,6 +722,24 @@
                 cancelButtonColor: '#64748b'
             }).then((result) => {
                 if (result.isConfirmed) document.getElementById('logoUploadForm').requestSubmit();
+            });
+        });
+    }
+
+    const btnRequestBackup = document.getElementById('btnRequestBackup');
+    if (btnRequestBackup) {
+        btnRequestBackup.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Request Backup?',
+                text: 'A backup will be created immediately. Restore is managed by your platform administrator.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Request Backup',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#64748b'
+            }).then(function (result) {
+                if (result.isConfirmed) document.getElementById('requestBackupForm').submit();
             });
         });
     }

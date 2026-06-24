@@ -33,10 +33,10 @@
                     <i class="bi bi-check2-circle me-1"></i> Mark Delivered
                 </button>
             </form>
-            <form asp-action="Cancel" method="post" onsubmit="return confirm('Cancel this DR?')">
+            <form asp-action="Cancel" method="post" class="d-inline" id="formCancelDr">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
-                <button type="submit" class="btn btn-outline-danger">
+                <button type="button" class="btn btn-outline-danger" id="btnCancelDr">
                     <i class="bi bi-x-circle me-1"></i> Cancel
                 </button>
             </form>
@@ -147,3 +147,27 @@
         </table>
     </div>
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    var btn = document.getElementById('btnCancelDr');
+    if (btn) {
+        btn.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Cancel DR?',
+                text: 'This delivery receipt will be cancelled.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, cancel',
+                cancelButtonText: 'No'
+            }).then(function (r) {
+                if (r.isConfirmed) document.getElementById('formCancelDr').submit();
+            });
+        });
+    }
+})();
+</script>
+}

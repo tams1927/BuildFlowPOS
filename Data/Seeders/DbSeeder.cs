@@ -218,7 +218,8 @@ namespace HardwareManagementSystem.Data.Seeders
 
             var inventoryAccess = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "Products", "Inventory", "StockIn", "StockAdjustment", "PurchaseOrders",
+                "Products", "Inventory", "StockIn", "StockAdjustment", "DamagedGoods", "SupplierReturns",
+                "PurchaseOrders",
                 "Suppliers", "Categories", "Units", "Import", "InventoryMovement",
                 "BranchTransfers", "InventoryValuation", "ReorderSuggestions", "StockAging",
                 "FastMovingItems", "SlowMovingItems", "DeadStock", "ABCAnalysis"

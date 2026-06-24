@@ -1,7 +1,9 @@
 ﻿using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
+using HardwareManagementSystem.Services.Backups;
 using HardwareManagementSystem.Services.TenantDatabases;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +17,9 @@ namespace HardwareManagementSystem.Controllers
         private readonly AuditService _auditService;
         private readonly ITenantContext _tenantContext;
         private readonly IWebHostEnvironment _env;
+        private readonly IBackupService _backupService;
+        private readonly IConfiguration _configuration;
+        private readonly ApplicationDbContext _platformDb;
 
         private static readonly HashSet<string> _allowedLogoTypes = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -25,14 +30,20 @@ namespace HardwareManagementSystem.Controllers
 
         public SettingsController(
             ITenantOperationalContextProvider ctxProvider,
+            ApplicationDbContext platformDb,
             AuditService auditService,
             ITenantContext tenantContext,
-            IWebHostEnvironment env)
+            IWebHostEnvironment env,
+            IBackupService backupService,
+            IConfiguration configuration)
             : base(ctxProvider)
         {
+            _platformDb = platformDb;
             _auditService = auditService;
             _tenantContext = tenantContext;
             _env = env;
+            _backupService = backupService;
+            _configuration = configuration;
         }
 
         public async Task<IActionResult> Index()
@@ -48,6 +59,8 @@ namespace HardwareManagementSystem.Controllers
                 _context.SystemSettings.Add(setting);
                 await _context.SaveChangesAsync();
             }
+
+            ViewBag.DataProtection = await BuildDataProtectionVmAsync(tenantId);
 
             return View(setting);
         }
@@ -196,6 +209,95 @@ namespace HardwareManagementSystem.Controllers
 
             TempData["SuccessMessage"] = "Logo uploaded successfully.";
             return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermissionAuthorize("Settings", "Edit")]
+        public async Task<IActionResult> RequestBackup()
+        {
+            var tenantId = _tenantContext.CurrentTenantId;
+            if (!tenantId.HasValue)
+            {
+                TempData["ErrorMessage"] = "Tenant context not found.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (!_configuration.GetValue<bool>("BackupSettings:AllowTenantBackupRequest", true))
+            {
+                TempData["ErrorMessage"] = "Backup requests are disabled by platform policy.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                var tenant = await _platformDb.Tenants.AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == tenantId.Value);
+
+                if (tenant == null)
+                {
+                    TempData["ErrorMessage"] = "Tenant not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                BackupRecord record;
+                if (tenant.IsDatabaseProvisioned)
+                {
+                    record = await _backupService.BackupTenantDatabaseAsync(
+                        tenantId.Value,
+                        BackupType.Requested,
+                        User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
+                        "Requested by tenant admin from Settings");
+                }
+                else
+                {
+                    record = await _backupService.BackupPlatformDatabaseAsync(
+                        BackupType.Requested,
+                        User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
+                        $"Requested by shared-mode tenant {tenant.Code} from Settings");
+                }
+
+                await _auditService.LogAsync(
+                    User,
+                    "Settings",
+                    "BACKUP_REQUESTED",
+                    $"Tenant backup request {record.Status}: {record.BackupFileName}",
+                    "BackupRecord",
+                    record.Id.ToString());
+
+                if (record.Status == BackupStatus.Success)
+                    TempData["SuccessMessage"] = "Backup completed successfully. Your platform administrator manages restore operations.";
+                else
+                    TempData["ErrorMessage"] = $"Backup request failed: {record.ErrorMessage}";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Backup request failed: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        private async Task<TenantDataProtectionVm> BuildDataProtectionVmAsync(int? tenantId)
+        {
+            var vm = new TenantDataProtectionVm
+            {
+                AllowTenantBackupRequest = _configuration.GetValue<bool>("BackupSettings:AllowTenantBackupRequest", true),
+                LatestPlatformBackup = await _backupService.GetLatestPlatformBackupAsync()
+            };
+
+            if (!tenantId.HasValue)
+                return vm;
+
+            var tenant = await _platformDb.Tenants.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == tenantId.Value);
+
+            vm.UsesDedicatedDatabase = tenant?.IsDatabaseProvisioned == true;
+            vm.LastBackup = tenant?.IsDatabaseProvisioned == true
+                ? await _backupService.GetLatestTenantBackupAsync(tenantId.Value)
+                : vm.LatestPlatformBackup;
+
+            return vm;
         }
     }
 }

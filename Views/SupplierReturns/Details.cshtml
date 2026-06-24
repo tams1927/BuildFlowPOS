@@ -1,0 +1,80 @@
+@model HardwareManagementSystem.Models.SupplierReturnHeader
+@{
+    ViewData["Title"] = $"Return {Model.ReturnNumber}";
+    var detail = Model.Details.FirstOrDefault();
+}
+
+<div class="page-header-row mb-4">
+    <div>
+        <h2 class="page-section-title">@Model.ReturnNumber <span class="badge badge-soft-secondary ms-2">@Model.Status</span></h2>
+        <p class="text-muted mb-0">@Model.Supplier?.SupplierName · @Model.ReturnDate.ToString("MMMM dd, yyyy")</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
+</div>
+
+<div class="hb-card mb-4">
+    <div class="hb-card-body">
+        @if (detail != null)
+        {
+            <div class="row g-2">
+                <div class="col-md-4"><strong>Item:</strong> @(detail.Item?.ItemName)</div>
+                <div class="col-md-2"><strong>Qty:</strong> @detail.Quantity.ToString("0.###")</div>
+                <div class="col-md-2"><strong>Base:</strong> @detail.BaseQuantity.ToString("0.###")</div>
+                <div class="col-md-2"><strong>Reason:</strong> @detail.Reason</div>
+            </div>
+        }
+        @if (Model.LinkedDamagedGoods != null)
+        {
+            <div class="small mt-2">
+                Linked damage:
+                <a asp-controller="DamagedGoods" asp-action="Details" asp-route-id="@Model.LinkedDamagedGoodsId">@Model.LinkedDamagedGoods.DamageNumber</a>
+            </div>
+        }
+    </div>
+</div>
+
+@if (Model.Status is "Pending" or "Sent")
+{
+    <div class="d-flex flex-wrap gap-2">
+        @if (Model.Status == "Pending")
+        {
+            <form asp-action="MarkSent" method="post" class="d-inline action-form" data-title="Mark as sent?" data-text="Goods marked as sent to supplier.">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="button" class="btn btn-outline-primary btn-action">Mark Sent</button>
+            </form>
+            <form asp-action="Cancel" method="post" class="d-inline action-form" data-title="Cancel return?" data-text="Stock effects will be reversed where applicable.">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="button" class="btn btn-outline-secondary btn-action">Cancel</button>
+            </form>
+        }
+        <form asp-action="MarkCredited" method="post" class="d-inline action-form" data-title="Mark as credited?" data-text="Damaged stock will be cleared when linked.">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="button" class="btn btn-success btn-action">Mark Credited</button>
+        </form>
+        <form asp-action="MarkReplaced" method="post" class="d-inline action-form" data-title="Mark as replaced?" data-text="Replacement stock will be added to sellable inventory.">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="button" class="btn btn-success btn-action">Mark Replaced</button>
+        </form>
+    </div>
+}
+
+@section Scripts {
+<script>
+document.querySelectorAll('.btn-action').forEach(btn => {
+    btn.addEventListener('click', function () {
+        const form = this.closest('form');
+        Swal.fire({
+            title: form.dataset.title,
+            text: form.dataset.text,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, continue'
+        }).then(r => { if (r.isConfirmed) form.submit(); });
+    });
+});
+</script>
+}

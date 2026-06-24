@@ -18,19 +18,9 @@
     </div>
 </div>
 
-@if (TempData["SuccessMessage"] != null)
+@if (TempData["SuccessMessage"] != null || TempData["ErrorMessage"] != null)
 {
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="bi bi-check-circle me-2"></i>@TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-@if (TempData["ErrorMessage"] != null)
-{
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="bi bi-x-circle me-2"></i>@TempData["ErrorMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+    @* Success/error toasts handled by layout SweetAlert system *@
 }
 
 <div class="hb-card">
@@ -75,10 +65,10 @@
                                class="btn btn-sm btn-outline-primary me-1">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form asp-action="Delete" asp-route-id="@p.Id" method="post" class="d-inline">
+                            <form asp-action="Delete" asp-route-id="@p.Id" method="post" class="d-inline plan-delete-form">
                                 @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-danger"
-                                        onclick="return confirm('Delete plan \'@p.Name\'?')">
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-delete-plan"
+                                        data-plan-name="@p.Name">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -95,3 +85,26 @@
         </table>
     </div>
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    document.querySelectorAll('.btn-delete-plan').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form = this.closest('form');
+            var name = this.dataset.planName || 'this plan';
+            Swal.fire({
+                title: 'Delete plan?',
+                html: 'Delete plan <strong>' + name + '</strong>? This cannot be undone.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, delete',
+                cancelButtonText: 'Cancel'
+            }).then(function (r) { if (r.isConfirmed) form.submit(); });
+        });
+    });
+})();
+</script>
+}

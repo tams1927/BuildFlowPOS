@@ -89,6 +89,9 @@ namespace HardwareManagementSystem.Controllers
 
                 branchStockMap = await stockQuery
                     .ToDictionaryAsync(s => s.ProductId, s => s.Quantity);
+
+                ViewBag.BranchDamagedMap = await stockQuery
+                    .ToDictionaryAsync(s => s.ProductId, s => s.DamagedStock);
             }
 
             ViewBag.BranchStockMap = branchStockMap;

@@ -173,6 +173,79 @@ namespace HardwareManagementSystem.Migrations
                     b.ToTable("AuditTrails");
                 });
 
+            modelBuilder.Entity("HardwareManagementSystem.Models.BackupRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BackupFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("BackupPath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long?>("BackupSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("BackupType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("DatabaseName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("DatabaseType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedAtUtc")
+                        .HasDatabaseName("IX_BackupRecords_StartedAtUtc");
+
+                    b.HasIndex("TenantId", "StartedAtUtc")
+                        .HasDatabaseName("IX_BackupRecords_TenantId_StartedAtUtc");
+
+                    b.ToTable("BackupRecords");
+                });
+
             modelBuilder.Entity("HardwareManagementSystem.Models.Branch", b =>
                 {
                     b.Property<int>("Id")
@@ -240,6 +313,9 @@ namespace HardwareManagementSystem.Migrations
 
                     b.Property<int>("BranchId")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("DamagedStock")
+                        .HasColumnType("decimal(18,3)");
 
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
@@ -507,6 +583,105 @@ namespace HardwareManagementSystem.Migrations
                         .HasDatabaseName("IX_CustomerLedgers_CustomerId_Id");
 
                     b.ToTable("CustomerLedgers");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.DamagedGoodsDetail", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BaseQuantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("ConversionQuantity")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int>("DamagedGoodsHeaderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DamagedGoodsHeaderId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("UnitId");
+
+                    b.ToTable("DamagedGoodsDetails");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.DamagedGoodsHeader", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("DamageDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DamageNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("TenantId", "DamageNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_DamagedGoodsHeaders_TenantId_DamageNumber")
+                        .HasFilter("[TenantId] IS NOT NULL");
+
+                    b.ToTable("DamagedGoodsHeaders");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.DeliveryReceipt", b =>
@@ -811,6 +986,9 @@ namespace HardwareManagementSystem.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("CurrentStock")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("DamagedStock")
                         .HasColumnType("decimal(18,3)");
 
                     b.Property<string>("Description")
@@ -1826,6 +2004,115 @@ namespace HardwareManagementSystem.Migrations
                     b.ToTable("SupplierPayments");
                 });
 
+            modelBuilder.Entity("HardwareManagementSystem.Models.SupplierReturnDetail", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BaseQuantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("ConversionQuantity")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("SupplierReturnHeaderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("SupplierReturnHeaderId");
+
+                    b.HasIndex("UnitId");
+
+                    b.ToTable("SupplierReturnDetails");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.SupplierReturnHeader", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("LinkedDamagedGoodsId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("ReturnDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReturnNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("SupplierId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("LinkedDamagedGoodsId");
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("TenantId", "ReturnNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_SupplierReturnHeaders_TenantId_ReturnNumber")
+                        .HasFilter("[TenantId] IS NOT NULL");
+
+                    b.ToTable("SupplierReturnHeaders");
+                });
+
             modelBuilder.Entity("HardwareManagementSystem.Models.SystemSetting", b =>
                 {
                     b.Property<int>("Id")
@@ -2234,6 +2521,16 @@ namespace HardwareManagementSystem.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("HardwareManagementSystem.Models.BackupRecord", b =>
+                {
+                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("HardwareManagementSystem.Models.Branch", b =>
                 {
                     b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
@@ -2344,6 +2641,50 @@ namespace HardwareManagementSystem.Migrations
                         .IsRequired();
 
                     b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.DamagedGoodsDetail", b =>
+                {
+                    b.HasOne("HardwareManagementSystem.Models.DamagedGoodsHeader", "DamagedGoodsHeader")
+                        .WithMany("Details")
+                        .HasForeignKey("DamagedGoodsHeaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HardwareManagementSystem.Models.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HardwareManagementSystem.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DamagedGoodsHeader");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.DamagedGoodsHeader", b =>
+                {
+                    b.HasOne("HardwareManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.DeliveryReceipt", b =>
@@ -2795,6 +3136,64 @@ namespace HardwareManagementSystem.Migrations
                     b.Navigation("Supplier");
                 });
 
+            modelBuilder.Entity("HardwareManagementSystem.Models.SupplierReturnDetail", b =>
+                {
+                    b.HasOne("HardwareManagementSystem.Models.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HardwareManagementSystem.Models.SupplierReturnHeader", "SupplierReturnHeader")
+                        .WithMany("Details")
+                        .HasForeignKey("SupplierReturnHeaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HardwareManagementSystem.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("SupplierReturnHeader");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.SupplierReturnHeader", b =>
+                {
+                    b.HasOne("HardwareManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("HardwareManagementSystem.Models.DamagedGoodsHeader", "LinkedDamagedGoods")
+                        .WithMany()
+                        .HasForeignKey("LinkedDamagedGoodsId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("HardwareManagementSystem.Models.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("LinkedDamagedGoods");
+
+                    b.Navigation("Supplier");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("HardwareManagementSystem.Models.SystemSetting", b =>
                 {
                     b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
@@ -2892,6 +3291,11 @@ namespace HardwareManagementSystem.Migrations
                     b.Navigation("BranchTransferItems");
                 });
 
+            modelBuilder.Entity("HardwareManagementSystem.Models.DamagedGoodsHeader", b =>
+                {
+                    b.Navigation("Details");
+                });
+
             modelBuilder.Entity("HardwareManagementSystem.Models.DeliveryReceipt", b =>
                 {
                     b.Navigation("Items");
@@ -2935,6 +3339,11 @@ namespace HardwareManagementSystem.Migrations
             modelBuilder.Entity("HardwareManagementSystem.Models.StockInHeader", b =>
                 {
                     b.Navigation("StockInDetails");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.SupplierReturnHeader", b =>
+                {
+                    b.Navigation("Details");
                 });
 #pragma warning restore 612, 618
         }

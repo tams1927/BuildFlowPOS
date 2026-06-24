@@ -14,6 +14,12 @@ namespace HardwareManagementSystem.ViewModels
 
         public decimal Quantity { get; set; }
 
+        public decimal DamagedQuantity { get; set; }
+
+        public decimal PhysicalQuantity { get; set; }
+
+        public decimal DamagedCostValue { get; set; }
+
         public decimal CostPrice { get; set; }
 
         public decimal SellingPrice { get; set; }

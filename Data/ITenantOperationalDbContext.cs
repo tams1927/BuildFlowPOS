@@ -49,6 +49,10 @@ namespace HardwareManagementSystem.Data
 
         DbSet<StockAdjustmentHeader> StockAdjustmentHeaders { get; }
         DbSet<StockAdjustmentDetail> StockAdjustmentDetails { get; }
+        DbSet<DamagedGoodsHeader> DamagedGoodsHeaders { get; }
+        DbSet<DamagedGoodsDetail> DamagedGoodsDetails { get; }
+        DbSet<SupplierReturnHeader> SupplierReturnHeaders { get; }
+        DbSet<SupplierReturnDetail> SupplierReturnDetails { get; }
         DbSet<Expense> Expenses { get; }
 
         DbSet<Branch> Branches { get; }
