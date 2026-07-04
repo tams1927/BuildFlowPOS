@@ -257,7 +257,9 @@
                                         <form asp-controller="Customers"
                                               asp-action="Deactivate"
                                               method="post"
-                                              class="confirm-deactivate d-inline">
+                                              class="confirm-deactivate d-inline"
+                                              data-hb-confirm-title="Deactivate this customer?"
+                                              data-hb-confirm-text="This customer will no longer be available for POS selection.">
 
                                             @Html.AntiForgeryToken()
 
@@ -526,48 +528,6 @@
 @section Scripts {
     <script>
 
-        document.querySelectorAll('.confirm-submit').forEach(form => {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Save changes?',
-                    text: 'Please confirm before saving this record.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, save it',
-                    cancelButtonText: 'No, cancel',
-                    confirmButtonColor: '#2563eb',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
-                });
-            });
-        });
-
-        document.querySelectorAll('.confirm-deactivate').forEach(form => {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Deactivate this customer?',
-                    text: 'This customer will no longer be available for POS selection.',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, deactivate',
-                    cancelButtonText: 'No, cancel',
-                    confirmButtonColor: '#dc2626',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
-                });
-            });
-        });
-
         const editCustomerModal = document.getElementById('editCustomerModal');
 
         if (editCustomerModal) {
@@ -618,15 +578,16 @@
                 Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Credit limit must be 0 or greater.', confirmButtonColor: '#2563eb' });
                 return;
             }
-            Swal.fire({
+
+            const form = document.getElementById('creditLimitForm');
+            HbForm.confirmAndSubmit(form, {
                 title: 'Update Credit Limit?',
                 html: `Set credit limit to <strong>₱${limitVal.toLocaleString('en-PH', {minimumFractionDigits:2})}</strong>?`,
                 icon: 'question',
-                showCancelButton: true,
                 confirmButtonText: 'Yes, Update',
                 confirmButtonColor: '#2563eb',
                 cancelButtonColor: '#64748b'
-            }).then(r => { if (r.isConfirmed) document.getElementById('creditLimitForm').requestSubmit(); });
+            });
         });
 
     </script>

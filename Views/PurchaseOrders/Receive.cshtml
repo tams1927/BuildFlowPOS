@@ -38,7 +38,11 @@
         </div>
 
         <form asp-controller="PurchaseOrders" asp-action="Receive" asp-route-id="@Model.Id"
-              method="post" id="receiveForm">
+              method="post" id="receiveForm" class="confirm-submit" data-hb-custom-confirm="true"
+              data-hb-confirm-title="Confirm Receipt?"
+              data-hb-confirm-html='This will create a <strong>Stock-In</strong> record and update inventory levels.'
+              data-hb-confirm-button="Yes, Receive"
+              data-hb-confirm-color="#16a34a">
             @Html.AntiForgeryToken()
 
             <div class="table-responsive mb-4">
@@ -99,7 +103,7 @@
             </div>
 
             <div class="d-flex gap-2">
-                <button type="button" id="submitReceiveBtn" class="btn btn-success">
+                <button type="submit" class="btn btn-success">
                     <i class="bi bi-box-seam me-1"></i>Confirm Receipt
                 </button>
                 <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-light">Cancel</a>
@@ -112,8 +116,15 @@
 
 @section Scripts {
 <script>
-    document.getElementById('submitReceiveBtn').addEventListener('click', function () {
-        const hasQty = Array.from(document.querySelectorAll('.receive-input'))
+    document.getElementById('receiveForm').addEventListener('submit', function (e) {
+        const form = this;
+        if (HbForm.isConfirmed(form)) {
+            return;
+        }
+
+        e.preventDefault();
+
+        const hasQty = Array.from(form.querySelectorAll('.receive-input'))
             .some(inp => parseFloat(inp.value) > 0);
 
         if (!hasQty) {
@@ -121,16 +132,7 @@
             return;
         }
 
-        Swal.fire({
-            title: 'Confirm Receipt?',
-            html: 'This will create a <strong>Stock-In</strong> record and update inventory levels.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, Receive',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#16a34a',
-            cancelButtonColor: '#64748b'
-        }).then(r => { if (r.isConfirmed) document.getElementById('receiveForm').requestSubmit(); });
+        HbForm.confirmAndSubmit(form);
     });
 </script>
 }

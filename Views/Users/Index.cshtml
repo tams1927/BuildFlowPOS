@@ -353,7 +353,9 @@
             <form asp-controller="Users"
                   asp-action="Create"
                   method="post"
-                  class="confirm-submit">
+                  class="confirm-submit"
+                  data-hb-confirm-title="Save user?"
+                  data-hb-confirm-text="Please confirm before saving this user record.">
 
                 @Html.AntiForgeryToken()
 
@@ -500,7 +502,9 @@
             <form asp-controller="Users"
                   asp-action="Edit"
                   method="post"
-                  class="confirm-submit">
+                  class="confirm-submit"
+                  data-hb-confirm-title="Save user?"
+                  data-hb-confirm-text="Please confirm before saving this user record.">
 
                 @Html.AntiForgeryToken()
 
@@ -748,69 +752,6 @@
 
         });
 
-                document.querySelectorAll('.confirm-submit').forEach(form => {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Save user?',
-                    text: 'Please confirm before saving this user record.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, save it',
-                    cancelButtonText: 'No, cancel',
-                    confirmButtonColor: '#2563eb',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
-                });
-            });
-        });
-
-        document.querySelectorAll('.confirm-deactivate-user').forEach(form => {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Deactivate this user?',
-                    text: 'This user will no longer be able to use the system.',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, deactivate',
-                    cancelButtonText: 'No, cancel',
-                    confirmButtonColor: '#dc2626',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
-                });
-            });
-        });
-
-        document.querySelectorAll('.confirm-activate-user').forEach(form => {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Activate this user?',
-                    text: 'This will restore login access for this user.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, activate',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#16a34a',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
-                });
-            });
-        });
-
         // Reset Password modal population
         document.querySelectorAll('.reset-password-btn').forEach(btn => {
             btn.addEventListener('click', function () {
@@ -828,19 +769,14 @@
                 return;
             }
 
-            Swal.fire({
+            HbForm.confirmAndSubmit(document.getElementById('resetPasswordForm'), {
                 title: 'Reset password?',
                 text: 'The user will need to log in with the new password.',
                 icon: 'warning',
-                showCancelButton: true,
                 confirmButtonText: 'Yes, reset password',
                 cancelButtonText: 'Cancel',
                 confirmButtonColor: '#d97706',
                 cancelButtonColor: '#64748b'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    document.getElementById('resetPasswordForm').requestSubmit();
-                }
             });
         });
 

@@ -207,7 +207,8 @@
                 <form asp-controller="POS"
                       asp-action="Checkout"
                       method="post"
-                      class="confirm-submit">
+                      class="confirm-submit"
+                      data-hb-custom-confirm="true">
 
                     @Html.AntiForgeryToken()
 
@@ -523,6 +524,8 @@
 
     <script>
 
+        const currencySymbol = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.CurrencySymbol ?? "₱"));
+
         let cart = [];
 
         const cartTableBody =
@@ -717,7 +720,7 @@
                         </td>
 
                         <td>
-                            @(ViewBag.CurrencySymbol)${lineTotal.toFixed(2)}
+                            ${currencySymbol}${lineTotal.toFixed(2)}
                         </td>
 
                         <td>
@@ -781,14 +784,14 @@
             totalBeforeVat + vatAmount;
 
             subTotalDisplay.innerText =
-                `@(ViewBag.CurrencySymbol)${subTotal.toFixed(2)}`;
+                `${currencySymbol}${subTotal.toFixed(2)}`;
 
             discountDisplay.innerText =
-                `@(ViewBag.CurrencySymbol)${discountAmount.toFixed(2)}`;
+                `${currencySymbol}${discountAmount.toFixed(2)}`;
                     if (vatDisplay) {
 
             vatDisplay.innerText =
-                `@(ViewBag.CurrencySymbol)${vatAmount.toFixed(2)}`;
+                `${currencySymbol}${vatAmount.toFixed(2)}`;
 
             }
 
@@ -800,7 +803,7 @@
             }
 
             totalDisplay.innerText =
-                `@(ViewBag.CurrencySymbol)${total.toFixed(2)}`;
+                `${currencySymbol}${total.toFixed(2)}`;
 
             subTotalInput.value =
                 subTotal.toFixed(2);
@@ -873,7 +876,7 @@
             }
 
             changeDisplay.innerText =
-                `@(ViewBag.CurrencySymbol)${change.toFixed(2)}`;
+                `${currencySymbol}${change.toFixed(2)}`;
 
             changeAmountInput.value =
                 change.toFixed(2);
@@ -969,9 +972,13 @@
 
             });
 
-        document.querySelectorAll('.confirm-submit').forEach(form => {
+        document.querySelectorAll('form.confirm-submit[data-hb-custom-confirm="true"]').forEach(form => {
 
             form.addEventListener('submit', function (e) {
+
+                if (HbForm.isConfirmed(form)) {
+                    return;
+                }
 
                 e.preventDefault();
 
@@ -1029,23 +1036,14 @@
                     return;
                 }
 
-                Swal.fire({
+                HbForm.confirmAndSubmit(form, {
                     title: 'Complete transaction?',
                     text: 'Inventory stock will be deducted.',
                     icon: 'question',
-                    showCancelButton: true,
                     confirmButtonText: 'Yes, complete sale',
                     cancelButtonText: 'Cancel',
                     confirmButtonColor: '#2563eb',
                     cancelButtonColor: '#64748b'
-                }).then((result) => {
-
-                    if (result.isConfirmed) {
-
-                        form.requestSubmit();
-
-                    }
-
                 });
 
             });

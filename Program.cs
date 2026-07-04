@@ -277,6 +277,12 @@ if (args.Contains("--qa-phase531"))
     return;
 }
 
+if (args.Contains("--qa-save-confirm"))
+{
+    await HardwareManagementSystem.Tools.SaveConfirmationQaRunner.RunAsync(app);
+    return;
+}
+
 // ============================================
 // MIDDLEWARE
 // ============================================

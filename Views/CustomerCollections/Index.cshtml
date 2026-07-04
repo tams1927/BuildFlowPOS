@@ -471,6 +471,10 @@
 
                     form.addEventListener('submit', function (e) {
 
+                        if (HbForm.isConfirmed(form)) {
+                            return;
+                        }
+
                         e.preventDefault();
 
                         const paymentInput =
@@ -536,21 +540,14 @@
                             return;
                         }
 
-                        Swal.fire({
+                        HbForm.confirmAndSubmit(form, {
                             title: 'Save payment?',
                             text: 'This will update the customer balance.',
                             icon: 'question',
-                            showCancelButton: true,
                             confirmButtonText: 'Yes, save payment',
                             cancelButtonText: 'Cancel',
                             confirmButtonColor: '#2563eb',
                             cancelButtonColor: '#64748b'
-                        }).then((result) => {
-
-                            if (result.isConfirmed) {
-                                form.requestSubmit();
-                            }
-
                         });
 
                     });

@@ -32,7 +32,11 @@
     </div>
 
     <div class="hb-card-body">
-        <form asp-controller="PurchaseOrders" asp-action="Create" method="post" id="createPoForm">
+        <form asp-controller="PurchaseOrders" asp-action="Create" method="post" id="createPoForm"
+              class="confirm-submit" data-hb-custom-confirm="true"
+              data-hb-confirm-title="Create Purchase Order?"
+              data-hb-confirm-text="This will create a new Draft PO. You can edit it before sending to the supplier."
+              data-hb-confirm-button="Yes, create PO">
             @Html.AntiForgeryToken()
 
             <div class="row g-3 mb-4">
@@ -198,7 +202,7 @@
             </button>
 
             <div class="d-flex gap-2">
-                <button type="button" id="submitPoBtn" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check-circle me-1"></i>Create Purchase Order
                 </button>
                 <a asp-action="Index" class="btn btn-light">Cancel</a>
@@ -241,6 +245,8 @@
 
 @section Scripts {
 <script>
+    const currencySymbol = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(currency));
+
     // Supplier info on select
     document.querySelector('[name="supplierId"]')?.addEventListener('change', function () {
         const opt = this.options[this.selectedIndex];
@@ -275,7 +281,7 @@
         const qty  = parseFloat(row.querySelector('.qty-input').value)  || 0;
         const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
         const total = qty * cost;
-        row.querySelector('.total-cell').textContent = '@currency' + total.toFixed(2);
+        row.querySelector('.total-cell').textContent = currencySymbol + total.toFixed(2);
         recalcGrandTotal();
     }
 
@@ -286,7 +292,7 @@
             const cost = parseFloat(row.querySelector('.cost-input')?.value) || 0;
             grand += qty * cost;
         });
-        document.getElementById('grandTotal').textContent = '@currency' + grand.toFixed(2);
+        document.getElementById('grandTotal').textContent = currencySymbol + grand.toFixed(2);
     }
 
     // Add row
@@ -307,22 +313,21 @@
     });
 
     // Submit confirmation
-    document.getElementById('submitPoBtn').addEventListener('click', function () {
-        const supplier = document.querySelector('[name="supplierId"]').value;
+    document.getElementById('createPoForm').addEventListener('submit', function (e) {
+        const form = this;
+        if (HbForm.isConfirmed(form)) {
+            return;
+        }
+
+        e.preventDefault();
+
+        const supplier = form.querySelector('[name="supplierId"]').value;
         if (!supplier) {
             Swal.fire({ icon: 'warning', title: 'Supplier required', text: 'Please select a supplier.', confirmButtonColor: '#1e40af' });
             return;
         }
-        Swal.fire({
-            title: 'Create Purchase Order?',
-            text: 'This will create a new Draft PO. You can edit it before sending to the supplier.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, create PO',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#2563eb',
-            cancelButtonColor: '#64748b'
-        }).then(r => { if (r.isConfirmed) document.getElementById('createPoForm').requestSubmit(); });
+
+        HbForm.confirmAndSubmit(form);
     });
 
     // Initial calc

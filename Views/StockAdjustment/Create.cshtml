@@ -40,7 +40,8 @@
         <form asp-controller="StockAdjustment"
               asp-action="Create"
               method="post"
-              class="confirm-submit">
+              class="confirm-submit"
+              data-hb-custom-confirm="true">
 
             @Html.AntiForgeryToken()
 
@@ -179,8 +180,12 @@
         adjustmentItem.addEventListener('change', calculateStockAfter);
         adjustmentQuantity.addEventListener('input', calculateStockAfter);
 
-        document.querySelectorAll('.confirm-submit').forEach(form => {
+        document.querySelectorAll('form.confirm-submit[data-hb-custom-confirm="true"]').forEach(form => {
             form.addEventListener('submit', function (e) {
+                if (HbForm.isConfirmed(form)) {
+                    return;
+                }
+
                 e.preventDefault();
 
                 const selected = adjustmentItem.options[adjustmentItem.selectedIndex];
@@ -214,19 +219,14 @@
                     return;
                 }
 
-                Swal.fire({
+                HbForm.confirmAndSubmit(form, {
                     title: 'Save stock adjustment?',
                     text: 'This will change the item current stock.',
                     icon: 'question',
-                    showCancelButton: true,
                     confirmButtonText: 'Yes, save adjustment',
                     cancelButtonText: 'No, cancel',
                     confirmButtonColor: '#2563eb',
                     cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
                 });
             });
         });

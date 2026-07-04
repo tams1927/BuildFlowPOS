@@ -263,7 +263,8 @@
             <form asp-controller="StockIn"
                   asp-action="Create"
                   method="post"
-                  class="confirm-submit">
+                  class="confirm-submit"
+                  data-hb-custom-confirm="true">
 
                 @Html.AntiForgeryToken()
 
@@ -520,9 +521,14 @@
 
     <script>
 
-        document.querySelectorAll('.confirm-submit').forEach(form => {
+        const sym = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.CurrencySymbol ?? "₱"));
+
+        document.querySelectorAll('form.confirm-submit[data-hb-custom-confirm="true"]').forEach(form => {
 
             form.addEventListener('submit', function (e) {
+                if (HbForm.isConfirmed(form)) {
+                    return;
+                }
 
                 e.preventDefault();
 
@@ -540,23 +546,15 @@
                     return;
                 }
 
-                Swal.fire({
+                HbForm.confirmAndSubmit(form, {
                     title: 'Save stock in?',
                     text: 'This will increase inventory stock.',
                     icon: 'question',
-                    showCancelButton: true,
                     confirmButtonText: 'Yes, save it',
                     cancelButtonText: 'Cancel',
                     confirmButtonColor: '#2563eb',
                     cancelButtonColor: '#64748b'
-                }).then((result) => {
-
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
-
                 });
-
             });
 
         });
@@ -590,8 +588,6 @@
             });
             updateBasePreview();
         }
-
-        const sym = '@(ViewBag.CurrencySymbol ?? "₱")';
 
         function updateBasePreview() {
             const opt = stockInReceivedUnit?.selectedOptions[0];

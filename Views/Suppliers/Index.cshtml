@@ -189,7 +189,9 @@
                                         <form asp-controller="Suppliers"
                                               asp-action="Deactivate"
                                               method="post"
-                                              class="confirm-deactivate d-inline">
+                                              class="confirm-deactivate d-inline"
+                                              data-hb-confirm-title="Deactivate this supplier?"
+                                              data-hb-confirm-text="This supplier will no longer be available for stock-in selection.">
 
                                             @Html.AntiForgeryToken()
 
@@ -445,48 +447,6 @@
 
 @section Scripts {
     <script>
-        document.querySelectorAll('.confirm-submit').forEach(form => {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Save changes?',
-                    text: 'Please confirm before saving this record.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, save it',
-                    cancelButtonText: 'No, cancel',
-                    confirmButtonColor: '#2563eb',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
-                });
-            });
-        });
-
-        document.querySelectorAll('.confirm-deactivate').forEach(form => {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Deactivate this supplier?',
-                    text: 'This supplier will no longer be available for stock-in selection.',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, deactivate',
-                    cancelButtonText: 'No, cancel',
-                    confirmButtonColor: '#dc2626',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
-                });
-            });
-        });
-
         const editSupplierModal = document.getElementById('editSupplierModal');
 
         if (editSupplierModal) {

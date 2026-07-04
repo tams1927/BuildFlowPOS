@@ -92,7 +92,10 @@
         <form asp-controller="RolePermissions"
               asp-action="Update"
               method="post"
-              class="confirm-submit">
+              class="confirm-submit"
+              data-hb-confirm-title="Save role permissions?"
+              data-hb-confirm-text="This will update access for the selected role."
+              data-hb-confirm-button="Yes, save changes">
 
             @Html.AntiForgeryToken()
 
@@ -256,28 +259,3 @@
     </div>
 
 </div>
-
-@section Scripts {
-    <script>
-        document.querySelectorAll('.confirm-submit').forEach(form => {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Save role permissions?',
-                    text: 'This will update access for the selected role.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, save changes',
-                    cancelButtonText: 'No, cancel',
-                    confirmButtonColor: '#2563eb',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.requestSubmit();
-                    }
-                });
-            });
-        });
-    </script>
-}

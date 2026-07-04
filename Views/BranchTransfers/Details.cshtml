@@ -29,34 +29,49 @@
 
             @if (Model.Status == "Pending")
             {
-                <form asp-action="Approve" asp-route-id="@Model.Id" method="post" class="d-inline">
+                <form asp-action="Approve" asp-route-id="@Model.Id" method="post" class="d-inline confirm-submit"
+                      data-hb-confirm-title="Approve Transfer?"
+                      data-hb-confirm-html='Approve transfer <strong>@Model.TransferNumber</strong>? It will be ready to complete.'
+                      data-hb-confirm-button="Yes, Approve"
+                      data-hb-confirm-color="#16a34a">
                     @Html.AntiForgeryToken()
-                    <button type="button" class="btn btn-success"
-                            onclick="confirmAction('Approve', '@Model.TransferNumber', this)">
+                    <button type="submit" class="btn btn-success">
                         <i class="bi bi-check-circle me-1"></i>Approve
                     </button>
                 </form>
-                <form asp-action="Cancel" asp-route-id="@Model.Id" method="post" class="d-inline">
+                <form asp-action="Cancel" asp-route-id="@Model.Id" method="post" class="d-inline confirm-submit"
+                      data-hb-confirm-title="Cancel Transfer?"
+                      data-hb-confirm-html='Cancel transfer <strong>@Model.TransferNumber</strong>? This cannot be undone.'
+                      data-hb-confirm-icon="warning"
+                      data-hb-confirm-button="Yes, Cancel"
+                      data-hb-confirm-color="#dc2626">
                     @Html.AntiForgeryToken()
-                    <button type="button" class="btn btn-outline-danger"
-                            onclick="confirmAction('Cancel', '@Model.TransferNumber', this)">
+                    <button type="submit" class="btn btn-outline-danger">
                         <i class="bi bi-x-circle me-1"></i>Cancel
                     </button>
                 </form>
             }
             @if (Model.Status == "Approved")
             {
-                <form asp-action="Complete" asp-route-id="@Model.Id" method="post" class="d-inline">
+                <form asp-action="Complete" asp-route-id="@Model.Id" method="post" class="d-inline confirm-submit"
+                      data-hb-confirm-title="Complete Transfer?"
+                      data-hb-confirm-html='Complete transfer <strong>@Model.TransferNumber</strong>? This will immediately move stock between branches.'
+                      data-hb-confirm-icon="warning"
+                      data-hb-confirm-button="Yes, Complete"
+                      data-hb-confirm-color="#2563eb">
                     @Html.AntiForgeryToken()
-                    <button type="button" class="btn btn-primary"
-                            onclick="confirmAction('Complete', '@Model.TransferNumber', this)">
+                    <button type="submit" class="btn btn-primary">
                         <i class="bi bi-box-arrow-right me-1"></i>Complete Transfer
                     </button>
                 </form>
-                <form asp-action="Cancel" asp-route-id="@Model.Id" method="post" class="d-inline">
+                <form asp-action="Cancel" asp-route-id="@Model.Id" method="post" class="d-inline confirm-submit"
+                      data-hb-confirm-title="Cancel Transfer?"
+                      data-hb-confirm-html='Cancel transfer <strong>@Model.TransferNumber</strong>? This cannot be undone.'
+                      data-hb-confirm-icon="warning"
+                      data-hb-confirm-button="Yes, Cancel"
+                      data-hb-confirm-color="#dc2626">
                     @Html.AntiForgeryToken()
-                    <button type="button" class="btn btn-outline-danger"
-                            onclick="confirmAction('Cancel', '@Model.TransferNumber', this)">
+                    <button type="submit" class="btn btn-outline-danger">
                         <i class="bi bi-x-circle me-1"></i>Cancel
                     </button>
                 </form>
@@ -170,28 +185,3 @@
 
     </div>
 </div>
-
-@section Scripts {
-    <script>
-        function confirmAction(action, transferNumber, btn) {
-            const messages = {
-                'Approve': { title: 'Approve Transfer?', text: `Approve transfer <strong>${transferNumber}</strong>? It will be ready to complete.`, icon: 'question', color: '#16a34a', btnText: 'Yes, Approve' },
-                'Complete': { title: 'Complete Transfer?', text: `Complete transfer <strong>${transferNumber}</strong>? This will immediately move stock between branches.`, icon: 'warning', color: '#2563eb', btnText: 'Yes, Complete' },
-                'Cancel': { title: 'Cancel Transfer?', text: `Cancel transfer <strong>${transferNumber}</strong>? This cannot be undone.`, icon: 'warning', color: '#dc2626', btnText: 'Yes, Cancel' }
-            };
-            const m = messages[action];
-            Swal.fire({
-                title: m.title,
-                html: m.text,
-                icon: m.icon,
-                showCancelButton: true,
-                confirmButtonColor: m.color,
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: m.btnText,
-                cancelButtonText: 'Cancel'
-            }).then(result => {
-                if (result.isConfirmed) btn.closest('form').requestSubmit();
-            });
-        }
-    </script>
-}

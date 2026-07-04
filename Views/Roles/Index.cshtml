@@ -285,6 +285,10 @@
 
                     form.addEventListener('submit', function (e) {
 
+                        if (HbForm.isConfirmed(form)) {
+                            return;
+                        }
+
                         const roleInput =
                             form.querySelector('input[name="roleName"]');
 
@@ -308,21 +312,14 @@
 
                         e.preventDefault();
 
-                        Swal.fire({
+                        HbForm.confirmAndSubmit(form, {
                             title: 'Create role?',
                             text: 'New permission rows will be generated automatically.',
                             icon: 'question',
-                            showCancelButton: true,
                             confirmButtonText: 'Yes, create role',
                             cancelButtonText: 'Cancel',
                             confirmButtonColor: '#2563eb',
                             cancelButtonColor: '#64748b'
-                        }).then((result) => {
-
-                            if (result.isConfirmed) {
-                                form.requestSubmit();
-                            }
-
                         });
 
                     });

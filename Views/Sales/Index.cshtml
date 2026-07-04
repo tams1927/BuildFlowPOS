@@ -602,6 +602,8 @@
 </div>
 @section Scripts {
     <script>
+        const currencySymbol = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(currencySymbol));
+
         document.addEventListener('DOMContentLoaded', function () {
 
             const salesSearchInput = document.getElementById('salesSearchInput');
@@ -653,7 +655,7 @@
                     document.getElementById('detailDiscountValue').innerText =
                         discountTypeText === 'Percent'
                             ? discountValueText + '%'
-                            : '@currencySymbol' + discountValueText;
+                            : currencySymbol + discountValueText;
                     document.getElementById('detailDiscountReason').innerText = discountReasonText || '-';
 
                     const discountBlock = document.getElementById('discountDetailBlock');
@@ -675,8 +677,8 @@
                             <tr>
                                 <td>${item.item}</td>
                                 <td>${item.qty} ${item.unit}</td>
-                                <td>@currencySymbol${item.price}</td>
-                                <td>@currencySymbol${item.total}</td>
+                                <td>${currencySymbol}${item.price}</td>
+                                <td>${currencySymbol}${item.total}</td>
                             </tr>
                         `;
                     });
@@ -692,21 +694,20 @@
 
             document.querySelectorAll('.confirm-void-sale').forEach(form => {
                 form.addEventListener('submit', function (e) {
+                    if (HbForm.isConfirmed(form)) {
+                        return;
+                    }
+
                     e.preventDefault();
 
-                    Swal.fire({
+                    HbForm.confirmAndSubmit(form, {
                         title: 'Void this sale?',
                         text: 'This will restore sold item stock back to inventory.',
                         icon: 'warning',
-                        showCancelButton: true,
                         confirmButtonText: 'Yes, void sale',
                         cancelButtonText: 'No, cancel',
                         confirmButtonColor: '#dc2626',
                         cancelButtonColor: '#64748b'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            form.requestSubmit();
-                        }
                     });
                 });
             });

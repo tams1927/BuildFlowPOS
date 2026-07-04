@@ -49,11 +49,14 @@
             }
             @if (Model.CanBeSent)
             {
-                <button type="button" class="btn btn-primary btn-sm" id="sendPoBtn">
-                    <i class="bi bi-send me-1"></i>Send to Supplier
-                </button>
-                <form id="sendPoForm" asp-action="SendPO" asp-route-id="@Model.Id" method="post" class="d-none">
+                <form asp-action="SendPO" asp-route-id="@Model.Id" method="post" class="confirm-submit d-inline"
+                      data-hb-confirm-title="Send PO to Supplier?"
+                      data-hb-confirm-html='This will change the status to <strong>Sent</strong>.<br><small class="text-muted">The PO will no longer be editable.</small>'
+                      data-hb-confirm-button="Yes, Send">
                     @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-send me-1"></i>Send to Supplier
+                    </button>
                 </form>
             }
             @if (Model.CanBeReceived)
@@ -64,11 +67,17 @@
             }
             @if (Model.CanBeCancelled)
             {
-                <button type="button" class="btn btn-outline-danger btn-sm" id="cancelPoBtn">
-                    <i class="bi bi-x-circle me-1"></i>Cancel PO
-                </button>
-                <form id="cancelPoForm" asp-action="CancelPO" asp-route-id="@Model.Id" method="post" class="d-none">
+                <form asp-action="CancelPO" asp-route-id="@Model.Id" method="post" class="confirm-submit d-inline"
+                      data-hb-confirm-title="Cancel this PO?"
+                      data-hb-confirm-text="This action cannot be undone."
+                      data-hb-confirm-icon="warning"
+                      data-hb-confirm-button="Yes, Cancel PO"
+                      data-hb-cancel-button="No, Keep It"
+                      data-hb-confirm-color="#dc2626">
                     @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-x-circle me-1"></i>Cancel PO
+                    </button>
                 </form>
             }
         </div>
@@ -183,33 +192,3 @@
 
     </div>
 </div>
-
-@section Scripts {
-<script>
-    document.getElementById('sendPoBtn')?.addEventListener('click', function () {
-        Swal.fire({
-            title: 'Send PO to Supplier?',
-            html: 'This will change the status to <strong>Sent</strong>.<br><small class="text-muted">The PO will no longer be editable.</small>',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, Send',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#2563eb',
-            cancelButtonColor: '#64748b'
-        }).then(r => { if (r.isConfirmed) document.getElementById('sendPoForm').requestSubmit(); });
-    });
-
-    document.getElementById('cancelPoBtn')?.addEventListener('click', function () {
-        Swal.fire({
-            title: 'Cancel this PO?',
-            text: 'This action cannot be undone.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, Cancel PO',
-            cancelButtonText: 'No, Keep It',
-            confirmButtonColor: '#dc2626',
-            cancelButtonColor: '#64748b'
-        }).then(r => { if (r.isConfirmed) document.getElementById('cancelPoForm').requestSubmit(); });
-    });
-</script>
-}

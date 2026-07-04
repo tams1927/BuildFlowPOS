@@ -23,7 +23,10 @@
 
     <div class="hb-card-body">
         <form asp-controller="PurchaseOrders" asp-action="Edit" asp-route-id="@Model.Id"
-              method="post" id="editPoForm">
+              method="post" id="editPoForm" class="confirm-submit"
+              data-hb-confirm-title="Save changes?"
+              data-hb-confirm-text="Update this purchase order?"
+              data-hb-confirm-button="Yes, save">
             @Html.AntiForgeryToken()
 
             <div class="row g-3 mb-4">
@@ -139,7 +142,7 @@
             </button>
 
             <div class="d-flex gap-2">
-                <button type="button" id="submitPoBtn" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check-circle me-1"></i>Save Changes
                 </button>
                 <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-light">Cancel</a>
@@ -169,6 +172,8 @@
 
 @section Scripts {
 <script>
+    const currencySymbol = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(currency));
+
     document.addEventListener('change', function (e) {
         if (e.target.classList.contains('item-select')) {
             const row = e.target.closest('tr');
@@ -184,7 +189,7 @@
     function recalcRow(row) {
         const qty  = parseFloat(row.querySelector('.qty-input').value)  || 0;
         const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
-        row.querySelector('.total-cell').textContent = '@currency' + (qty * cost).toFixed(2);
+        row.querySelector('.total-cell').textContent = currencySymbol + (qty * cost).toFixed(2);
         recalcGrandTotal();
     }
     function recalcGrandTotal() {
@@ -193,7 +198,7 @@
             grand += (parseFloat(row.querySelector('.qty-input')?.value) || 0) *
                      (parseFloat(row.querySelector('.cost-input')?.value) || 0);
         });
-        document.getElementById('grandTotal').textContent = '@currency' + grand.toFixed(2);
+        document.getElementById('grandTotal').textContent = currencySymbol + grand.toFixed(2);
     }
     document.getElementById('addRowBtn').addEventListener('click', function () {
         const tmpl = document.getElementById('rowTemplate').content.cloneNode(true);
@@ -206,17 +211,6 @@
             e.target.closest('tr').remove();
             recalcGrandTotal();
         }
-    });
-    document.getElementById('submitPoBtn').addEventListener('click', function () {
-        Swal.fire({
-            title: 'Save changes?',
-            text: 'Update this purchase order?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, save',
-            confirmButtonColor: '#2563eb',
-            cancelButtonColor: '#64748b'
-        }).then(r => { if (r.isConfirmed) document.getElementById('editPoForm').requestSubmit(); });
     });
     document.querySelectorAll('.po-item-row').forEach(row => recalcRow(row));
 </script>

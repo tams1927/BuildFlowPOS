@@ -19,7 +19,10 @@
         {
             <div class="alert alert-info small">Linked to damage record @linkedDamage.DamageNumber — use Return to Supplier on the damage details page.</div>
         }
-        <form asp-action="Create" method="post" id="returnForm">
+        <form asp-action="Create" method="post" class="confirm-submit"
+              data-hb-confirm-title="Create supplier return?"
+              data-hb-confirm-text="This will record items returned to the supplier."
+              data-hb-confirm-button="Yes, create">
             @Html.AntiForgeryToken()
             <div class="row g-3">
                 <div class="col-md-6">
@@ -77,7 +80,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <button type="button" class="btn btn-primary" id="btnSubmitReturn">Create Return</button>
+                <button type="submit" class="btn btn-primary">Create Return</button>
             </div>
         </form>
     </div>
@@ -88,14 +91,6 @@
 document.getElementById('itemId')?.addEventListener('change', function () {
     const unitId = this.selectedOptions[0]?.dataset.unit;
     if (unitId) document.getElementById('unitId').value = unitId;
-});
-document.getElementById('btnSubmitReturn')?.addEventListener('click', function () {
-    Swal.fire({
-        title: 'Create supplier return?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Yes, create'
-    }).then(r => { if (r.isConfirmed) document.getElementById('returnForm').submit(); });
 });
 </script>
 }

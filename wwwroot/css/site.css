@@ -210,6 +210,21 @@ a {
     font-size: 1.4rem;
     background: linear-gradient(135deg, var(--hb-primary), var(--hb-primary-hover, var(--hb-primary)));
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.brand-icon-logo {
+    padding: 4px;
+    background: var(--hb-surface-2, #ffffff);
+    border: 1px solid var(--hb-border);
+}
+
+.brand-icon-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
 }
 
 .brand-title {

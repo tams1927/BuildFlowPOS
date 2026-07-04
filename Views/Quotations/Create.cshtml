@@ -109,6 +109,8 @@
 
 @section Scripts {
 <script>
+    const currencySymbol = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(currency));
+
     const itemsData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
         items.Select(i => new { id = i.Id, name = i.ItemName, price = i.SellingPrice }).ToList()
     ));
@@ -164,16 +166,16 @@
         const price  = parseFloat(row.querySelector('.price').value) || 0;
         const disc   = parseFloat(row.querySelector('.disc').value)  || 0;
         const sub    = qty * price * (1 - disc / 100);
-        row.querySelector('.subtotal').textContent = '@currency' + sub.toFixed(2);
+        row.querySelector('.subtotal').textContent = currencySymbol + sub.toFixed(2);
         recalcTotal();
     }
 
     function recalcTotal() {
         let total = 0;
         document.querySelectorAll('.subtotal').forEach(el => {
-            total += parseFloat(el.textContent.replace('@currency', '').replace(/[^\d.-]/g, '')) || 0;
+            total += parseFloat(el.textContent.replace(currencySymbol, '').replace(/[^\d.-]/g, '')) || 0;
         });
-        document.getElementById('grandTotal').textContent = '@currency' + total.toFixed(2);
+        document.getElementById('grandTotal').textContent = currencySymbol + total.toFixed(2);
     }
 
     document.getElementById('addRowBtn').addEventListener('click', () => addRow());

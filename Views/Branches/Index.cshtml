@@ -173,7 +173,9 @@
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form asp-action="Create" method="post">
+            <form asp-action="Create" method="post" class="confirm-submit"
+                  data-hb-confirm-title="Add branch?"
+                  data-hb-confirm-text="Create a new store branch record.">
                 @Html.AntiForgeryToken()
                 <div class="modal-body">
                     <div class="row g-3">
@@ -236,7 +238,9 @@
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form asp-action="Edit" method="post">
+            <form asp-action="Edit" method="post" class="confirm-submit"
+                  data-hb-confirm-title="Save branch changes?"
+                  data-hb-confirm-text="Update this branch record.">
                 @Html.AntiForgeryToken()
                 <input type="hidden" id="editBranchId" name="id" />
                 <div class="modal-body">
@@ -291,25 +295,25 @@
 </div>
 
 <!-- DELETE FORM -->
-<form id="deleteBranchForm" asp-action="Delete" method="post" class="d-none">
+<form id="deleteBranchForm" asp-action="Delete" method="post" class="d-none confirm-submit">
     @Html.AntiForgeryToken()
     <input type="hidden" id="deleteBranchId" name="id" />
 </form>
 
 <!-- ACTIVATE BRANCH FORM -->
-<form id="activateBranchForm" asp-action="ActivateBranch" method="post" class="d-none">
+<form id="activateBranchForm" asp-action="ActivateBranch" method="post" class="d-none confirm-submit">
     @Html.AntiForgeryToken()
     <input type="hidden" id="activateBranchId" name="id" />
 </form>
 
 <!-- DEACTIVATE BRANCH FORM -->
-<form id="deactivateBranchForm" asp-action="DeactivateBranch" method="post" class="d-none">
+<form id="deactivateBranchForm" asp-action="DeactivateBranch" method="post" class="d-none confirm-submit">
     @Html.AntiForgeryToken()
     <input type="hidden" id="deactivateBranchId" name="id" />
 </form>
 
 <!-- SET MAIN BRANCH FORM -->
-<form id="setMainBranchForm" asp-action="SetMainBranch" method="post" class="d-none">
+<form id="setMainBranchForm" asp-action="SetMainBranch" method="post" class="d-none confirm-submit">
     @Html.AntiForgeryToken()
     <input type="hidden" id="setMainBranchId" name="id" />
 </form>
@@ -330,76 +334,62 @@
         });
 
         function confirmDeleteBranch(id, name) {
-            Swal.fire({
+            const form = document.getElementById('deleteBranchForm');
+            document.getElementById('deleteBranchId').value = id;
+            HbForm.resetFormState(form);
+            HbForm.confirmAndSubmit(form, {
                 title: 'Delete Branch?',
-                html: `Are you sure you want to delete <strong>${name}</strong>?<br>
-                       <small class="text-muted">Branches with transactions will be deactivated instead.</small>`,
+                html: `Are you sure you want to delete <strong>${name}</strong>?<br><small class="text-muted">Branches with transactions will be deactivated instead.</small>`,
                 icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
                 confirmButtonText: 'Yes, Delete',
-                cancelButtonText: 'Cancel'
-            }).then(result => {
-                if (result.isConfirmed) {
-                    document.getElementById('deleteBranchId').value = id;
-                    document.getElementById('deleteBranchForm').requestSubmit();
-                }
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280'
             });
         }
 
         function confirmActivateBranch(id, name) {
-            Swal.fire({
+            const form = document.getElementById('activateBranchForm');
+            document.getElementById('activateBranchId').value = id;
+            HbForm.resetFormState(form);
+            HbForm.confirmAndSubmit(form, {
                 title: 'Activate Branch?',
                 html: `Restore <strong>${name}</strong> to active status?`,
                 icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#16a34a',
-                cancelButtonColor: '#6b7280',
                 confirmButtonText: 'Yes, Activate',
-                cancelButtonText: 'Cancel'
-            }).then(result => {
-                if (result.isConfirmed) {
-                    document.getElementById('activateBranchId').value = id;
-                    document.getElementById('activateBranchForm').requestSubmit();
-                }
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#16a34a',
+                cancelButtonColor: '#6b7280'
             });
         }
 
         function confirmDeactivateBranch(id, name) {
-            Swal.fire({
+            const form = document.getElementById('deactivateBranchForm');
+            document.getElementById('deactivateBranchId').value = id;
+            HbForm.resetFormState(form);
+            HbForm.confirmAndSubmit(form, {
                 title: 'Deactivate Branch?',
                 html: `<strong>${name}</strong> will no longer be available for transactions.`,
                 icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d97706',
-                cancelButtonColor: '#6b7280',
                 confirmButtonText: 'Yes, Deactivate',
-                cancelButtonText: 'Cancel'
-            }).then(result => {
-                if (result.isConfirmed) {
-                    document.getElementById('deactivateBranchId').value = id;
-                    document.getElementById('deactivateBranchForm').requestSubmit();
-                }
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#d97706',
+                cancelButtonColor: '#6b7280'
             });
         }
 
         function confirmSetMain(id, name) {
-            Swal.fire({
+            const form = document.getElementById('setMainBranchForm');
+            document.getElementById('setMainBranchId').value = id;
+            HbForm.resetFormState(form);
+            HbForm.confirmAndSubmit(form, {
                 title: 'Set as Main Branch?',
-                html: `<strong>${name}</strong> will become the main branch.<br>
-                       <small class="text-muted">The current main branch will be demoted.</small>`,
+                html: `<strong>${name}</strong> will become the main branch.<br><small class="text-muted">The current main branch will be demoted.</small>`,
                 icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#2563eb',
-                cancelButtonColor: '#6b7280',
                 confirmButtonText: 'Yes, Set as Main',
-                cancelButtonText: 'Cancel'
-            }).then(result => {
-                if (result.isConfirmed) {
-                    document.getElementById('setMainBranchId').value = id;
-                    document.getElementById('setMainBranchForm').requestSubmit();
-                }
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#6b7280'
             });
         }
     </script>

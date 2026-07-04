@@ -42,47 +42,44 @@
 @if (Model.Status == "Pending")
 {
     <div class="d-flex flex-wrap gap-2">
-        <form asp-action="Recover" method="post" class="d-inline action-form" data-title="Recover stock?" data-text="Move quantity from damaged back to sellable stock.">
+        <form asp-action="Recover" method="post" class="d-inline confirm-submit"
+              data-hb-confirm-title="Recover stock?"
+              data-hb-confirm-text="Move quantity from damaged back to sellable stock."
+              data-hb-confirm-button="Yes, continue">
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@Model.Id" />
-            <button type="button" class="btn btn-success btn-action">Recover</button>
+            <button type="submit" class="btn btn-success">Recover</button>
         </form>
-        <form asp-action="Dispose" method="post" class="d-inline action-form" data-title="Dispose damaged stock?" data-text="Damaged quantity will be removed from inventory.">
+        <form asp-action="Dispose" method="post" class="d-inline confirm-submit"
+              data-hb-confirm-title="Dispose damaged stock?"
+              data-hb-confirm-text="Damaged quantity will be removed from inventory."
+              data-hb-confirm-icon="warning"
+              data-hb-confirm-button="Yes, continue"
+              data-hb-confirm-color="#dc2626">
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@Model.Id" />
-            <button type="button" class="btn btn-outline-danger btn-action">Dispose</button>
+            <button type="submit" class="btn btn-outline-danger">Dispose</button>
         </form>
         @if (linkedReturn == null)
         {
-            <form asp-action="ReturnToSupplier" method="post" class="d-inline action-form" data-title="Return to supplier?" data-text="Creates a supplier return linked to this damage record.">
+            <form asp-action="ReturnToSupplier" method="post" class="d-inline confirm-submit"
+                  data-hb-confirm-title="Return to supplier?"
+                  data-hb-confirm-text="Creates a supplier return linked to this damage record."
+                  data-hb-confirm-button="Yes, continue">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
-                <button type="button" class="btn btn-outline-primary btn-action">Return to Supplier</button>
+                <button type="submit" class="btn btn-outline-primary">Return to Supplier</button>
             </form>
         }
-        <form asp-action="Cancel" method="post" class="d-inline action-form" data-title="Cancel damage record?" data-text="Sellable stock will be restored.">
+        <form asp-action="Cancel" method="post" class="d-inline confirm-submit"
+              data-hb-confirm-title="Cancel damage record?"
+              data-hb-confirm-text="Sellable stock will be restored."
+              data-hb-confirm-icon="warning"
+              data-hb-confirm-button="Yes, continue"
+              data-hb-confirm-color="#64748b">
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@Model.Id" />
-            <button type="button" class="btn btn-outline-secondary btn-action">Cancel</button>
+            <button type="submit" class="btn btn-outline-secondary">Cancel</button>
         </form>
     </div>
-}
-
-@section Scripts {
-<script>
-document.querySelectorAll('.btn-action').forEach(btn => {
-    btn.addEventListener('click', function () {
-        const form = this.closest('form');
-        Swal.fire({
-            title: form.dataset.title,
-            text: form.dataset.text,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#2563eb',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Yes, continue'
-        }).then(r => { if (r.isConfirmed) form.submit(); });
-    });
-});
-</script>
 }

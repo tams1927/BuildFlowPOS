@@ -637,17 +637,14 @@
             return;
         }
 
-        Swal.fire({
+        HbForm.confirmAndSubmit(form, {
             title: 'Save settings?',
             text: 'This will update system and receipt settings.',
             icon: 'question',
-            showCancelButton: true,
             confirmButtonText: 'Yes, save settings',
             cancelButtonText: 'No, cancel',
             confirmButtonColor: '#2563eb',
             cancelButtonColor: '#64748b'
-        }).then((result) => {
-        if (result.isConfirmed) form.requestSubmit();
         });
     });
 
@@ -711,17 +708,14 @@
                 Swal.fire({ icon: 'error', title: 'File too large', text: 'Maximum allowed size is 2 MB.', confirmButtonColor: '#1e40af' });
                 return;
             }
-            Swal.fire({
+            HbForm.confirmAndSubmit(document.getElementById('logoUploadForm'), {
                 title: 'Upload logo?',
                 text: 'This will replace the current company logo.',
                 icon: 'question',
-                showCancelButton: true,
                 confirmButtonText: 'Yes, upload',
                 cancelButtonText: 'Cancel',
                 confirmButtonColor: '#2563eb',
                 cancelButtonColor: '#64748b'
-            }).then((result) => {
-                if (result.isConfirmed) document.getElementById('logoUploadForm').requestSubmit();
             });
         });
     }
