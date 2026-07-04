@@ -85,9 +85,11 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly   = true;
     options.Cookie.IsEssential = true;
     options.Cookie.SameSite   = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
-        ? CookieSecurePolicy.SameAsRequest
-        : CookieSecurePolicy.Always;
+    //options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+    //    ? CookieSecurePolicy.SameAsRequest
+    //    : CookieSecurePolicy.Always;
+    // Temporary for HTTP deployment
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
 builder.Services.AddMemoryCache();
@@ -201,9 +203,12 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.Name       = ".HardBuild.Auth";
     options.Cookie.HttpOnly   = true;
     options.Cookie.SameSite   = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
-        ? CookieSecurePolicy.SameAsRequest
-        : CookieSecurePolicy.Always;
+    //options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+    //    ? CookieSecurePolicy.SameAsRequest
+    //    : CookieSecurePolicy.Always;
+
+    // Temporary for HTTP deployment
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 
     options.ExpireTimeSpan    = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
