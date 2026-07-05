@@ -246,6 +246,79 @@ namespace HardwareManagementSystem.Migrations
                     b.ToTable("BackupRecords");
                 });
 
+            modelBuilder.Entity("HardwareManagementSystem.Models.RestoreRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BackupRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DatabaseName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("DatabaseType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RequestedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("RestoreMode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("RestoreTargetDatabaseName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("SourceBackupPath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BackupRecordId");
+
+                    b.HasIndex("StartedAtUtc")
+                        .HasDatabaseName("IX_RestoreRecords_StartedAtUtc");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("RestoreRecords");
+                });
+
             modelBuilder.Entity("HardwareManagementSystem.Models.Branch", b =>
                 {
                     b.Property<int>("Id")
@@ -2527,6 +2600,23 @@ namespace HardwareManagementSystem.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("HardwareManagementSystem.Models.RestoreRecord", b =>
+                {
+                    b.HasOne("HardwareManagementSystem.Models.BackupRecord", "BackupRecord")
+                        .WithMany()
+                        .HasForeignKey("BackupRecordId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("BackupRecord");
 
                     b.Navigation("Tenant");
                 });

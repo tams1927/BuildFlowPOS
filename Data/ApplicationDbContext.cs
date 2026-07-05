@@ -83,6 +83,8 @@ namespace HardwareManagementSystem.Data
 
         public DbSet<BackupRecord> BackupRecords { get; set; }
 
+        public DbSet<RestoreRecord> RestoreRecords { get; set; }
+
         public DbSet<DamagedGoodsHeader> DamagedGoodsHeaders { get; set; }
 
         public DbSet<DamagedGoodsDetail> DamagedGoodsDetails { get; set; }
@@ -752,6 +754,43 @@ namespace HardwareManagementSystem.Data
 
             builder.Entity<BackupRecord>()
                 .Property(b => b.BackupType)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // ============================================
+            // RESTORE RECORDS — platform-owned audit trail
+            // ============================================
+
+            builder.Entity<RestoreRecord>()
+                .HasOne(r => r.BackupRecord)
+                .WithMany()
+                .HasForeignKey(r => r.BackupRecordId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
+
+            builder.Entity<RestoreRecord>()
+                .HasOne(r => r.Tenant)
+                .WithMany()
+                .HasForeignKey(r => r.TenantId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
+
+            builder.Entity<RestoreRecord>()
+                .HasIndex(r => r.StartedAtUtc)
+                .HasDatabaseName("IX_RestoreRecords_StartedAtUtc");
+
+            builder.Entity<RestoreRecord>()
+                .Property(r => r.DatabaseType)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            builder.Entity<RestoreRecord>()
+                .Property(r => r.RestoreMode)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            builder.Entity<RestoreRecord>()
+                .Property(r => r.Status)
                 .HasConversion<string>()
                 .HasMaxLength(20);
 

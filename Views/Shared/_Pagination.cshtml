@@ -10,7 +10,9 @@
     int lastItem     = Model.LastItemIndex;
     string actionName     = Model.ActionName;
     string controllerName = Model.ControllerName;
-    var extraParams = Model.ExtraParams ?? new Dictionary<string, string?>();
+    var extraParams       = Model.ExtraParams ?? new Dictionary<string, string?>();
+    string pageNumberParam = Model.PageNumberParam;
+    string pageSizeParam   = Model.PageSizeParam;
 }
 
 <div class="pagination-wrap mt-4">
@@ -41,16 +43,16 @@
 
                 @foreach (var param in extraParams)
                 {
-                    if (param.Key != "pageSize" && param.Key != "pageNumber" && param.Value != null)
+                    if (param.Key != pageSizeParam && param.Key != pageNumberParam && param.Value != null)
                     {
                         <input type="hidden" name="@param.Key" value="@param.Value" />
                     }
                 }
 
-                <input type="hidden" name="pageNumber" value="1" />
+                <input type="hidden" name="@pageNumberParam" value="1" />
 
                 <label class="form-label mb-0 text-muted small text-nowrap">Rows per page:</label>
-                <select name="pageSize"
+                <select name="@pageSizeParam"
                         class="form-select form-select-sm page-size-select"
                         onchange="this.form.submit()"
                         style="width:80px">
@@ -69,8 +71,8 @@
                         @{
                             var prevParams = new Dictionary<string, string?>(extraParams)
                             {
-                                ["pageNumber"] = (pageNumber - 1).ToString(),
-                                ["pageSize"] = pageSize.ToString()
+                                [pageNumberParam] = (pageNumber - 1).ToString(),
+                                [pageSizeParam] = pageSize.ToString()
                             };
                         }
                         <li>
@@ -92,15 +94,15 @@
                         {
                             var p1Params = new Dictionary<string, string?>(extraParams)
                             {
-                                ["pageNumber"] = "1",
-                                ["pageSize"]   = pageSize.ToString()
+                                [pageNumberParam] = "1",
+                                [pageSizeParam]   = pageSize.ToString()
                             };
                             <li>
                                 <a class="hb-page-link" href="@Url.Action(actionName, controllerName, p1Params)">1</a>
                             </li>
                             if (startPage > 2)
                             {
-                                <li><span class="hb-page-link disabled">Ö</span></li>
+                                <li><span class="hb-page-link disabled">ù</span></li>
                             }
                         }
 
@@ -108,8 +110,8 @@
                         {
                             var pParams = new Dictionary<string, string?>(extraParams)
                             {
-                                ["pageNumber"] = p.ToString(),
-                                ["pageSize"]   = pageSize.ToString()
+                                [pageNumberParam] = p.ToString(),
+                                [pageSizeParam]   = pageSize.ToString()
                             };
                             <li>
                                 <a class="hb-page-link @(p == pageNumber ? "active" : "")"
@@ -121,12 +123,12 @@
                         {
                             if (endPage < totalPages - 1)
                             {
-                                <li><span class="hb-page-link disabled">Ö</span></li>
+                                <li><span class="hb-page-link disabled">ù</span></li>
                             }
                             var lastParams = new Dictionary<string, string?>(extraParams)
                             {
-                                ["pageNumber"] = totalPages.ToString(),
-                                ["pageSize"]   = pageSize.ToString()
+                                [pageNumberParam] = totalPages.ToString(),
+                                [pageSizeParam]   = pageSize.ToString()
                             };
                             <li>
                                 <a class="hb-page-link" href="@Url.Action(actionName, controllerName, lastParams)">@totalPages</a>
@@ -136,8 +138,8 @@
                         @{
                             var nextParams = new Dictionary<string, string?>(extraParams)
                             {
-                                ["pageNumber"] = (pageNumber + 1).ToString(),
-                                ["pageSize"]   = pageSize.ToString()
+                                [pageNumberParam] = (pageNumber + 1).ToString(),
+                                [pageSizeParam]   = pageSize.ToString()
                             };
                         }
                         <li>

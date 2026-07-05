@@ -4,6 +4,15 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      RUNTIME WORKAROUND — remove once Microsoft.NETCore.App 9.0.17 is installed on all dev machines.
+      Root cause: SDK 9.0.314 selects Microsoft.AspNetCore.App 9.0.17 (latestPatch), which internally
+      requires Microsoft.NETCore.App 9.0.17 — but only 9.0.16 is installed.
+      Pinning both frameworks to 9.0.16 (which IS installed) with Disable prevents the mismatch.
+      After installing .NET 9.0.17 Runtime: remove RuntimeFrameworkVersion and RollForward below.
+    -->
+    <RuntimeFrameworkVersion>9.0.16</RuntimeFrameworkVersion>
+    <RollForward>Disable</RollForward>
   </PropertyGroup>
 
   <ItemGroup>

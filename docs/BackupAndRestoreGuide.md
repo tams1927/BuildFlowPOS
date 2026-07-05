@@ -109,6 +109,63 @@ restored catalog. If the database name changed, update the tenant record and cal
 - [ ] Documented RTO/RPO acceptable to the pilot business
 - [ ] Post-restore validation: SuperAdmin login, Tenants list, routing flags, one routed tenant login
 
+---
+
+## SuperAdmin Restore Feature (Phase 5.2.1)
+
+The BuildFlow platform now includes an in-app SuperAdmin restore feature accessible from **Backup Management → Backup History**.
+
+### Restore As Test DB
+
+Creates a **new** database from a selected backup. Does not affect live tenant routing.
+
+1. In Backup History, find a successful backup row.
+2. Click **"Test DB"**.
+3. Optionally enter a target database name (auto-generated if blank).
+4. Confirm the SweetAlert dialog.
+
+The restored test database is created on the same SQL Server instance as the source.
+
+### Restore Tenant DB (Overwrite)
+
+Overwrites the live tenant database. Available only for **tenant** backups.
+
+1. In Backup History, find a successful tenant backup row.
+2. Click **"Restore Tenant DB"**.
+3. Type `RESTORE` (uppercase) in the confirmation dialog.
+4. Click confirm.
+
+The service:
+- Sets the database to `SINGLE_USER` with rollback to terminate active connections.
+- Runs `RESTORE DATABASE ... WITH REPLACE`.
+- Returns the database to `MULTI_USER`.
+- Invalidates the tenant resolver cache.
+
+### Platform Restore
+
+Platform database overwrite restore is **not available in the UI**. See the manual procedure in `docs/Phase521_RestoreManagement.md`.
+
+### Configuration
+
+```json
+"BackupSettings": {
+  "RootPath": "C:\\HardBuildBackups\\",
+  "RestoreDataPath": "",
+  "RestoreLogPath": ""
+}
+```
+
+`RestoreDataPath` and `RestoreLogPath` set override paths for `.mdf` / `.ldf` files when restoring as a new database. Leave empty to use SQL Server defaults.
+
+### Security
+
+- Restore is exclusively SuperAdmin. Controller enforces `[Authorize(Roles = "SuperAdmin")]`.
+- All POST actions require `[ValidateAntiForgeryToken]`.
+- Backup paths outside `BackupSettings:RootPath` are rejected before any SQL is executed.
+- Connection strings are never stored in RestoreRecord fields.
+
+---
+
 ## SQL Server Express Notes
 
 - **10 GB per-database limit** — the dedicated-database model keeps each tenant under its own limit;

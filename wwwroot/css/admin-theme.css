@@ -144,3 +144,31 @@ body.theme-buildflow-platform .sidebar-brand {
 body.theme-buildflow-platform .sidebar-group-toggle:hover {
     background: rgba(37, 99, 235, 0.06);
 }
+
+/* Mobile drawer overrides for platform theme */
+body.theme-buildflow-platform .sidebar-overlay {
+    background: rgba(15, 23, 42, 0.40);
+}
+
+body.theme-buildflow-platform .topbar-hamburger {
+    border-color: #e2e8f0;
+    background: #ffffff;
+    color: #1e293b;
+}
+
+body.theme-buildflow-platform .topbar-hamburger:hover {
+    background: rgba(37, 99, 235, 0.08);
+    color: #2563eb;
+    border-color: #2563eb;
+}
+
+body.theme-buildflow-platform .sidebar-close-btn {
+    border-color: #e2e8f0;
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+body.theme-buildflow-platform .sidebar-close-btn:hover {
+    background: rgba(37, 99, 235, 0.08);
+    color: #2563eb;
+}

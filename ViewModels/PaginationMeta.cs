@@ -12,6 +12,12 @@ namespace HardwareManagementSystem.ViewModels
         public string ControllerName { get; set; } = string.Empty;
         public Dictionary<string, string?> ExtraParams { get; set; } = new();
 
+        /// <summary>URL query-string key used for the page number. Defaults to "pageNumber".</summary>
+        public string PageNumberParam { get; set; } = "pageNumber";
+
+        /// <summary>URL query-string key used for the page size. Defaults to "pageSize".</summary>
+        public string PageSizeParam { get; set; } = "pageSize";
+
         public static PaginationMeta From<T>(PagedResult<T> result, string controller, string action = "Index",
             Dictionary<string, string?>? extraParams = null)
         {
@@ -22,6 +28,31 @@ namespace HardwareManagementSystem.ViewModels
                 TotalRecords = result.TotalRecords,
                 ControllerName = controller,
                 ActionName = action,
+                ExtraParams = extraParams ?? new Dictionary<string, string?>()
+            };
+        }
+
+        /// <summary>
+        /// Creates a PaginationMeta for a named section on a page that contains multiple
+        /// independent paginated tables (e.g. backupPage / restorePage).
+        /// </summary>
+        public static PaginationMeta ForSection<T>(
+            PagedResult<T> result,
+            string controller,
+            string action,
+            string pageNumberParam,
+            string pageSizeParam,
+            Dictionary<string, string?>? extraParams = null)
+        {
+            return new PaginationMeta
+            {
+                PageNumber = result.PageNumber,
+                PageSize = result.PageSize,
+                TotalRecords = result.TotalRecords,
+                ControllerName = controller,
+                ActionName = action,
+                PageNumberParam = pageNumberParam,
+                PageSizeParam = pageSizeParam,
                 ExtraParams = extraParams ?? new Dictionary<string, string?>()
             };
         }

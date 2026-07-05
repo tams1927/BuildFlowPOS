@@ -74,6 +74,7 @@ builder.Services.AddScoped<ITenantOperationalContextProvider, TenantOperationalC
 
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 builder.Services.AddScoped<IBackupService, BackupService>();
+builder.Services.AddScoped<IRestoreService, RestoreService>();
 builder.Services.AddHostedService<ScheduledBackupBackgroundService>();
 
 builder.Services.AddHttpContextAccessor();
@@ -267,6 +268,12 @@ if (args.Contains("--qa-rc12"))
 if (args.Contains("--qa-backup"))
 {
     await HardwareManagementSystem.Tools.BackupQaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-restore"))
+{
+    await HardwareManagementSystem.Tools.RestoreQaRunner.RunAsync(app);
     return;
 }
 

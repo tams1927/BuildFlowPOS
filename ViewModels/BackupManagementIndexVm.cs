@@ -8,11 +8,16 @@ namespace HardwareManagementSystem.ViewModels
 
         public BackupRecord? LatestPlatformBackup { get; set; }
 
-        public List<TenantBackupStatusVm> Tenants { get; set; } = new();
+        public PagedResult<TenantBackupStatusVm> Tenants { get; set; } = new();
 
-        public List<BackupRecord> History { get; set; } = new();
+        public PagedResult<BackupRecord> History { get; set; } = new();
 
         public bool AllowTenantBackupRequest { get; set; }
+
+        public PagedResult<RestoreRecord> RestoreHistory { get; set; } = new();
+
+        /// <summary>Non-fatal configuration / environment warnings shown as banner cards.</summary>
+        public List<string> Warnings { get; set; } = new();
     }
 
     public class TenantBackupStatusVm
