@@ -23,6 +23,8 @@ namespace HardwareManagementSystem.Controllers
         private readonly ITenantDatabaseResolver _databaseResolver;
         private readonly ITenantDatabaseProvisioningService _provisioningService;
         private readonly ITenantDataMigrationService _dataMigrationService;
+        private readonly ITenantSchemaMigrationService _schemaMigrationService;
+        private readonly ILogger<TenantsController> _logger;
 
         public TenantsController(
             ApplicationDbContext context,
@@ -32,7 +34,9 @@ namespace HardwareManagementSystem.Controllers
             TenantLimitGuard limitGuard,
             ITenantDatabaseResolver databaseResolver,
             ITenantDatabaseProvisioningService provisioningService,
-            ITenantDataMigrationService dataMigrationService)
+            ITenantDataMigrationService dataMigrationService,
+            ITenantSchemaMigrationService schemaMigrationService,
+            ILogger<TenantsController> logger)
         {
             _context    = context;
             _auditService = auditService;
@@ -42,6 +46,8 @@ namespace HardwareManagementSystem.Controllers
             _databaseResolver = databaseResolver;
             _provisioningService = provisioningService;
             _dataMigrationService = dataMigrationService;
+            _schemaMigrationService = schemaMigrationService;
+            _logger = logger;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -103,6 +109,11 @@ namespace HardwareManagementSystem.Controllers
             }
             ViewBag.Users = userVms;
 
+            // Schema pending count — only for provisioned dedicated DBs
+            ViewBag.PendingMigrations = tenant.IsDatabaseProvisioned
+                ? await _schemaMigrationService.GetPendingMigrationCountAsync(id)
+                : 0;
+
             return View(tenant);
         }
 
@@ -138,6 +149,10 @@ namespace HardwareManagementSystem.Controllers
         {
             ModelState.Remove(nameof(Tenant.SubscriptionPlan));
 
+            // Subscription Plan is required for all new tenants
+            if (tenant.SubscriptionPlanId == null)
+                ModelState.AddModelError(nameof(Tenant.SubscriptionPlanId), "Please select a Subscription Plan.");
+
             if (createOwnerAccount)
             {
                 if (string.IsNullOrWhiteSpace(ownerFullName))
@@ -152,6 +167,11 @@ namespace HardwareManagementSystem.Controllers
 
             if (!ModelState.IsValid)
             {
+                var errs = string.Join("; ", ModelState
+                    .Where(e => e.Value?.Errors.Any() == true)
+                    .SelectMany(e => e.Value!.Errors.Select(x => $"{e.Key}: {x.ErrorMessage}")));
+                _logger.LogWarning("Tenant Create rejected by ModelState: {Errors}", errs);
+
                 ViewData["Title"]              = "New Tenant";
                 ViewBag.CreateOwnerAccount     = createOwnerAccount;
                 ViewBag.OwnerFullName          = ownerFullName;
@@ -307,6 +327,11 @@ namespace HardwareManagementSystem.Controllers
 
             if (!ModelState.IsValid)
             {
+                var errs = string.Join("; ", ModelState
+                    .Where(e => e.Value?.Errors.Any() == true)
+                    .SelectMany(e => e.Value!.Errors.Select(x => $"{e.Key}: {x.ErrorMessage}")));
+                _logger.LogWarning("Tenant Edit {Id} rejected by ModelState: {Errors}", id, errs);
+
                 ViewData["Title"] = "Edit Tenant";
                 await LoadPlansDropdownAsync();
                 return View(tenant);
@@ -556,6 +581,74 @@ namespace HardwareManagementSystem.Controllers
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        // ─────────────────────────────────────────────────────────────
+        // SCHEMA MIGRATION   (Phase 5.3.2)
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Apply any pending TenantDbContext EF Core migrations to a single tenant's
+        /// dedicated database. Safe to run on an already-current database (no-op).
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpgradeSchema(int id)
+        {
+            var tenant = await _context.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
+            if (tenant == null) return NotFound();
+
+            var result = await _schemaMigrationService.UpgradeSchemaAsync(id);
+
+            if (result.Success)
+            {
+                var detail = result.WasUpToDate
+                    ? $"Schema is already up-to-date (latest: {result.LatestMigration ?? "—"})."
+                    : $"{result.MigrationsApplied.Count} migration(s) applied. Latest: {result.LatestMigration ?? "—"}.";
+
+                await _auditService.LogAsync(User, "Tenants", "TENANT_SCHEMA_UPGRADED",
+                    $"Schema upgrade for tenant '{tenant.Name}' ({tenant.Code}): {detail}",
+                    "Tenant", id.ToString(), GetClientIp());
+
+                TempData["SuccessMessage"] = detail;
+            }
+            else
+            {
+                await _auditService.LogAsync(User, "Tenants", "TENANT_SCHEMA_UPGRADE_FAILED",
+                    $"Schema upgrade FAILED for tenant '{tenant.Name}' ({tenant.Code}): {result.Error}",
+                    "Tenant", id.ToString(), GetClientIp());
+
+                TempData["ErrorMessage"] = $"Schema upgrade failed: {result.Error}";
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        /// <summary>
+        /// Apply any pending TenantDbContext EF Core migrations to ALL provisioned dedicated
+        /// tenant databases. Reports a summary of what was upgraded. Safe to run repeatedly.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpgradeAllSchemas()
+        {
+            var results = await _schemaMigrationService.UpgradeAllSchemasAsync();
+
+            var upgraded = results.Count(r => r.Success && !r.WasUpToDate);
+            var upToDate = results.Count(r => r.Success && r.WasUpToDate);
+            var failed   = results.Count(r => !r.Success);
+
+            var summary = $"Upgrade All Schemas: {upgraded} upgraded, {upToDate} already up-to-date, {failed} failed.";
+
+            await _auditService.LogAsync(User, "Tenants", "TENANT_ALL_SCHEMAS_UPGRADED",
+                summary, "Tenant", null, GetClientIp());
+
+            if (failed == 0)
+                TempData["SuccessMessage"] = summary;
+            else
+                TempData["ErrorMessage"] = summary + " Check logs for error details.";
+
+            return RedirectToAction(nameof(Index));
+        }
+
         /// <summary>
         /// Tests connectivity for a tenant's database routing.
         /// Shared → reports shared database. Dedicated + provisioned → opens a real
@@ -648,7 +741,8 @@ namespace HardwareManagementSystem.Controllers
 
         /// <summary>
         /// Switches live routing ON for a tenant. Only permitted once the dedicated
-        /// database is provisioned and data has been migrated + validated.
+        /// database is provisioned, data has been migrated + validated, AND the
+        /// dedicated database schema is current (no pending EF Core migrations).
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -665,6 +759,16 @@ namespace HardwareManagementSystem.Controllers
             if (!tenant.DataMigrated)
             {
                 TempData["ErrorMessage"] = "Data must be migrated and validated before enabling routing.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
+            // Phase 5.3.2 — schema guard: refuse to route if the dedicated DB is behind.
+            var pendingCount = await _schemaMigrationService.GetPendingMigrationCountAsync(id);
+            if (pendingCount > 0)
+            {
+                TempData["ErrorMessage"] =
+                    $"Cannot enable routing: the dedicated database has {pendingCount} pending schema migration(s). " +
+                    "Use 'Upgrade Schema' first to bring the database up-to-date.";
                 return RedirectToAction(nameof(Details), new { id });
             }
 
@@ -827,6 +931,18 @@ namespace HardwareManagementSystem.Controllers
 
             ViewBag.Plans = new SelectList(plans,
                 nameof(SubscriptionPlan.Id), nameof(SubscriptionPlan.Name));
+
+            // Full plan details for client-side auto-populate (JSON array)
+            ViewBag.PlanDetailsJson = System.Text.Json.JsonSerializer.Serialize(
+                plans.Select(p => new
+                {
+                    id           = p.Id,
+                    name         = p.Name,
+                    maxBranches  = p.MaxBranches,
+                    maxUsers     = p.MaxUsers,
+                    maxProducts  = p.MaxProducts,
+                    monthlyPrice = p.MonthlyPrice
+                }));
         }
     }
 

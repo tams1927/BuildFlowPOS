@@ -17,9 +17,9 @@
 
 <div class="card">
     <div class="card-body">
-        <form asp-action="Create" method="post">
+        <form asp-action="Create" method="post" class="confirm-submit">
             @Html.AntiForgeryToken()
-            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+            <div asp-validation-summary="All" class="alert alert-danger"></div>
 
             <h6 class="fw-bold text-uppercase text-muted small mb-3">Business Info</h6>
             <div class="row g-3 mb-4">
@@ -35,34 +35,49 @@
                 </div>
                 <div class="col-md-6">
                     <label asp-for="OwnerName" class="form-label fw-semibold">Owner Name</label>
-                    <input asp-for="OwnerName" class="form-control" placeholder="Full name of owner/admin" />
+                    <input asp-for="OwnerName" class="form-control" placeholder="Full name of owner/admin" maxlength="150" />
+                    <span asp-validation-for="OwnerName" class="text-danger small"></span>
                 </div>
                 <div class="col-md-6">
                     <label asp-for="Email" class="form-label fw-semibold">Email</label>
-                    <input asp-for="Email" class="form-control" type="email" />
+                    <input asp-for="Email" class="form-control" type="email" maxlength="150" />
+                    <span asp-validation-for="Email" class="text-danger small"></span>
                 </div>
                 <div class="col-md-6">
                     <label asp-for="Phone" class="form-label fw-semibold">Phone / Contact Number</label>
-                    <input asp-for="Phone" class="form-control" placeholder="09xx-xxx-xxxx" />
+                    <input asp-for="Phone" class="form-control" placeholder="09xx-xxx-xxxx" maxlength="30" />
+                    <span asp-validation-for="Phone" class="text-danger small"></span>
                 </div>
                 <div class="col-md-6">
                     <label asp-for="Address" class="form-label fw-semibold">Address</label>
-                    <input asp-for="Address" class="form-control" />
+                    <input asp-for="Address" class="form-control" maxlength="250" />
+                    <span asp-validation-for="Address" class="text-danger small"></span>
                 </div>
                 <div class="col-12">
                     <label asp-for="Notes" class="form-label fw-semibold">Notes</label>
-                    <textarea asp-for="Notes" class="form-control" rows="2" placeholder="Internal notes..."></textarea>
+                    <textarea asp-for="Notes" class="form-control" rows="2" placeholder="Internal notes..." maxlength="300"></textarea>
+                    <span asp-validation-for="Notes" class="text-danger small"></span>
                 </div>
             </div>
 
             <h6 class="fw-bold text-uppercase text-muted small mb-3">Subscription & Limits</h6>
             <div class="row g-3">
-                <div class="col-md-4">
-                    <label asp-for="SubscriptionPlanId" class="form-label fw-semibold">Subscription Plan</label>
-                    <select asp-for="SubscriptionPlanId" asp-items="ViewBag.Plans" class="form-select">
-                        <option value="">— Custom / No Plan —</option>
+
+                <!-- Plan Selection -->
+                <div class="col-md-5">
+                    <label asp-for="SubscriptionPlanId" class="form-label fw-semibold">
+                        Subscription Plan <span class="text-danger">*</span>
+                    </label>
+                    <select asp-for="SubscriptionPlanId" asp-items="ViewBag.Plans"
+                            class="form-select" id="planSelect"
+                            data-val="true"
+                            data-val-required="Please select a Subscription Plan.">
+                        <option value="">— Select a Subscription Plan —</option>
                     </select>
+                    <span asp-validation-for="SubscriptionPlanId" class="text-danger small"></span>
                 </div>
+
+                <!-- Status -->
                 <div class="col-md-4">
                     <label asp-for="Status" class="form-label fw-semibold">Status</label>
                     <select asp-for="Status" class="form-select">
@@ -72,24 +87,51 @@
                         <option value="Expired">Expired</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+
+                <!-- Expiration Date -->
+                <div class="col-md-3">
                     <label asp-for="ExpirationDate" class="form-label fw-semibold">Expiration Date</label>
                     <input asp-for="ExpirationDate" class="form-control" type="date" />
                     <div class="form-text">Leave blank for no expiry.</div>
                 </div>
+
+                <!-- Plan Info Banner -->
+                <div class="col-12">
+                    <div id="planInfoBanner" class="alert alert-info d-flex align-items-center gap-3 py-2 px-3 mb-0" style="display:none!important">
+                        <i class="bi bi-patch-check-fill flex-shrink-0"></i>
+                        <span>
+                            <strong id="planInfoName"></strong>
+                            &mdash; ₱<span id="planInfoPrice"></span>/mo
+                            &bull; <span id="planInfoBranches"></span> branches
+                            &bull; <span id="planInfoUsers"></span> users
+                            &bull; <span id="planInfoProducts"></span> products
+                        </span>
+                    </div>
+                    <div id="noPlanBanner" class="alert alert-secondary d-flex align-items-center gap-2 py-2 px-3 mb-0">
+                        <i class="bi bi-info-circle flex-shrink-0"></i>
+                        <span class="small">Select a Subscription Plan to automatically fill the limits below.</span>
+                    </div>
+                </div>
+
+                <!-- Limit fields — auto-populated from plan, readonly when plan is selected -->
                 <div class="col-md-4">
-                    <label asp-for="MaxBranches" class="form-label fw-semibold">Max Branches</label>
-                    <input asp-for="MaxBranches" class="form-control" type="number" min="1" />
+                    <label asp-for="MaxBranches" class="form-label fw-semibold">
+                        Max Branches
+                        <span id="limitBadgeCreate" class="badge bg-info text-dark ms-1" style="display:none">From Plan</span>
+                    </label>
+                    <input asp-for="MaxBranches" id="maxBranchesInput" class="form-control" type="number" min="1" />
                 </div>
                 <div class="col-md-4">
                     <label asp-for="MaxUsers" class="form-label fw-semibold">Max Users</label>
-                    <input asp-for="MaxUsers" class="form-control" type="number" min="1" />
+                    <input asp-for="MaxUsers" id="maxUsersInput" class="form-control" type="number" min="1" />
                 </div>
                 <div class="col-md-4">
                     <label asp-for="MaxProducts" class="form-label fw-semibold">Max Products</label>
-                    <input asp-for="MaxProducts" class="form-control" type="number" min="1" />
+                    <input asp-for="MaxProducts" id="maxProductsInput" class="form-control" type="number" min="1" />
                 </div>
-                <div class="col-md-4 d-flex align-items-end">
+
+                <!-- Active checkbox -->
+                <div class="col-md-12 d-flex align-items-center">
                     <div class="form-check">
                         <input asp-for="IsActive" class="form-check-input" type="checkbox" />
                         <label asp-for="IsActive" class="form-check-label fw-semibold">Active</label>
@@ -158,20 +200,81 @@
 @section Scripts {
     @await Html.PartialAsync("_ValidationScriptsPartial")
     <script>
-        (function () {
-            const toggle  = document.getElementById('createOwnerToggle');
-            const section = document.getElementById('ownerAccountSection');
+    (function () {
+        /* ── Owner account toggle ──────────────────────────────── */
+        var toggle  = document.getElementById('createOwnerToggle');
+        var section = document.getElementById('ownerAccountSection');
+        function updateVisibility() {
+            if (toggle.checked) { section.classList.remove('d-none'); }
+            else                { section.classList.add('d-none');    }
+        }
+        toggle.addEventListener('change', updateVisibility);
+        updateVisibility();
 
-            function updateVisibility() {
-                if (toggle.checked) {
-                    section.classList.remove('d-none');
+        /* ── Subscription Plan auto-populate ───────────────────── */
+        var PLAN_DATA = {};
+        var planList  = @Html.Raw(ViewBag.PlanDetailsJson as string ?? "[]");
+        planList.forEach(function (p) { PLAN_DATA[p.id] = p; });
+
+        var planSelect       = document.getElementById('planSelect');
+        var maxBranchesInput = document.getElementById('maxBranchesInput');
+        var maxUsersInput    = document.getElementById('maxUsersInput');
+        var maxProductsInput = document.getElementById('maxProductsInput');
+        var planInfoBanner   = document.getElementById('planInfoBanner');
+        var noPlanBanner     = document.getElementById('noPlanBanner');
+        var limitBadge       = document.getElementById('limitBadgeCreate');
+        var planInfoName     = document.getElementById('planInfoName');
+        var planInfoPrice    = document.getElementById('planInfoPrice');
+        var planInfoBranches = document.getElementById('planInfoBranches');
+        var planInfoUsers    = document.getElementById('planInfoUsers');
+        var planInfoProducts = document.getElementById('planInfoProducts');
+
+        function setLimitReadonly(isReadonly) {
+            [maxBranchesInput, maxUsersInput, maxProductsInput].forEach(function (el) {
+                if (isReadonly) {
+                    el.setAttribute('readonly', '');
+                    el.classList.add('bg-light');
                 } else {
-                    section.classList.add('d-none');
+                    el.removeAttribute('readonly');
+                    el.classList.remove('bg-light');
                 }
-            }
+            });
+            limitBadge.style.display = isReadonly ? '' : 'none';
+        }
 
-            toggle.addEventListener('change', updateVisibility);
-            updateVisibility();
-        })();
+        function applyPlan(planId) {
+            var plan = PLAN_DATA[planId];
+            if (!plan) { clearPlan(); return; }
+
+            maxBranchesInput.value = plan.maxBranches;
+            maxUsersInput.value    = plan.maxUsers;
+            maxProductsInput.value = plan.maxProducts;
+            setLimitReadonly(true);
+
+            planInfoName.textContent     = plan.name;
+            planInfoPrice.textContent    = Number(plan.monthlyPrice).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            planInfoBranches.textContent = plan.maxBranches;
+            planInfoUsers.textContent    = plan.maxUsers;
+            planInfoProducts.textContent = plan.maxProducts;
+
+            planInfoBanner.style.removeProperty('display');
+            noPlanBanner.style.display = 'none';
+        }
+
+        function clearPlan() {
+            setLimitReadonly(false);
+            planInfoBanner.style.display = 'none';
+            noPlanBanner.style.removeProperty('display');
+        }
+
+        planSelect.addEventListener('change', function () {
+            var val = this.value;
+            if (val) { applyPlan(Number(val)); } else { clearPlan(); }
+        });
+
+        // Initialize on page load (e.g. after a validation re-render)
+        if (planSelect.value) { applyPlan(Number(planSelect.value)); }
+        else                  { clearPlan(); }
+    })();
     </script>
 }

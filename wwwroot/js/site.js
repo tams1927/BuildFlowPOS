@@ -173,6 +173,18 @@
                 return;
             }
 
+            // When jQuery unobtrusive validation is active on this form, only show
+            // the confirmation dialog if the form is already valid.  If invalid,
+            // return early so jQuery can display its field-level error messages
+            // without the dialog appearing on top of them.
+            if (window.jQuery) {
+                var $form = window.jQuery(form);
+                var validator = $form.data('validator');
+                if (validator && !$form.valid()) {
+                    return;
+                }
+            }
+
             e.preventDefault();
             e.stopPropagation();
 

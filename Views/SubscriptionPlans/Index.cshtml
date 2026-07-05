@@ -61,17 +61,43 @@
                             }
                         </td>
                         <td class="text-end">
-                            <a asp-action="Edit" asp-route-id="@p.Id"
-                               class="btn btn-sm btn-outline-primary me-1">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                            <form asp-action="Delete" asp-route-id="@p.Id" method="post" class="d-inline plan-delete-form">
-                                @Html.AntiForgeryToken()
-                                <button type="button" class="btn btn-sm btn-outline-danger btn-delete-plan"
-                                        data-plan-name="@p.Name">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
+                            <div class="d-flex gap-1 justify-content-end">
+                                <!-- Edit -->
+                                <a asp-action="Edit" asp-route-id="@p.Id" class="btn btn-sm btn-outline-primary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+
+                                <!-- Activate / Deactivate -->
+                                @if (p.IsActive)
+                                {
+                                    <form asp-action="Deactivate" asp-route-id="@p.Id" method="post" class="d-inline plan-toggle-form">
+                                        @Html.AntiForgeryToken()
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-toggle-plan"
+                                                data-plan-name="@p.Name" data-action="deactivate" title="Deactivate">
+                                            <i class="bi bi-toggle-on"></i>
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form asp-action="Activate" asp-route-id="@p.Id" method="post" class="d-inline plan-toggle-form">
+                                        @Html.AntiForgeryToken()
+                                        <button type="button" class="btn btn-sm btn-outline-success btn-toggle-plan"
+                                                data-plan-name="@p.Name" data-action="activate" title="Activate">
+                                            <i class="bi bi-toggle-off"></i>
+                                        </button>
+                                    </form>
+                                }
+
+                                <!-- Delete -->
+                                <form asp-action="Delete" asp-route-id="@p.Id" method="post" class="d-inline plan-delete-form">
+                                    @Html.AntiForgeryToken()
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-delete-plan"
+                                            data-plan-name="@p.Name" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -89,6 +115,27 @@
 @section Scripts {
 <script>
 (function () {
+    // Activate / Deactivate
+    document.querySelectorAll('.btn-toggle-plan').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form   = this.closest('form');
+            var name   = this.dataset.planName || 'this plan';
+            var action = this.dataset.action;
+            var isActivate = action === 'activate';
+            Swal.fire({
+                title: (isActivate ? 'Activate' : 'Deactivate') + ' plan?',
+                html: (isActivate ? 'Activate' : 'Deactivate') + ' plan <strong>' + name + '</strong>?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: isActivate ? '#198754' : '#6c757d',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, ' + action,
+                cancelButtonText: 'Cancel'
+            }).then(function (r) { if (r.isConfirmed) form.submit(); });
+        });
+    });
+
+    // Delete
     document.querySelectorAll('.btn-delete-plan').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var form = this.closest('form');

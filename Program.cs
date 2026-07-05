@@ -70,6 +70,7 @@ builder.Services.AddScoped<ITenantDatabaseResolver, TenantDatabaseResolver>();
 builder.Services.AddScoped<ITenantDbContextFactory, TenantDbContextFactory>();
 builder.Services.AddScoped<ITenantDatabaseProvisioningService, TenantDatabaseProvisioningService>();
 builder.Services.AddScoped<ITenantDataMigrationService, TenantDataMigrationService>();
+builder.Services.AddScoped<ITenantSchemaMigrationService, TenantSchemaMigrationService>();
 builder.Services.AddScoped<ITenantOperationalContextProvider, TenantOperationalContextProvider>();
 
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
@@ -293,6 +294,63 @@ if (args.Contains("--qa-save-confirm"))
 {
     await HardwareManagementSystem.Tools.SaveConfirmationQaRunner.RunAsync(app);
     return;
+}
+
+if (args.Contains("--qa-tenant-schema"))
+{
+    await HardwareManagementSystem.Tools.TenantSchemaQaRunner.RunAsync(app);
+    return;
+}
+
+// ============================================
+// STARTUP SCHEMA DRIFT CHECK
+// ============================================
+// Warns (but does NOT block) when a routing-active tenant database is behind the
+// current TenantDbContext migration level. This helps catch schema drift between
+// deployments without auto-migrating in production.
+// Run "dotnet run -- --qa-tenant-schema" or use SuperAdmin → Tenants → Upgrade All
+// DB Schemas to apply pending migrations.
+try
+{
+    await using var startupScope = app.Services.CreateAsyncScope();
+    var appCtx   = startupScope.ServiceProvider.GetRequiredService<HardwareManagementSystem.Data.ApplicationDbContext>();
+    var ctxFac   = startupScope.ServiceProvider.GetRequiredService<HardwareManagementSystem.Services.TenantDatabases.ITenantDbContextFactory>();
+    var startLog = startupScope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    var routedTenants = await appCtx.Tenants
+        .AsNoTracking()
+        .Where(t => t.RoutingEnabled && t.DataMigrated &&
+                    t.DatabaseProvisionedAtUtc != null &&
+                    t.ConnectionString != null && t.ConnectionString != string.Empty)
+        .ToListAsync();
+
+    foreach (var rt in routedTenants)
+    {
+        try
+        {
+            await using var ctx = ctxFac.CreateForConnection(rt.ConnectionString!);
+            var pending = (await ctx.Database.GetPendingMigrationsAsync()).ToList();
+            if (pending.Count > 0)
+            {
+                startLog.LogWarning(
+                    "SCHEMA DRIFT — Tenant {TenantId} ({Code}) has {Count} pending migration(s) on its " +
+                    "ROUTING-ACTIVE dedicated database: {Migrations}. " +
+                    "Run SuperAdmin → Tenants → Upgrade Schema, or: dotnet run -- --qa-tenant-schema",
+                    rt.Id, rt.Code, pending.Count, string.Join(", ", pending));
+            }
+        }
+        catch (Exception ex)
+        {
+            startLog.LogWarning(ex,
+                "Startup schema check: could not connect to tenant {TenantId} ({Code}) dedicated database.",
+                rt.Id, rt.Code);
+        }
+    }
+}
+catch (Exception ex)
+{
+    var startLog2 = app.Services.GetRequiredService<ILogger<Program>>();
+    startLog2.LogWarning(ex, "Startup schema drift check failed (non-fatal).");
 }
 
 // ============================================

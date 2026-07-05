@@ -103,7 +103,14 @@
                     {
                         foreach (dynamic t in tenantList)
                         {
-                            <option value="@t.Id" selected="@(tenantFilter == (int)t.Id)">@t.Name</option>
+                            if (tenantFilter == (int)t.Id)
+                            {
+                                <option value="@t.Id" selected>@t.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@t.Id">@t.Name</option>
+                            }
                         }
                     }
                 </select>
@@ -146,83 +153,18 @@
 
                 <option value="">All Modules</option>
 
-                <option value="POS"
-                        selected="@(moduleFilter == "POS")">
-
-                    POS
-
-                </option>
-
-                <option value="Inventory"
-                        selected="@(moduleFilter == "Inventory")">
-
-                    Inventory
-
-                </option>
-
-                <option value="StockIn"
-                        selected="@(moduleFilter == "StockIn")">
-
-                    StockIn
-
-                </option>
-
-                <option value="Users"
-                        selected="@(moduleFilter == "Users")">
-
-                    Users
-
-                </option>
-
-                <option value="Settings"
-                        selected="@(moduleFilter == "Settings")">
-
-                    Settings
-
-                </option>
-
-                <option value="RolePermissions"
-                        selected="@(moduleFilter == "RolePermissions")">
-
-                    RolePermissions
-
-                </option>
-
-                <option value="Sales"
-                        selected="@(moduleFilter == "Sales")">
-
-                    Sales
-
-                </option>
-
-                <option value="StockAdjustment"
-                        selected="@(moduleFilter == "StockAdjustment")">
-
-                    StockAdjustment
-
-                </option>
-
-                <option value="SalesReturn"
-                        selected="@(moduleFilter == "SalesReturn")">
-
-                    SalesReturn
-
-                </option>
-
-                <option value="Branches"
-                        selected="@(moduleFilter == "Branches")">
-                    Branches
-                </option>
-
-                <option value="BranchTransfers"
-                        selected="@(moduleFilter == "BranchTransfers")">
-                    BranchTransfers
-                </option>
-
-                <option value="UserBranches"
-                        selected="@(moduleFilter == "UserBranches")">
-                    UserBranches
-                </option>
+                <option value="POS"           selected="@(moduleFilter == "POS"           ? "selected" : null)">POS</option>
+                <option value="Inventory"     selected="@(moduleFilter == "Inventory"     ? "selected" : null)">Inventory</option>
+                <option value="StockIn"       selected="@(moduleFilter == "StockIn"       ? "selected" : null)">StockIn</option>
+                <option value="Users"         selected="@(moduleFilter == "Users"         ? "selected" : null)">Users</option>
+                <option value="Settings"      selected="@(moduleFilter == "Settings"      ? "selected" : null)">Settings</option>
+                <option value="RolePermissions" selected="@(moduleFilter == "RolePermissions" ? "selected" : null)">RolePermissions</option>
+                <option value="Sales"         selected="@(moduleFilter == "Sales"         ? "selected" : null)">Sales</option>
+                <option value="StockAdjustment" selected="@(moduleFilter == "StockAdjustment" ? "selected" : null)">StockAdjustment</option>
+                <option value="SalesReturn"   selected="@(moduleFilter == "SalesReturn"   ? "selected" : null)">SalesReturn</option>
+                <option value="Branches"      selected="@(moduleFilter == "Branches"      ? "selected" : null)">Branches</option>
+                <option value="BranchTransfers" selected="@(moduleFilter == "BranchTransfers" ? "selected" : null)">BranchTransfers</option>
+                <option value="UserBranches"  selected="@(moduleFilter == "UserBranches"  ? "selected" : null)">UserBranches</option>
 
             </select>
 
@@ -263,40 +205,11 @@
 
                 <option value="">All Actions</option>
 
-                <option value="SALE"
-                        selected="@(actionFilter == "SALE")">
-
-                    Sale
-
-                </option>
-
-                <option value="DISCOUNT"
-                        selected="@(actionFilter == "DISCOUNT")">
-
-                    Discount
-
-                </option>
-
-                <option value="CREATED"
-                        selected="@(actionFilter == "CREATED")">
-
-                    Created
-
-                </option>
-
-                <option value="UPDATED"
-                        selected="@(actionFilter == "UPDATED")">
-
-                    Updated
-
-                </option>
-
-                <option value="DEACTIVATED"
-                        selected="@(actionFilter == "DEACTIVATED")">
-
-                    Deactivated
-
-                </option>
+                <option value="SALE"        selected="@(actionFilter == "SALE"        ? "selected" : null)">Sale</option>
+                <option value="DISCOUNT"   selected="@(actionFilter == "DISCOUNT"   ? "selected" : null)">Discount</option>
+                <option value="CREATED"    selected="@(actionFilter == "CREATED"    ? "selected" : null)">Created</option>
+                <option value="UPDATED"    selected="@(actionFilter == "UPDATED"    ? "selected" : null)">Updated</option>
+                <option value="DEACTIVATED" selected="@(actionFilter == "DEACTIVATED" ? "selected" : null)">Deactivated</option>
 
             </select>
 
@@ -304,10 +217,6 @@
 
         <input type="hidden" name="pageSize"   value="@Model.PageSize" />
         <input type="hidden" name="pageNumber" value="1" />
-        @if (isSuperAdmin && tenantFilter.HasValue)
-        {
-            <input type="hidden" name="tenantFilter" value="@tenantFilter" />
-        }
 
         <div class="col-lg-2 d-flex align-items-end">
 

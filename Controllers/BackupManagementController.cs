@@ -303,6 +303,7 @@ namespace HardwareManagementSystem.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Platform backup failed.");
                 TempData["ErrorMessage"] = $"Platform backup failed: {ex.Message}";
             }
 
@@ -338,6 +339,7 @@ namespace HardwareManagementSystem.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Tenant backup failed for tenantId={TenantId}.", tenantId);
                 TempData["ErrorMessage"] = $"Tenant backup failed: {ex.Message}";
             }
 
@@ -369,6 +371,7 @@ namespace HardwareManagementSystem.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Backup All failed.");
                 TempData["ErrorMessage"] = $"Backup All failed: {ex.Message}";
             }
 
@@ -443,6 +446,7 @@ namespace HardwareManagementSystem.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Restore As New failed for backupRecordId={Id}.", backupRecordId);
                 TempData["ErrorMessage"] = $"Restore As New failed: {ex.Message}";
             }
 
@@ -502,6 +506,7 @@ namespace HardwareManagementSystem.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Restore Overwrite failed for backupRecordId={Id}.", backupRecordId);
                 TempData["ErrorMessage"] = $"Restore Overwrite failed: {ex.Message}";
             }
 

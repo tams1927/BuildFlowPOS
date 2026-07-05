@@ -12,11 +12,16 @@ namespace HardwareManagementSystem.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
+        private readonly ILogger<SubscriptionPlansController> _logger;
 
-        public SubscriptionPlansController(ApplicationDbContext context, AuditService auditService)
+        public SubscriptionPlansController(
+            ApplicationDbContext context,
+            AuditService auditService,
+            ILogger<SubscriptionPlansController> logger)
         {
-            _context = context;
+            _context      = context;
             _auditService = auditService;
+            _logger       = logger;
         }
 
         public async Task<IActionResult> Index()
@@ -43,6 +48,11 @@ namespace HardwareManagementSystem.Controllers
         {
             if (!ModelState.IsValid)
             {
+                var errors = string.Join("; ", ModelState
+                    .Where(e => e.Value?.Errors.Any() == true)
+                    .SelectMany(e => e.Value!.Errors.Select(err => $"{e.Key}: {err.ErrorMessage}")));
+                _logger.LogWarning("SubscriptionPlan Create rejected by ModelState: {Errors}", errors);
+
                 ViewData["Title"] = "New Plan";
                 return View(plan);
             }
@@ -75,6 +85,11 @@ namespace HardwareManagementSystem.Controllers
 
             if (!ModelState.IsValid)
             {
+                var errors = string.Join("; ", ModelState
+                    .Where(e => e.Value?.Errors.Any() == true)
+                    .SelectMany(e => e.Value!.Errors.Select(err => $"{e.Key}: {err.ErrorMessage}")));
+                _logger.LogWarning("SubscriptionPlan Edit {Id} rejected by ModelState: {Errors}", id, errors);
+
                 ViewData["Title"] = "Edit Plan";
                 return View(plan);
             }
@@ -82,14 +97,14 @@ namespace HardwareManagementSystem.Controllers
             var existing = await _context.SubscriptionPlans.FindAsync(id);
             if (existing == null) return NotFound();
 
-            existing.Name        = plan.Name;
-            existing.Description = plan.Description;
+            existing.Name         = plan.Name;
+            existing.Description  = plan.Description;
             existing.MonthlyPrice = plan.MonthlyPrice;
-            existing.MaxBranches = plan.MaxBranches;
-            existing.MaxUsers    = plan.MaxUsers;
-            existing.MaxProducts = plan.MaxProducts;
-            existing.IsActive    = plan.IsActive;
-            existing.SortOrder   = plan.SortOrder;
+            existing.MaxBranches  = plan.MaxBranches;
+            existing.MaxUsers     = plan.MaxUsers;
+            existing.MaxProducts  = plan.MaxProducts;
+            existing.IsActive     = plan.IsActive;
+            existing.SortOrder    = plan.SortOrder;
 
             await _context.SaveChangesAsync();
 
@@ -97,6 +112,40 @@ namespace HardwareManagementSystem.Controllers
                 $"Plan updated: {existing.Name} (₱{existing.MonthlyPrice:N2}/mo, Active={existing.IsActive})");
 
             TempData["SuccessMessage"] = $"Plan '{existing.Name}' updated.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Activate(int id)
+        {
+            var plan = await _context.SubscriptionPlans.FindAsync(id);
+            if (plan == null) return NotFound();
+
+            plan.IsActive = true;
+            await _context.SaveChangesAsync();
+
+            await _auditService.LogAsync(User, "SubscriptionPlans", "Activate",
+                $"Plan activated: {plan.Name}");
+
+            TempData["SuccessMessage"] = $"Plan '{plan.Name}' activated.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Deactivate(int id)
+        {
+            var plan = await _context.SubscriptionPlans.FindAsync(id);
+            if (plan == null) return NotFound();
+
+            plan.IsActive = false;
+            await _context.SaveChangesAsync();
+
+            await _auditService.LogAsync(User, "SubscriptionPlans", "Deactivate",
+                $"Plan deactivated: {plan.Name}");
+
+            TempData["SuccessMessage"] = $"Plan '{plan.Name}' deactivated.";
             return RedirectToAction(nameof(Index));
         }
 

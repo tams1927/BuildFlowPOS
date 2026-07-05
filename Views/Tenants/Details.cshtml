@@ -6,6 +6,7 @@
     ViewData["Title"] = "Tenant Details";
     var usage = ViewBag.Usage as TenantUsageSummary ?? new TenantUsageSummary();
     var users = ViewBag.Users as List<TenantUserVm> ?? new List<TenantUserVm>();
+    int pendingMigrations = ViewBag.PendingMigrations is int pm ? pm : 0;
 }
 
 <div class="page-header-row mb-3">
@@ -246,6 +247,29 @@
                 <div class="small">@(string.IsNullOrWhiteSpace(Model.LastDatabaseMigration) ? "—" : Model.LastDatabaseMigration)</div>
             </div>
 
+            @if (isProvisioned)
+            {
+                <div class="col-md-3">
+                    <div class="text-muted small">Schema Status</div>
+                    <div>
+                        @if (pendingMigrations == 0)
+                        {
+                            <span class="badge badge-soft-success"><i class="bi bi-check-circle me-1"></i>Up to date</span>
+                        }
+                        else if (pendingMigrations > 0)
+                        {
+                            <span class="badge badge-soft-danger">
+                                <i class="bi bi-exclamation-triangle me-1"></i>@pendingMigrations pending
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-soft-secondary">Unknown</span>
+                        }
+                    </div>
+                </div>
+            }
+
             <div class="col-12">
                 <div class="d-flex flex-wrap gap-2 mt-1">
                     <!-- Provision -->
@@ -269,6 +293,31 @@
                                 title="@(!isDedicated ? "Switch the tenant to Dedicated mode first." : !hasDbName ? "Set a database name first." : "Database already provisioned.")">
                             <i class="bi bi-database-add me-1"></i> Provision Database
                         </button>
+                    }
+
+                    <!-- Schema Upgrade (Phase 5.3.2) -->
+                    @if (isProvisioned)
+                    {
+                        <form asp-action="UpgradeSchema" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
+                            @Html.AntiForgeryToken()
+                            <button type="button"
+                                    class="btn @(pendingMigrations > 0 ? "btn-warning" : "btn-outline-secondary")"
+                                    data-swal-title="Upgrade Tenant Database Schema?"
+                                    data-swal-text="This applies any pending EF Core migrations to this tenant's dedicated database.<br><br>Safe to run even when the schema is already current.<br><br>Proceed?"
+                                    data-swal-confirm="Yes, Upgrade Schema"
+                                    data-swal-cancel="Cancel"
+                                    data-swal-icon="question">
+                                <i class="bi bi-arrow-up-circle me-1"></i>
+                                @if (pendingMigrations > 0)
+                                {
+                                    <span>Upgrade Schema (@pendingMigrations pending)</span>
+                                }
+                                else
+                                {
+                                    <span>Upgrade Schema</span>
+                                }
+                            </button>
+                        </form>
                     }
 
                     <!-- Test Connection -->
