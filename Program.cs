@@ -74,6 +74,7 @@ builder.Services.AddScoped<ITenantSchemaMigrationService, TenantSchemaMigrationS
 builder.Services.AddScoped<ITenantOperationalContextProvider, TenantOperationalContextProvider>();
 
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
+builder.Services.Configure<TenantDatabaseSettings>(builder.Configuration.GetSection("TenantDatabaseSettings"));
 builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IRestoreService, RestoreService>();
 builder.Services.AddHostedService<ScheduledBackupBackgroundService>();
@@ -299,6 +300,17 @@ if (args.Contains("--qa-save-confirm"))
 if (args.Contains("--qa-tenant-schema"))
 {
     await HardwareManagementSystem.Tools.TenantSchemaQaRunner.RunAsync(app);
+    return;
+}
+
+// ============================================
+// RC1.7-QA — DIRECT DEDICATED TENANT TEST
+// ============================================
+// Verifies the One-Tenant-One-Database auto-provisioning flow introduced in RC1.7.
+// Dev-only. Runs with "--qa-direct-dedicated-tenant". Does not start the web server.
+if (args.Contains("--qa-direct-dedicated-tenant"))
+{
+    await HardwareManagementSystem.Tools.DirectDedicatedTenantQaRunner.RunAsync(app);
     return;
 }
 

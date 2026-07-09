@@ -217,14 +217,15 @@ namespace HardwareManagementSystem.Controllers
         public async Task<IActionResult> ChangePassword(
             ChangePasswordViewModel model)
         {
-            if (!ModelState.IsValid)
-                return View(model);
-
             var user = await _userManager.GetUserAsync(User);
 
             if (user == null)
-            {
                 return RedirectToAction(nameof(Login));
+
+            if (!ModelState.IsValid)
+            {
+                ViewBag.ForcePasswordChange = user.ForcePasswordChange;
+                return View(model);
             }
 
             var result = await _userManager.ChangePasswordAsync(
@@ -234,8 +235,9 @@ namespace HardwareManagementSystem.Controllers
 
             if (result.Succeeded)
             {
-                // Clear the forced-change flag if it was set by a SuperAdmin reset
-                if (user.ForcePasswordChange)
+                bool wasForcedChange = user.ForcePasswordChange;
+
+                if (wasForcedChange)
                 {
                     user.ForcePasswordChange = false;
                     await _userManager.UpdateAsync(user);
@@ -255,16 +257,27 @@ namespace HardwareManagementSystem.Controllers
 
                 TempData["SuccessMessage"] = "Password changed successfully.";
 
+                // After a forced password change redirect to the appropriate dashboard
+                // so the user can continue working without looping back to this page.
+                if (wasForcedChange)
+                {
+                    var roles = await _userManager.GetRolesAsync(user);
+                    if (roles.Contains("SuperAdmin"))
+                        return RedirectToAction("Dashboard", "SuperAdmin");
+
+                    return RedirectToAction("Index", "Home");
+                }
+
                 return RedirectToAction(nameof(ChangePassword));
             }
 
             foreach (var error in result.Errors)
             {
-                ModelState.AddModelError(
-                    string.Empty,
-                    error.Description);
+                ModelState.AddModelError(string.Empty, error.Description);
             }
 
+            // Preserve the forced-change banner when returning the form with errors.
+            ViewBag.ForcePasswordChange = user.ForcePasswordChange;
             return View(model);
         }
 

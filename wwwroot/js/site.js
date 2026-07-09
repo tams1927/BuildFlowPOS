@@ -131,7 +131,11 @@
 
     function confirmAndSubmit(form, options) {
         if (isConfirmed(form)) {
-            form.requestSubmit();
+            lockSubmitButtons(form);
+            // form.submit() is used here (not requestSubmit) for reliable navigation.
+            // requestSubmit() called from a Promise microtask context drops the browser
+            // navigation in some browsers; form.submit() bypasses that race condition.
+            form.submit();
             return;
         }
 
@@ -153,7 +157,12 @@
             }
 
             markConfirmed(form);
-            form.requestSubmit();
+            lockSubmitButtons(form);
+            // Use form.submit() for unconditionally reliable cross-browser navigation.
+            // requestSubmit() fires submit event handlers again (unnecessary here, since
+            // validation already passed) and its async-context navigation can be silently
+            // dropped in some browser/OS combinations.
+            form.submit();
         });
     }
 
@@ -175,12 +184,15 @@
 
             // When jQuery unobtrusive validation is active on this form, only show
             // the confirmation dialog if the form is already valid.  If invalid,
-            // return early so jQuery can display its field-level error messages
-            // without the dialog appearing on top of them.
+            // restore any stale loading state and return early so jQuery can display
+            // its field-level error messages without the dialog appearing on top.
             if (window.jQuery) {
                 var $form = window.jQuery(form);
                 var validator = $form.data('validator');
                 if (validator && !$form.valid()) {
+                    // Explicitly restore buttons to their original state so they never
+                    // show "Processing…" when validation has failed.
+                    resetFormState(form);
                     return;
                 }
             }
@@ -265,7 +277,18 @@
                         return;
                     }
 
+                    // Always mark as submitted to guard against rapid re-submits.
                     form.dataset.submitted = 'true';
+
+                    // HbForm-managed confirm forms (confirm-submit, confirm-deactivate,
+                    // etc.) explicitly call lockSubmitButtons inside confirmAndSubmit,
+                    // AFTER the user clicks "Yes" in the SweetAlert dialog.  Locking
+                    // here would show "Processing…" on forms that failed client-side
+                    // validation — the exact bug this guard is designed to prevent.
+                    if (form.getAttribute(BOUND_ATTR) === 'true') {
+                        return;
+                    }
+
                     lockSubmitButtons(form);
                 });
             });

@@ -126,6 +126,15 @@ namespace HardwareManagementSystem.Models
         /// </summary>
         public bool RoutingEnabled { get; set; }
 
+        /// <summary>
+        /// RC1.7 — true when this tenant was provisioned directly into a dedicated
+        /// database at creation time (no Migrate Data step was needed). Used to
+        /// display appropriate UI labels and hide the legacy "Migrate Data" button.
+        /// False for tenants created before RC1.7 or tenants that went through the
+        /// manual shared→dedicated migration pipeline.
+        /// </summary>
+        public bool IsDirectlyProvisioned { get; set; }
+
         // ── Helpers ─────────────────────────────────────────────────
         public int EffectiveMaxBranches  => SubscriptionPlan != null && MaxBranches == 0 ? SubscriptionPlan.MaxBranches  : MaxBranches;
         public int EffectiveMaxUsers     => SubscriptionPlan != null && MaxUsers    == 0 ? SubscriptionPlan.MaxUsers     : MaxUsers;

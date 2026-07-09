@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+using HardwareManagementSystem.Configuration;
 using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Data.Seeders;
 using HardwareManagementSystem.Models;
@@ -9,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace HardwareManagementSystem.Controllers
 {
@@ -25,6 +28,7 @@ namespace HardwareManagementSystem.Controllers
         private readonly ITenantDataMigrationService _dataMigrationService;
         private readonly ITenantSchemaMigrationService _schemaMigrationService;
         private readonly ILogger<TenantsController> _logger;
+        private readonly TenantDatabaseSettings _dbSettings;
 
         public TenantsController(
             ApplicationDbContext context,
@@ -36,7 +40,8 @@ namespace HardwareManagementSystem.Controllers
             ITenantDatabaseProvisioningService provisioningService,
             ITenantDataMigrationService dataMigrationService,
             ITenantSchemaMigrationService schemaMigrationService,
-            ILogger<TenantsController> logger)
+            ILogger<TenantsController> logger,
+            IOptions<TenantDatabaseSettings> dbSettings)
         {
             _context    = context;
             _auditService = auditService;
@@ -48,6 +53,7 @@ namespace HardwareManagementSystem.Controllers
             _dataMigrationService = dataMigrationService;
             _schemaMigrationService = schemaMigrationService;
             _logger = logger;
+            _dbSettings = dbSettings.Value;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -228,9 +234,11 @@ namespace HardwareManagementSystem.Controllers
             tenant.UpdatedAtUtc = DateTime.UtcNow;
 
             _context.Tenants.Add(tenant);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();  // tenant.Id is now assigned
 
-            // ── Auto-create a tenant-scoped SystemSettings row with sensible defaults ──
+            // ── Auto-create a tenant-scoped SystemSettings row in the shared DB ──
+            // Kept for backward-compatibility; the dedicated DB also gets its own
+            // SystemSetting row during provisioning (SeedMinimumDataAsync).
             var tenantSettings = new SystemSetting
             {
                 TenantId          = tenant.Id,
@@ -250,12 +258,77 @@ namespace HardwareManagementSystem.Controllers
             await _auditService.LogAsync(User, "Tenants", "Create",
                 $"Tenant created: {tenant.Name} ({tenant.Code})");
 
+            // ── RC1.7: Auto-provision dedicated database immediately ──────────
+            // BuildFlow SaaS strategy: One Tenant = One Dedicated Database.
+            // Generate a safe database name from the tenant code and numeric ID,
+            // then provision, migrate, seed, and enable routing in one step.
+            string? provisioningWarning = null;
+            try
+            {
+                // Generate a SQL-safe database name: letters/digits/underscores only.
+                // The prefix is read from TenantDatabaseSettings:DatabasePrefix in appsettings.json.
+                var safeCode = Regex.Replace(tenant.Code, @"[^A-Za-z0-9]", "_");
+                var dbName   = $"{_dbSettings.EffectivePrefix}_{safeCode}_{tenant.Id}";
+
+                tenant.DatabaseMode = TenantDatabaseMode.Dedicated;
+                tenant.DatabaseName = dbName;
+                tenant.UpdatedAtUtc = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "RC1.7: Auto-provisioning dedicated DB '{DbName}' for tenant {TenantId} ({Code}).",
+                    dbName, tenant.Id, tenant.Code);
+
+                var provisionResult = await _provisioningService.ProvisionAsync(tenant.Id);
+
+                if (provisionResult.Success)
+                {
+                    // Mark as directly initialised — no manual migration step required.
+                    tenant.DataMigrated         = true;
+                    tenant.DataMigratedAtUtc    = DateTime.UtcNow;
+                    tenant.RoutingEnabled       = true;
+                    tenant.IsDirectlyProvisioned = true;
+                    tenant.UpdatedAtUtc          = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+
+                    _databaseResolver.Invalidate(tenant.Id);
+
+                    await _auditService.LogAsync(User, "Tenants", "RC17_DIRECT_PROVISION",
+                        $"Dedicated database '{dbName}' auto-provisioned and routing enabled for tenant " +
+                        $"'{tenant.Name}' ({tenant.Code}).",
+                        "Tenant", tenant.Id.ToString(), GetClientIp());
+
+                    _logger.LogInformation(
+                        "RC1.7: Tenant {TenantId} ({Code}) now running on dedicated DB '{DbName}'.",
+                        tenant.Id, tenant.Code, dbName);
+                }
+                else
+                {
+                    // Provisioning failed — tenant record exists but DB is not ready.
+                    // Show a warning so SuperAdmin can retry from Details.
+                    provisioningWarning = provisionResult.Message;
+                    _logger.LogError(
+                        "RC1.7: Provisioning failed for tenant {TenantId} ({Code}): {Message}",
+                        tenant.Id, tenant.Code, provisionResult.Message);
+
+                    await _auditService.LogAsync(User, "Tenants", "RC17_DIRECT_PROVISION_FAILED",
+                        $"Auto-provisioning FAILED for tenant '{tenant.Name}' ({tenant.Code}): {provisionResult.Message}",
+                        "Tenant", tenant.Id.ToString(), GetClientIp());
+                }
+            }
+            catch (Exception ex)
+            {
+                provisioningWarning = $"Auto-provisioning encountered an error: {ex.Message}";
+                _logger.LogError(ex,
+                    "RC1.7: Unexpected error during auto-provisioning for tenant {TenantId}.",
+                    tenant.Id);
+            }
+
             // ── Optional: create first owner/admin account ────────────
             if (createOwnerAccount
                 && !string.IsNullOrWhiteSpace(ownerUsername)
                 && !string.IsNullOrWhiteSpace(ownerPassword))
             {
-                // TenantAdmin is the sole tenant-level admin role; Admin is removed.
                 var assignRole = "TenantAdmin";
 
                 var newOwner = new ApplicationUser
@@ -278,15 +351,11 @@ namespace HardwareManagementSystem.Controllers
 
                     await _userManager.AddToRoleAsync(newOwner, assignRole);
 
-                    // Ensure this role has permission rows so the user can log in immediately
-                    // without hitting AccessDenied. SeedRolePermissionsAsync is idempotent.
+                    // Ensure this role has permission rows so the user can log in immediately.
                     await DbSeeder.SeedRolePermissionsAsync(HttpContext.RequestServices);
 
                     await _auditService.LogAsync(User, "Tenants", "CreateOwner",
                         $"Owner account '{newOwner.UserName}' ({assignRole}) created for tenant {tenant.Name}");
-
-                    TempData["SuccessMessage"] =
-                        $"Tenant '{tenant.Name}' and owner account '{newOwner.UserName}' created successfully.";
                 }
                 else
                 {
@@ -295,12 +364,28 @@ namespace HardwareManagementSystem.Controllers
                         $"Tenant '{tenant.Name}' created, but owner account failed: {errors}";
                 }
             }
-            else
+
+            // Build final success/warning message.
+            if (provisioningWarning != null)
             {
-                TempData["SuccessMessage"] = $"Tenant '{tenant.Name}' created successfully.";
+                TempData["ErrorMessage"] =
+                    $"Tenant '{tenant.Name}' was saved, but dedicated database setup failed: {provisioningWarning} " +
+                    "You can retry provisioning from the Tenant Details page.";
+            }
+            else if (createOwnerAccount && !string.IsNullOrWhiteSpace(ownerUsername)
+                     && TempData["ErrorMessage"] == null)
+            {
+                TempData["SuccessMessage"] =
+                    $"Tenant '{tenant.Name}' and owner account '{ownerUsername!.Trim()}' created. " +
+                    "Dedicated database provisioned and routing is live.";
+            }
+            else if (TempData["ErrorMessage"] == null)
+            {
+                TempData["SuccessMessage"] =
+                    $"Tenant '{tenant.Name}' created. Dedicated database provisioned and routing is live.";
             }
 
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Details), new { id = tenant.Id });
         }
 
         // ─────────────────────────────────────────────────────────────

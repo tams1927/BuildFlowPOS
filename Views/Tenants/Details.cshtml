@@ -196,15 +196,22 @@
     </div>
 </div>
 
-<!-- Dedicated Database (Phase 5.0C) -->
+<!-- ── Dedicated Database ─────────────────────────────────────────── -->
 @{
-    var isDedicated   = Model.DatabaseMode == TenantDatabaseMode.Dedicated;
-    var isProvisioned = Model.DatabaseProvisionedAtUtc.HasValue;
-    var hasDbName     = !string.IsNullOrWhiteSpace(Model.DatabaseName);
+    var isDedicated        = Model.DatabaseMode == TenantDatabaseMode.Dedicated;
+    var isProvisioned      = Model.DatabaseProvisionedAtUtc.HasValue;
+    var hasDbName          = !string.IsNullOrWhiteSpace(Model.DatabaseName);
+    var dataMigrated       = Model.DataMigrated;
+    var routingEnabled     = Model.RoutingEnabled;
+    var routingActive      = Model.RoutingActive;
+    var isDirectProvision  = Model.IsDirectlyProvisioned;
+    var runtimeDb          = routingActive ? "Dedicated" : "Shared";
 }
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-semibold"><i class="bi bi-hdd-stack me-2"></i>Dedicated Database</span>
+        <span class="fw-semibold">
+            <i class="bi bi-hdd-stack me-2"></i>Dedicated Database
+        </span>
         <a asp-action="DatabaseInfo" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-info-circle me-1"></i> Diagnostics
         </a>
@@ -212,90 +219,83 @@
     <div class="card-body">
         <div class="row g-3">
             <div class="col-md-3">
-                <div class="text-muted small">Database Mode</div>
+                <div class="text-muted small">Database Created</div>
                 <div>
-                    @if (isDedicated)
+                    @if (isProvisioned)
                     {
-                        <span class="badge badge-soft-primary"><i class="bi bi-hdd me-1"></i>Dedicated</span>
+                        <span class="badge badge-soft-success"><i class="bi bi-check-circle me-1"></i>Yes</span>
+                        <div class="small text-muted">@Model.DatabaseProvisionedAtUtc!.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
                     }
                     else
                     {
-                        <span class="badge badge-soft-secondary"><i class="bi bi-share me-1"></i>Shared</span>
+                        <span class="badge badge-soft-secondary">No</span>
                     }
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="text-muted small">Database Name</div>
-                <div>@(hasDbName ? Model.DatabaseName : "Shared (default)")</div>
+                <div class="small">@(hasDbName ? Model.DatabaseName : isDedicated ? "Generating…" : "Shared (default)")</div>
             </div>
             <div class="col-md-3">
-                <div class="text-muted small">Provisioned</div>
+                <div class="text-muted small">Schema Status</div>
                 <div>
-                    @if (isProvisioned)
+                    @if (!isProvisioned)
                     {
-                        <span class="badge badge-soft-success">Provisioned</span>
-                        <div class="small text-muted">@Model.DatabaseProvisionedAtUtc!.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
+                        <span class="badge badge-soft-secondary">N/A</span>
+                    }
+                    else if (pendingMigrations == 0)
+                    {
+                        <span class="badge badge-soft-success"><i class="bi bi-check-circle me-1"></i>Up to date</span>
                     }
                     else
                     {
-                        <span class="badge badge-soft-secondary">Not provisioned</span>
+                        <span class="badge badge-soft-danger"><i class="bi bi-exclamation-triangle me-1"></i>@pendingMigrations pending</span>
                     }
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="text-muted small">Last Migration</div>
-                <div class="small">@(string.IsNullOrWhiteSpace(Model.LastDatabaseMigration) ? "—" : Model.LastDatabaseMigration)</div>
-            </div>
-
-            @if (isProvisioned)
-            {
-                <div class="col-md-3">
-                    <div class="text-muted small">Schema Status</div>
-                    <div>
-                        @if (pendingMigrations == 0)
-                        {
-                            <span class="badge badge-soft-success"><i class="bi bi-check-circle me-1"></i>Up to date</span>
-                        }
-                        else if (pendingMigrations > 0)
-                        {
-                            <span class="badge badge-soft-danger">
-                                <i class="bi bi-exclamation-triangle me-1"></i>@pendingMigrations pending
-                            </span>
-                        }
-                        else
-                        {
-                            <span class="badge badge-soft-secondary">Unknown</span>
-                        }
-                    </div>
+                <div class="text-muted small">Runtime Database</div>
+                <div>
+                    @if (runtimeDb == "Dedicated")
+                    {
+                        <span class="badge bg-primary"><i class="bi bi-hdd me-1"></i>Dedicated</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary"><i class="bi bi-share me-1"></i>Shared</span>
+                    }
                 </div>
-            }
+            </div>
 
             <div class="col-12">
                 <div class="d-flex flex-wrap gap-2 mt-1">
-                    <!-- Provision -->
-                    @if (isDedicated && hasDbName && !isProvisioned)
+                    <!-- Provision button (legacy path only — new tenants are auto-provisioned) -->
+                    @if (!isProvisioned)
                     {
-                        <form asp-action="Provision" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
-                            @Html.AntiForgeryToken()
-                            <button type="button" class="btn btn-primary"
-                                    data-swal-title="Provision Dedicated Database?"
-                                    data-swal-text="This will create a dedicated SQL database for this tenant.<br><br>The tenant will continue using the shared database.<br><br>No data will be moved.<br><br>Proceed?"
-                                    data-swal-confirm="Yes, Provision"
-                                    data-swal-cancel="Cancel"
-                                    data-swal-icon="question">
+                        @if (isDedicated && hasDbName)
+                        {
+                            <form asp-action="Provision" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
+                                @Html.AntiForgeryToken()
+                                <button type="button" class="btn btn-primary"
+                                        data-swal-title="Provision Dedicated Database?"
+                                        data-swal-text="This will create a dedicated SQL database for this tenant.<br><br>No data will be moved yet.<br><br>Proceed?"
+                                        data-swal-confirm="Yes, Provision"
+                                        data-swal-cancel="Cancel"
+                                        data-swal-icon="question">
+                                    <i class="bi bi-database-add me-1"></i> Provision Database
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-primary" disabled
+                                    title="@(!isDedicated ? "Tenant is in Shared mode." : "Database name not set.")">
                                 <i class="bi bi-database-add me-1"></i> Provision Database
                             </button>
-                        </form>
-                    }
-                    else
-                    {
-                        <button type="button" class="btn btn-primary" disabled
-                                title="@(!isDedicated ? "Switch the tenant to Dedicated mode first." : !hasDbName ? "Set a database name first." : "Database already provisioned.")">
-                            <i class="bi bi-database-add me-1"></i> Provision Database
-                        </button>
+                        }
                     }
 
-                    <!-- Schema Upgrade (Phase 5.3.2) -->
+                    <!-- Schema Upgrade -->
                     @if (isProvisioned)
                     {
                         <form asp-action="UpgradeSchema" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
@@ -303,19 +303,12 @@
                             <button type="button"
                                     class="btn @(pendingMigrations > 0 ? "btn-warning" : "btn-outline-secondary")"
                                     data-swal-title="Upgrade Tenant Database Schema?"
-                                    data-swal-text="This applies any pending EF Core migrations to this tenant's dedicated database.<br><br>Safe to run even when the schema is already current.<br><br>Proceed?"
+                                    data-swal-text="Applies any pending EF Core migrations to this tenant's dedicated database.<br><br>Safe to run on an already-current schema.<br><br>Proceed?"
                                     data-swal-confirm="Yes, Upgrade Schema"
                                     data-swal-cancel="Cancel"
                                     data-swal-icon="question">
                                 <i class="bi bi-arrow-up-circle me-1"></i>
-                                @if (pendingMigrations > 0)
-                                {
-                                    <span>Upgrade Schema (@pendingMigrations pending)</span>
-                                }
-                                else
-                                {
-                                    <span>Upgrade Schema</span>
-                                }
+                                @(pendingMigrations > 0 ? $"Upgrade Schema ({pendingMigrations} pending)" : "Upgrade Schema")
                             </button>
                         </form>
                     }
@@ -331,25 +324,43 @@
             </div>
 
             <div class="col-12">
-                @if (!isDedicated)
+                @if (isDirectProvision && routingActive)
+                {
+                    <div class="alert alert-primary mb-0 py-2 small">
+                        <i class="bi bi-hdd-network me-1"></i>
+                        <strong>Tenant is running on its dedicated database.</strong>
+                        Provisioned automatically at creation — no data migration was required.
+                    </div>
+                }
+                else if (!isDedicated)
                 {
                     <div class="alert alert-secondary mb-0 py-2 small">
                         <i class="bi bi-info-circle me-1"></i>
-                        Tenant is in <strong>Shared</strong> mode. Switch it to <strong>Dedicated</strong> mode (and set a database name) on the Edit page before provisioning.
+                        This tenant uses the <strong>shared</strong> platform database.
+                        Switch to Dedicated mode on the Edit page to provision a dedicated database.
                     </div>
                 }
-                else if (!hasDbName)
+                else if (!isProvisioned)
                 {
                     <div class="alert alert-warning mb-0 py-2 small">
                         <i class="bi bi-exclamation-triangle me-1"></i>
-                        A database name is required before provisioning. Set it on the Edit page.
+                        Dedicated database not yet created.
+                        @(!hasDbName ? "Set a database name on the Edit page first." : "Use Provision Database above.")
+                    </div>
+                }
+                else if (pendingMigrations > 0)
+                {
+                    <div class="alert alert-warning mb-0 py-2 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        <strong>@pendingMigrations schema migration(s) pending.</strong>
+                        Run Upgrade Schema before enabling routing.
                     </div>
                 }
                 else
                 {
-                    <div class="alert alert-info mb-0 py-2 small">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Phase 5.0C: the dedicated database is <strong>prepared only</strong>. Routing is NOT active — this tenant still runs on the shared database. No data is moved.
+                    <div class="alert alert-success mb-0 py-2 small">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Dedicated database is created and schema is up to date.
                     </div>
                 }
             </div>
@@ -357,35 +368,48 @@
     </div>
 </div>
 
-<!-- Pilot Routing (Phase 5.0D) -->
-@{
-    var dataMigrated   = Model.DataMigrated;
-    var routingEnabled = Model.RoutingEnabled;
-    var routingActive  = Model.RoutingActive;
-    var runtimeDb      = routingActive ? "Dedicated" : "Shared";
-}
+<!-- ── Routing & Data Initialization ──────────────────────────────── -->
 <div class="card mb-4">
     <div class="card-header fw-semibold">
-        <i class="bi bi-diagram-3 me-2"></i>Pilot Routing
+        <i class="bi bi-diagram-3 me-2"></i>Routing &amp; Data Initialization
     </div>
     <div class="card-body">
         <div class="row g-3">
             <div class="col-md-3">
-                <div class="text-muted small">Provisioned</div>
+                <div class="text-muted small">Database Provisioned</div>
                 <div>
                     @if (isProvisioned) { <span class="badge badge-soft-success">Yes</span> }
                     else { <span class="badge badge-soft-secondary">No</span> }
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="text-muted small">Data Migrated</div>
+                <div class="text-muted small">Data Initialization</div>
                 <div>
                     @if (dataMigrated)
                     {
-                        <span class="badge badge-soft-success">Yes</span>
+                        <span class="badge badge-soft-success">
+                            @(isDirectProvision ? "Direct" : "Migrated")
+                        </span>
                         <div class="small text-muted">@Model.DataMigratedAtUtc?.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
                     }
-                    else { <span class="badge badge-soft-secondary">No</span> }
+                    else { <span class="badge badge-soft-secondary">Pending</span> }
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Migration Needed</div>
+                <div>
+                    @if (isDirectProvision)
+                    {
+                        <span class="badge badge-soft-success">No</span>
+                    }
+                    else if (!isProvisioned || dataMigrated)
+                    {
+                        <span class="badge badge-soft-secondary">@(dataMigrated ? "No" : "N/A")</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-warning">Yes</span>
+                    }
                 </div>
             </div>
             <div class="col-md-3">
@@ -395,31 +419,27 @@
                     else { <span class="badge badge-soft-secondary">No</span> }
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="text-muted small">Current Runtime Database</div>
-                <div>
-                    @if (runtimeDb == "Dedicated")
-                    {
-                        <span class="badge bg-primary"><i class="bi bi-hdd me-1"></i>Dedicated</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-secondary"><i class="bi bi-share me-1"></i>Shared</span>
-                    }
-                </div>
-            </div>
 
             <div class="col-12">
                 <div class="d-flex flex-wrap gap-2 mt-1">
-                    <!-- Migrate Data -->
-                    @if (isProvisioned && !dataMigrated)
+
+                    @if (isDirectProvision)
                     {
+                        <!-- RC1.7 tenant: Migrate Data not needed -->
+                        <button type="button" class="btn btn-outline-secondary" disabled
+                                title="No migration needed — this tenant was initialized directly in its dedicated database.">
+                            <i class="bi bi-arrow-left-right me-1"></i> Migrate Data
+                        </button>
+                    }
+                    else if (isProvisioned && !dataMigrated)
+                    {
+                        <!-- Legacy tenant: Migrate Data available -->
                         <form asp-action="MigrateData" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
                             @Html.AntiForgeryToken()
                             <button type="button" class="btn btn-primary"
                                     data-swal-title="Copy tenant data to dedicated database?"
-                                    data-swal-text="No shared data will be removed.<br><br>Proceed?"
-                                    data-swal-confirm="Yes, Migrate"
+                                    data-swal-text="Copies all operational rows from the shared database into the dedicated database.<br><br>No shared data is removed.<br><br>Proceed?"
+                                    data-swal-confirm="Yes, Migrate Data"
                                     data-swal-cancel="Cancel"
                                     data-swal-icon="question">
                                 <i class="bi bi-arrow-left-right me-1"></i> Migrate Data
@@ -434,7 +454,7 @@
                             @Html.AntiForgeryToken()
                             <button type="button" class="btn btn-success"
                                     data-swal-title="Enable dedicated database routing?"
-                                    data-swal-text="Only this tenant will use the dedicated database.<br><br>Rollback remains available.<br><br>Proceed?"
+                                    data-swal-text="This tenant will use its dedicated database for all operations.<br><br>Rollback remains available.<br><br>Proceed?"
                                     data-swal-confirm="Yes, Enable Routing"
                                     data-swal-cancel="Cancel"
                                     data-swal-icon="warning">
@@ -443,7 +463,7 @@
                         </form>
                     }
 
-                    <!-- Disable Routing (rollback) -->
+                    <!-- Disable Routing (emergency rollback — always available when routing is on) -->
                     @if (routingEnabled)
                     {
                         <form asp-action="DisableRouting" asp-route-id="@Model.Id" method="post" class="d-inline tenant-action-form">
@@ -461,8 +481,18 @@
                 </div>
             </div>
 
+            <!-- Status message strip -->
             <div class="col-12">
-                @if (!isProvisioned)
+                @if (isDirectProvision && routingActive)
+                {
+                    <div class="alert alert-primary mb-0 py-2 small">
+                        <i class="bi bi-hdd-network me-1"></i>
+                        <strong>Routing is ACTIVE.</strong>
+                        Tenant was initialized directly in its dedicated database — no legacy migration step was required.
+                        Use <strong>Disable Routing</strong> for emergency rollback.
+                    </div>
+                }
+                else if (!isProvisioned)
                 {
                     <div class="alert alert-secondary mb-0 py-2 small">
                         <i class="bi bi-info-circle me-1"></i>
@@ -473,21 +503,23 @@
                 {
                     <div class="alert alert-info mb-0 py-2 small">
                         <i class="bi bi-info-circle me-1"></i>
-                        Migrate data to copy this tenant's operational rows into the dedicated database. The copy is validated by row counts; the shared database is left untouched.
+                        Use <strong>Migrate Data</strong> to copy this tenant's operational rows into the dedicated database.
+                        The shared database is left untouched.
                     </div>
                 }
                 else if (!routingEnabled)
                 {
                     <div class="alert alert-success mb-0 py-2 small">
                         <i class="bi bi-check-circle me-1"></i>
-                        Data migrated and validated. Enable routing to switch this tenant to its dedicated database. Rollback is one click away.
+                        Data is ready. Enable routing to switch this tenant to its dedicated database. Rollback is one click away.
                     </div>
                 }
                 else
                 {
                     <div class="alert alert-primary mb-0 py-2 small">
                         <i class="bi bi-hdd-network me-1"></i>
-                        Routing is <strong>ACTIVE</strong> — this tenant runs on its dedicated database. Use <strong>Disable Routing</strong> to roll back instantly. Identity and subscriptions remain shared.
+                        Routing is <strong>ACTIVE</strong> — this tenant runs on its dedicated database.
+                        Identity and subscriptions remain in the shared platform database.
                     </div>
                 }
             </div>
