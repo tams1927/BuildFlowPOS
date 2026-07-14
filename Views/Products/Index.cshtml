@@ -9,6 +9,7 @@
     var suppliers = ViewBag.Suppliers as List<HardwareManagementSystem.Models.Supplier>;
     var categoryFilter = ViewBag.CategoryFilter as string;
     var statusFilter = ViewBag.StatusFilter as string;
+    var currencySymbol = ViewBag.CurrencySymbol as string ?? "\u20B1";
 }
 
 <div class="row g-3 mb-4">
@@ -65,7 +66,7 @@
         <div>
             <h2 class="hb-section-title">Product Management</h2>
             <div class="hb-section-subtitle">
-                Manage product master data � codes, pricing, and categories
+                Manage product master data, codes, pricing, and categories
             </div>
         </div>
 
@@ -176,13 +177,13 @@
                                     }
                                 </td>
 
-                                <td>@(item.Category?.CategoryName ?? "�")</td>
+                                <td>@(item.Category?.CategoryName ?? "-")</td>
+                                <td>@(item.BaseUnit?.ShortName ?? item.Unit?.ShortName ?? "-")</td>
+                                <td>@(item.Unit?.ShortName ?? "-")</td>
+                                <td>@(item.Supplier?.SupplierName ?? "-")</td>
 
-                                <td>@(item.BaseUnit?.ShortName ?? item.Unit?.ShortName ?? "-")</td>`r`n                                <td>@(item.Unit?.ShortName ?? "-")</td>`r`n`r`n                                <td>@(item.Supplier?.SupplierName ?? "�")</td>
-
-                                <td>@(ViewBag.CurrencySymbol)@item.CostPrice.ToString("N2")</td>
-
-                                <td>@(ViewBag.CurrencySymbol)@item.SellingPrice.ToString("N2")</td>
+                                <td>@currencySymbol @item.CostPrice.ToString("N2")</td>
+                                <td>@currencySymbol @item.SellingPrice.ToString("N2")</td>
 
                                 <td>@item.ReorderLevel.ToString("0.###")</td>
 
@@ -228,11 +229,23 @@
                                             <i class="bi bi-pencil"></i>
                                         </button>
 
-                                        <button class="btn btn-sm btn-outline-danger"
-                                                title="Delete"
-                                                onclick="confirmDelete(@item.Id, '@item.ItemName.Replace("'", "\\'")' )">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                                        <form asp-controller="Products"
+                                              asp-action="Delete"
+                                              method="post"
+                                              class="confirm-deactivate d-inline"
+                                              data-hb-confirm-title="Delete Product?"
+                                              data-hb-confirm-text="@($"Are you sure you want to delete {item.ItemName}? Products with transactions will be deactivated instead.")"
+                                              data-hb-confirm-button="Yes, Delete">
+
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.Id" />
+
+                                            <button type="submit"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
 
                                     </div>
                                 </td>
@@ -242,7 +255,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="10" class="text-center py-5">
+                            <td colspan="11" class="text-center py-5">
                                 <div class="text-muted">
                                     <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                     No products found.
@@ -275,7 +288,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
 
-            <form asp-controller="Products" asp-action="Create" method="post">
+            <form asp-controller="Products" asp-action="Create" method="post" class="confirm-submit">
 
                 @Html.AntiForgeryToken()
 
@@ -353,7 +366,7 @@
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Cost Price <span class="text-danger">*</span></label>
                             <div class="input-group">
-                                <span class="input-group-text">?</span>
+                                <span class="input-group-text" title="Currency"><i class="bi bi-currency-exchange" aria-hidden="true"></i></span>
                                 <input type="number" step="0.01" min="0" name="costPrice" class="form-control" value="0" required />
                             </div>
                         </div>
@@ -361,7 +374,7 @@
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Selling Price <span class="text-danger">*</span></label>
                             <div class="input-group">
-                                <span class="input-group-text">?</span>
+                                <span class="input-group-text" title="Currency"><i class="bi bi-currency-exchange" aria-hidden="true"></i></span>
                                 <input type="number" step="0.01" min="0" name="sellingPrice" class="form-control" value="0" required />
                             </div>
                         </div>
@@ -412,7 +425,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
 
-            <form asp-controller="Products" asp-action="Edit" method="post">
+            <form asp-controller="Products" asp-action="Edit" method="post" class="confirm-submit">
 
                 @Html.AntiForgeryToken()
                 <input type="hidden" id="editId" name="id" />
@@ -475,7 +488,7 @@
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Cost Price <span class="text-danger">*</span></label>
                             <div class="input-group">
-                                <span class="input-group-text">?</span>
+                                <span class="input-group-text" title="Currency"><i class="bi bi-currency-exchange" aria-hidden="true"></i></span>
                                 <input type="number" step="0.01" min="0" id="editCost" name="costPrice" class="form-control" required />
                             </div>
                         </div>
@@ -483,7 +496,7 @@
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Selling Price <span class="text-danger">*</span></label>
                             <div class="input-group">
-                                <span class="input-group-text">?</span>
+                                <span class="input-group-text" title="Currency"><i class="bi bi-currency-exchange" aria-hidden="true"></i></span>
                                 <input type="number" step="0.01" min="0" id="editPrice" name="sellingPrice" class="form-control" required />
                             </div>
                         </div>
@@ -528,12 +541,6 @@
     </div>
 </div>
 
-<!-- DELETE FORM (hidden) -->
-<form id="deleteForm" asp-controller="Products" asp-action="Delete" method="post" class="d-none">
-    @Html.AntiForgeryToken()
-    <input type="hidden" id="deleteId" name="id" />
-</form>
-
 <div class="modal fade" id="conversionsModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -549,7 +556,7 @@
                 <div class="table-responsive mb-3">
                     <table class="table table-sm"><thead><tr><th>Unit</th><th>Conversion</th><th>Default PO</th></tr></thead><tbody id="convTableBody"></tbody></table>
                 </div>
-                <form asp-controller="Products" asp-action="SaveConversion" method="post" class="row g-2">
+                <form asp-controller="Products" asp-action="SaveConversion" method="post" class="row g-2 confirm-submit">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="itemId" id="convItemId" />
                     <div class="col-md-5"><select name="unitId" class="form-select" required>@if (units != null) { foreach (var u in units) { <option value="@u.Id">@u.UnitName</option> } }</select></div>
@@ -577,7 +584,6 @@
             tbody.innerHTML = (data.conversions || []).map(c =>
                 `<tr><td>${c.unitName}</td><td>${c.conversionQuantity}</td><td>${c.isDefaultPurchaseUnit ? 'Yes' : ''}</td></tr>`).join('');
         });
-        // Populate edit modal
         document.getElementById('editProductModal').addEventListener('show.bs.modal', function (e) {
             const btn = e.relatedTarget;
             document.getElementById('editId').value = btn.dataset.id;
@@ -593,24 +599,5 @@
             document.getElementById('editDescription').value = btn.dataset.description || '';
             document.getElementById('editBarcode').value = btn.dataset.barcode || '';
         });
-
-        // SweetAlert delete confirmation
-        function confirmDelete(id, name) {
-            Swal.fire({
-                title: 'Delete Product?',
-                html: `Are you sure you want to delete <strong>${name}</strong>?<br><small class="text-muted">Products with transactions will be deactivated instead.</small>`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, Delete',
-                cancelButtonText: 'Cancel'
-            }).then(result => {
-                if (result.isConfirmed) {
-                    document.getElementById('deleteId').value = id;
-                    document.getElementById('deleteForm').requestSubmit();
-                }
-            });
-        }
     </script>
 }

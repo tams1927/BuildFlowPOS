@@ -40,6 +40,7 @@
         currentController == "Expenses" ||
         currentController == "Quotations" ||
         currentController == "DeliveryReceipts";
+    var isPurchasingMenu = currentController == "PurchaseOrders" || currentController == "Receiving";
     var isInventoryMenu = currentController == "Inventory" || currentController == "Products" || currentController == "StockIn" || currentController == "StockAdjustment" || currentController == "Suppliers" || currentController == "Categories" || currentController == "Units" || currentController == "Import" || currentController == "BranchTransfers" || currentController == "InventoryMovement" || currentController == "DamagedGoods" || currentController == "SupplierReturns";
     var isCustomersMenu = currentController == "Customers";
     var isReportsMenu = currentController == "Reports" || currentController == "AuditTrail";
@@ -86,6 +87,7 @@
     var canBranchTransfers = await PermissionService.HasPermissionAsync(User, "BranchTransfers");
     var canDamagedGoods = await PermissionService.HasPermissionAsync(User, "DamagedGoods");
     var canSupplierReturns = await PermissionService.HasPermissionAsync(User, "SupplierReturns");
+    var canPurchaseOrders = await PermissionService.HasPermissionAsync(User, "PurchaseOrders");
     var canUserBranches = await PermissionService.HasPermissionAsync(User, "UserBranches");
 
 
@@ -333,6 +335,45 @@
         </div>
     }
 
+    <!-- PURCHASING / RECEIVING — hidden for SuperAdmin -->
+    @if (!isSuperAdmin && (canPurchaseOrders || canStockIn))
+    {
+        <div class="sidebar-group">
+            <a class="sidebar-group-toggle"
+               data-bs-toggle="collapse"
+               href="#menuPurchasing"
+               aria-expanded="@(isPurchasingMenu.ToString().ToLower())">
+                <div>
+                    <i class="bi bi-truck"></i>
+                    <span>Purchasing</span>
+                </div>
+                <i class="bi bi-chevron-down"></i>
+            </a>
+            <div class="collapse @(isPurchasingMenu ? "show" : "")" id="menuPurchasing">
+                <div class="sidebar-submenu">
+                    @if (canPurchaseOrders)
+                    {
+                        <a class="sidebar-link @(currentController == "PurchaseOrders" ? "active" : "")"
+                           asp-controller="PurchaseOrders" asp-action="Index">
+                            Purchase Orders
+                        </a>
+                    }
+                    @if (canStockIn)
+                    {
+                        <a class="sidebar-link @(currentController == "Receiving" ? "active" : "")"
+                           asp-controller="Receiving" asp-action="Index">
+                            Receiving
+                        </a>
+                        <a class="sidebar-link @(currentController == "Reports" && currentAction == "SupplierPayables" ? "active" : "")"
+                           asp-controller="Reports" asp-action="SupplierPayables">
+                            Supplier Payments
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
     <!-- INVENTORY — hidden for SuperAdmin -->
     @if (!isSuperAdmin && (canInventory || canProducts || canStockIn || canStockAdjustment || canDamagedGoods || canSupplierReturns || canSuppliers || canCategories || canUnits || canImport || canBranchTransfers))
     {
@@ -407,7 +448,7 @@
                            asp-controller="StockIn"
                            asp-action="Index">
 
-                            Stock In
+                            Manual Stock In
 
                         </a>
                     }

@@ -2,48 +2,56 @@
 @using HardwareManagementSystem.Models
 
 @{
-    ViewData["Title"] = $"Receive — {Model.PONumber}";
-    var currency = ViewBag.CurrencySymbol as string ?? "₱";
+    ViewData["Title"] = $"Receive Delivery — {Model.PONumber}";
+    var currency = ViewBag.CurrencySymbol as string ?? "\u20B1";
 }
 
 <div class="hb-card">
-
     <div class="hb-card-header">
         <div>
             <h2 class="hb-section-title">
-                <i class="bi bi-box-seam me-2"></i>Receive Stocks — @Model.PONumber
+                <i class="bi bi-truck me-2"></i>Receive Delivery — @Model.PONumber
             </h2>
             <div class="hb-section-subtitle">
-                Enter the quantity received for each item.
+                Record supplier delivery against this purchase order. Accepted quantities increase inventory automatically.
                 @if (Model.Status == "PartiallyReceived")
                 {
-                    <span class="badge badge-soft-warning ms-1">Partial — Some items still pending</span>
+                    <span class="badge badge-soft-warning ms-1">Partial — remaining items still open</span>
                 }
             </div>
         </div>
         <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Back
+            <i class="bi bi-arrow-left me-1"></i>Back to PO
         </a>
     </div>
 
     <div class="hb-card-body">
-
-        <!-- Supplier info -->
         <div class="alert alert-light border mb-4 small">
-            <strong>Supplier:</strong> @(Model.Supplier?.SupplierName ?? "—")
-            @if (!string.IsNullOrWhiteSpace(Model.Supplier?.ContactNumber))
-            { <span>&nbsp;·&nbsp; Tel: @Model.Supplier.ContactNumber</span> }
-            @if (Model.Branch != null)
-            { <span>&nbsp;·&nbsp; Branch: <strong>@Model.Branch.Name</strong></span> }
+            <div class="row g-2">
+                <div class="col-md-4"><strong>Supplier:</strong> @(Model.Supplier?.SupplierName ?? "-")</div>
+                <div class="col-md-4"><strong>Branch:</strong> @(Model.Branch?.Name ?? "-")</div>
+                <div class="col-md-4"><strong>PO Date:</strong> @Model.PODate.ToString("MMM dd, yyyy")</div>
+            </div>
         </div>
 
         <form asp-controller="PurchaseOrders" asp-action="Receive" asp-route-id="@Model.Id"
               method="post" id="receiveForm" class="confirm-submit" data-hb-custom-confirm="true"
-              data-hb-confirm-title="Confirm Receipt?"
-              data-hb-confirm-html='This will create a <strong>Stock-In</strong> record and update inventory levels.'
-              data-hb-confirm-button="Yes, Receive"
+              data-hb-confirm-title="Receive supplier delivery?"
+              data-hb-confirm-html="This will increase inventory and create the supplier receipt/payable record."
+              data-hb-confirm-button="Yes, receive delivery"
               data-hb-confirm-color="#16a34a">
             @Html.AntiForgeryToken()
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Delivery / Invoice Reference</label>
+                    <input type="text" name="invoiceNumber" class="form-control" placeholder="Supplier invoice or delivery note number" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Remarks</label>
+                    <input type="text" name="remarks" class="form-control" placeholder="Optional delivery notes" />
+                </div>
+            </div>
 
             <div class="table-responsive mb-4">
                 <table class="table align-middle">
@@ -51,28 +59,32 @@
                         <tr>
                             <th>Item</th>
                             <th class="text-end">Ordered</th>
-                            <th class="text-end">Already Received</th>
+                            <th class="text-end">Previously Received</th>
                             <th class="text-end text-warning">Remaining</th>
-                            <th class="text-end">Cost / Ordered Unit</th>
-                            <th style="width:150px">Receive Now</th>
+                            <th class="text-end">Cost / Unit</th>
+                            <th class="text-end">Base Preview</th>
+                            <th style="width:120px">Accept Now</th>
+                            <th style="width:120px">Damaged</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var pi in Model.Items.OrderBy(i => i.Id))
                         {
-                            var remaining = pi.Quantity - pi.QuantityReceived;
-                            bool complete = remaining <= 0;
-                            <tr class="@(complete ? "table-success" : "")">
+                            var factor = pi.ConversionQuantity > 0 ? pi.ConversionQuantity : 1m;
+                            var receivedOrdered = factor > 0 ? pi.QuantityReceived / factor : pi.QuantityReceived;
+                            var remaining = pi.QuantityRemaining;
+                            var complete = remaining <= 0;
+                            var unitLabel = pi.OrderedUnit?.ShortName ?? pi.Item?.Unit?.ShortName ?? "unit";
+                            <tr class="@(complete ? "table-success" : "")" data-factor="@factor">
                                 <td>
                                     <input type="hidden" name="poItemIds" value="@pi.Id" />
                                     <strong>@(pi.Item?.ItemName ?? $"Item #{pi.ItemId}")</strong>
-                                    @if (pi.Item != null)
-                                    { <div class="small text-muted">@pi.Item.ItemCode — @(pi.Item.Unit?.ShortName ?? "")</div> }
+                                    <div class="small text-muted">@(pi.Item?.ItemCode) — @unitLabel</div>
                                 </td>
                                 <td class="text-end">@pi.Quantity.ToString("0.###")</td>
                                 <td class="text-end">
-                                    @if (pi.QuantityReceived > 0)
-                                    { <span class="text-success">@pi.QuantityReceived.ToString("0.###")</span> }
+                                    @if (receivedOrdered > 0)
+                                    { <span class="text-success">@receivedOrdered.ToString("0.###")</span> }
                                     else { <span class="text-muted">0</span> }
                                 </td>
                                 <td class="text-end">
@@ -81,20 +93,30 @@
                                     else
                                     { <span class="fw-semibold text-warning">@remaining.ToString("0.###")</span> }
                                 </td>
-                                <td class="text-end small">@currency@((pi.CostPerOrderedUnit > 0 ? pi.CostPerOrderedUnit : pi.UnitCost * (pi.ConversionQuantity > 0 ? pi.ConversionQuantity : 1m)).ToString("N2"))</td>
+                                <td class="text-end small">
+                                    @currency@((pi.CostPerOrderedUnit > 0 ? pi.CostPerOrderedUnit : pi.UnitCost * factor).ToString("N2"))
+                                </td>
+                                <td class="text-end small text-muted base-preview" data-row="@pi.Id">—</td>
                                 <td>
                                     @if (complete)
                                     {
                                         <input type="number" name="receivedQtys" class="form-control form-control-sm receive-input"
-                                               value="0" readonly />
+                                               value="0" min="0" readonly />
                                     }
                                     else
                                     {
                                         <input type="number" name="receivedQtys"
-                                               class="form-control form-control-sm receive-input"
+                                               class="form-control form-control-sm receive-input qty-accept"
                                                value="@remaining.ToString("0.###")"
-                                               min="0" max="@remaining" step="0.001" />
+                                               min="0" max="@remaining.ToString("0.###")" step="0.001"
+                                               data-remaining="@remaining.ToString("0.###")" />
                                     }
+                                </td>
+                                <td>
+                                    <input type="number" name="damagedQtys"
+                                           class="form-control form-control-sm qty-damaged"
+                                           value="0" min="0" step="0.001"
+                                           @(complete ? "readonly" : "") />
                                 </td>
                             </tr>
                         }
@@ -104,31 +126,59 @@
 
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-success">
-                    <i class="bi bi-box-seam me-1"></i>Confirm Receipt
+                    <i class="bi bi-truck me-1"></i>Receive Delivery
                 </button>
                 <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-light">Cancel</a>
             </div>
-
         </form>
-
     </div>
 </div>
 
 @section Scripts {
 <script>
+    function updateBasePreview(row) {
+        const accept = parseFloat(row.querySelector('.qty-accept')?.value || 0);
+        const factor = parseFloat(row.dataset.factor || 1);
+        const preview = row.querySelector('.base-preview');
+        if (preview && accept > 0) {
+            preview.textContent = (accept * factor).toFixed(3) + ' base';
+        } else if (preview) {
+            preview.textContent = '—';
+        }
+    }
+
+    document.querySelectorAll('tr[data-factor]').forEach(row => {
+        row.querySelector('.qty-accept')?.addEventListener('input', () => updateBasePreview(row));
+        row.querySelector('.qty-damaged')?.addEventListener('input', () => updateBasePreview(row));
+        updateBasePreview(row);
+    });
+
     document.getElementById('receiveForm').addEventListener('submit', function (e) {
         const form = this;
-        if (HbForm.isConfirmed(form)) {
-            return;
-        }
+        if (HbForm.isConfirmed(form)) return;
 
         e.preventDefault();
 
-        const hasQty = Array.from(form.querySelectorAll('.receive-input'))
+        let valid = true;
+        form.querySelectorAll('tr[data-factor]').forEach(row => {
+            const accept = parseFloat(row.querySelector('.qty-accept')?.value || 0);
+            const damaged = parseFloat(row.querySelector('.qty-damaged')?.value || 0);
+            const remaining = parseFloat(row.querySelector('.qty-accept')?.dataset.remaining || 0);
+            if (accept + damaged > remaining + 0.0001) {
+                valid = false;
+            }
+        });
+
+        if (!valid) {
+            Swal.fire({ icon: 'error', title: 'Over-receipt', text: 'Accepted + damaged cannot exceed remaining quantity.', confirmButtonColor: '#1e40af' });
+            return;
+        }
+
+        const hasQty = Array.from(form.querySelectorAll('.receive-input, .qty-damaged'))
             .some(inp => parseFloat(inp.value) > 0);
 
         if (!hasQty) {
-            Swal.fire({ icon: 'warning', title: 'No quantities', text: 'Please enter at least one received quantity.', confirmButtonColor: '#1e40af' });
+            Swal.fire({ icon: 'warning', title: 'No quantities', text: 'Enter at least one accepted or damaged quantity.', confirmButtonColor: '#1e40af' });
             return;
         }
 

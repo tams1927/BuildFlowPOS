@@ -1583,6 +1583,7 @@ namespace HardwareManagementSystem.Controllers
                     _context.StockInHeaders.AsNoTracking(),
                     tenantId)
                 .Include(s => s.Supplier)
+                .Include(s => s.PurchaseOrder)
                 .Where(s =>
                     s.DateReceived >= startDate &&
                     s.DateReceived < endDate)
@@ -1595,7 +1596,9 @@ namespace HardwareManagementSystem.Controllers
                 query = query.Where(s =>
                     s.StockInNumber.ToLower().Contains(term) ||
                     (s.InvoiceNumber != null && s.InvoiceNumber.ToLower().Contains(term)) ||
-                    (s.Supplier != null && s.Supplier.SupplierName.ToLower().Contains(term)));
+                    (s.Supplier != null && s.Supplier.SupplierName.ToLower().Contains(term)) ||
+                    (s.Remarks != null && s.Remarks.ToLower().Contains(term)) ||
+                    (s.PurchaseOrder != null && s.PurchaseOrder.PONumber.ToLower().Contains(term)));
             }
 
             if (!string.IsNullOrWhiteSpace(paymentStatus))

@@ -1639,6 +1639,13 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int?>("PurchaseOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReceivedBy")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<string>("Remarks")
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
@@ -1660,6 +1667,8 @@ namespace HardwareManagementSystem.Migrations.Tenant
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
+
+                    b.HasIndex("PurchaseOrderId");
 
                     b.HasIndex("SupplierId");
 
@@ -2521,6 +2530,11 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .HasForeignKey("BranchId")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("HardwareManagementSystem.Models.PurchaseOrder", "PurchaseOrder")
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("HardwareManagementSystem.Models.Supplier", "Supplier")
                         .WithMany()
                         .HasForeignKey("SupplierId")
@@ -2528,6 +2542,8 @@ namespace HardwareManagementSystem.Migrations.Tenant
                         .IsRequired();
 
                     b.Navigation("Branch");
+
+                    b.Navigation("PurchaseOrder");
 
                     b.Navigation("Supplier");
                 });

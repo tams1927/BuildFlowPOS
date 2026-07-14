@@ -204,9 +204,11 @@ namespace HardwareManagementSystem.Services.TenantDatabases
                 {
                     TenantId = tenant.Id,
                     BusinessName = tenant.Name,
-                    CurrencySymbol = "₱",
+                    CurrencySymbol = "\u20B1",
                     DefaultVatPercent = 12m,
                     TaxMode = "VAT",
+                    ReceiptPaperSize = "80mm",
+                    ThemeColor = "white-blue",
                     UpdatedAt = DateTime.Now
                 });
             }

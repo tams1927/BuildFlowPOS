@@ -3,6 +3,7 @@ using HardwareManagementSystem.Data;
 using HardwareManagementSystem.Models;
 using HardwareManagementSystem.Services;
 using HardwareManagementSystem.Services.TenantDatabases;
+using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -232,6 +233,63 @@ namespace HardwareManagementSystem.Controllers
             ViewBag.PendingPOCount             = await poQuery.CountAsync(po => po.Status == "Draft");
             ViewBag.SentPOCount                = await poQuery.CountAsync(po => po.Status == "Sent");
             ViewBag.PartiallyReceivedPOCount   = await poQuery.CountAsync(po => po.Status == "PartiallyReceived");
+
+            // ── RC1.8.1 Warehouse / Receiving KPIs ────────────────────────
+            var receiptQuery = _context.StockInHeaders.AsNoTracking();
+            if (_tenantContext.CurrentTenantId.HasValue && !_tenantContext.IsGlobalUser)
+                receiptQuery = receiptQuery.Where(h => h.TenantId == _tenantContext.CurrentTenantId || h.TenantId == null);
+            if (currentBranch != null)
+                receiptQuery = receiptQuery.Where(h => h.BranchId == currentBranch.Id || h.BranchId == null);
+
+            ViewBag.TodaysReceiptsCount = await receiptQuery
+                .CountAsync(h => h.DateReceived >= today && h.DateReceived < tomorrow);
+
+            ViewBag.PendingDeliveriesCount = await poQuery
+                .CountAsync(po => po.Status == "Sent" || po.Status == "PartiallyReceived");
+
+            ViewBag.CompletedPOsTodayCount = await poQuery
+                .CountAsync(po => po.Status == "Received" &&
+                                  po.UpdatedAtUtc.HasValue &&
+                                  po.UpdatedAtUtc.Value >= DateTime.UtcNow.Date &&
+                                  po.UpdatedAtUtc.Value < DateTime.UtcNow.Date.AddDays(1));
+
+            ViewBag.SupplierPayablesDueCount = await receiptQuery
+                .CountAsync(h => h.PaymentStatus != "Paid" && h.BalanceDue > 0);
+
+            // Pending deliveries widget (max 5, newest first)
+            var pendingPoList = await poQuery
+                .AsNoTracking()
+                .Include(po => po.Supplier)
+                .Include(po => po.Items)
+                    .ThenInclude(i => i.OrderedUnit)
+                .Include(po => po.Items)
+                    .ThenInclude(i => i.Item)
+                        .ThenInclude(i => i!.Unit)
+                .Where(po => po.Status == "Sent" || po.Status == "PartiallyReceived")
+                .OrderByDescending(po => po.PODate)
+                .ThenByDescending(po => po.Id)
+                .Take(5)
+                .ToListAsync();
+
+            ViewBag.PendingDeliveries = pendingPoList.Select(po =>
+            {
+                var remaining = po.Items.Sum(i => i.QuantityRemaining);
+                var unitLabel = po.Items.Count == 1
+                    ? po.Items.First().OrderedUnit?.ShortName
+                      ?? po.Items.First().Item?.Unit?.ShortName
+                      ?? "units"
+                    : "units";
+                return new PendingDeliveryVm
+                {
+                    PurchaseOrderId = po.Id,
+                    PONumber = po.PONumber,
+                    SupplierName = po.Supplier?.SupplierName ?? "—",
+                    RemainingQty = remaining,
+                    UnitLabel = unitLabel,
+                    Status = po.Status,
+                    PODate = po.PODate
+                };
+            }).ToList();
 
             // ── Inventory Intelligence: Critical / Low stock items ────────
             var criticalStockCount = 0;

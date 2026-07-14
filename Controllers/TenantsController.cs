@@ -248,7 +248,7 @@ namespace HardwareManagementSystem.Controllers
                 DefaultVatPercent = 12,
                 CurrencySymbol    = "₱",
                 ReceiptPaperSize  = "80mm",
-                ThemeColor        = "dark-blue",
+                ThemeColor        = "white-blue",
                 TaxMode           = "VAT",
                 UpdatedAt         = DateTime.Now
             };

@@ -28,12 +28,21 @@ namespace HardwareManagementSystem.Models
         [StringLength(250)]
         public string? Remarks { get; set; }
 
+        /// <summary>Linked purchase order when this receipt came from PO receiving.</summary>
+        public int? PurchaseOrderId { get; set; }
+
+        /// <summary>Username or display name of the user who recorded the receipt.</summary>
+        [StringLength(150)]
+        public string? ReceivedBy { get; set; }
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalCost { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public Supplier? Supplier { get; set; }
+
+        public PurchaseOrder? PurchaseOrder { get; set; }
 
         /// <summary>Navigation to the branch this stock-in belongs to.</summary>
         public Branch? Branch { get; set; }

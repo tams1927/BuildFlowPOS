@@ -78,7 +78,8 @@ namespace HardwareManagementSystem.Controllers
                     (a.UserName != null && a.UserName.ToLower().Contains(term)) ||
                     a.ModuleName.ToLower().Contains(term) ||
                     a.ActionName.ToLower().Contains(term) ||
-                    a.Description.ToLower().Contains(term));
+                    a.Description.ToLower().Contains(term) ||
+                    (a.ReferenceId != null && a.ReferenceId.ToLower().Contains(term)));
             }
 
             if (!string.IsNullOrWhiteSpace(moduleFilter) && moduleFilter != "all")

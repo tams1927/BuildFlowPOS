@@ -122,7 +122,7 @@ namespace HardwareManagementSystem.Tools
                     DefaultVatPercent = 12m,
                     TaxMode           = "VAT",
                     ReceiptPaperSize  = "80mm",
-                    ThemeColor        = "dark-blue",
+                    ThemeColor        = "white-blue",
                     UpdatedAt         = DateTime.Now
                 });
                 await appCtx.SaveChangesAsync();

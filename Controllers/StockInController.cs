@@ -321,7 +321,7 @@ namespace HardwareManagementSystem.Controllers
             await _auditService.LogAsync(
                 User,
                 "StockIn",
-                "CREATED",
+                "MANUAL_STOCK_IN_CREATED",
                 $"Stock-in saved. Stock In #: {stockInNumber}, Branch: {resolvedBranchId?.ToString() ?? "N/A"}, Supplier: {supplier.SupplierName}, Item: {item.ItemName}, Received: {quantity:0.###}, Base Qty: {baseQty:0.###}, Cost/Received: {cost.CostPerReceivedUnit:N2}, Cost/Base: {cost.CostPerBaseUnit:N2}, Total: {totalCost:N2}",
                 "StockInHeader",
                 header.Id.ToString(),

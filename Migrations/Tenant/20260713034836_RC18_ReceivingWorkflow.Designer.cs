@@ -4,16 +4,19 @@ using HardwareManagementSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace HardwareManagementSystem.Migrations
+namespace HardwareManagementSystem.Migrations.Tenant
 {
-    [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(TenantDbContext))]
+    [Migration("20260713034836_RC18_ReceivingWorkflow")]
+    partial class RC18_ReceivingWorkflow
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,86 +24,6 @@ namespace HardwareManagementSystem.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.ApplicationUser", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("ForcePasswordChange")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("NormalizedEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("NormalizedUserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("SecurityStamp")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("UserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedEmail")
-                        .HasDatabaseName("EmailIndex");
-
-                    b.HasIndex("NormalizedUserName")
-                        .IsUnique()
-                        .HasDatabaseName("UserNameIndex")
-                        .HasFilter("[NormalizedUserName] IS NOT NULL");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("AspNetUsers", (string)null);
-                });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.AuditTrail", b =>
                 {
@@ -165,85 +88,13 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_AuditTrails_TenantId");
 
                     b.HasIndex("TenantId", "CreatedAt")
                         .HasDatabaseName("IX_AuditTrails_TenantId_CreatedAt");
 
                     b.ToTable("AuditTrails");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.BackupRecord", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("BackupFileName")
-                        .IsRequired()
-                        .HasMaxLength(260)
-                        .HasColumnType("nvarchar(260)");
-
-                    b.Property<string>("BackupPath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long?>("BackupSizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("BackupType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedByUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("DatabaseName")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("DatabaseType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime>("StartedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int?>("TenantId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StartedAtUtc")
-                        .HasDatabaseName("IX_BackupRecords_StartedAtUtc");
-
-                    b.HasIndex("TenantId", "StartedAtUtc")
-                        .HasDatabaseName("IX_BackupRecords_TenantId_StartedAtUtc");
-
-                    b.ToTable("BackupRecords");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.Branch", b =>
@@ -293,7 +144,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Branches_TenantId");
 
                     b.HasIndex("TenantId", "Code")
                         .IsUnique()
@@ -336,13 +188,12 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_BranchProductStocks_TenantId");
 
                     b.HasIndex("BranchId", "ProductId")
-                        .IsUnique();
-
-                    b.HasIndex("BranchId", "TenantId", "Quantity")
-                        .HasDatabaseName("IX_BranchProductStocks_BranchId_TenantId_Quantity");
+                        .IsUnique()
+                        .HasDatabaseName("UX_BranchProductStocks_BranchId_ProductId");
 
                     b.ToTable("BranchProductStocks");
                 });
@@ -399,17 +250,10 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("FromBranchId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_BranchTransfers_TenantId");
 
                     b.HasIndex("ToBranchId");
-
-                    b.HasIndex("TenantId", "TransferNumber")
-                        .IsUnique()
-                        .HasDatabaseName("UX_BranchTransfers_TenantId_TransferNumber")
-                        .HasFilter("[TenantId] IS NOT NULL");
-
-                    b.HasIndex("TenantId", "Status", "CreatedAtUtc")
-                        .HasDatabaseName("IX_BranchTransfers_TenantId_Status_CreatedAtUtc");
 
                     b.ToTable("BranchTransfers");
                 });
@@ -468,7 +312,13 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Categories_TenantId");
+
+                    b.HasIndex("TenantId", "CategoryName")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Categories_TenantId_Name")
+                        .HasFilter("[TenantId] IS NOT NULL");
 
                     b.ToTable("Categories");
                 });
@@ -517,7 +367,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Customers_TenantId");
 
                     b.ToTable("Customers");
                 });
@@ -579,8 +430,7 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerId", "Id")
-                        .HasDatabaseName("IX_CustomerLedgers_CustomerId_Id");
+                    b.HasIndex("CustomerId");
 
                     b.ToTable("CustomerLedgers");
                 });
@@ -676,6 +526,9 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("BranchId");
 
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_DamagedGoodsHeaders_TenantId");
+
                     b.HasIndex("TenantId", "DamageNumber")
                         .IsUnique()
                         .HasDatabaseName("UX_DamagedGoodsHeaders_TenantId_DamageNumber")
@@ -745,16 +598,10 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.HasIndex("DRNumber");
-
                     b.HasIndex("SalesHeaderId");
 
-                    b.HasIndex("TenantId", "DRNumber")
-                        .IsUnique()
-                        .HasDatabaseName("UX_DeliveryReceipts_TenantId_DRNumber")
-                        .HasFilter("[TenantId] IS NOT NULL");
-
-                    b.HasIndex("TenantId", "BranchId", "DeliveryDate");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_DeliveryReceipts_TenantId");
 
                     b.ToTable("DeliveryReceipts");
                 });
@@ -857,15 +704,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("BranchId");
 
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "ExpenseNumber")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Expenses_TenantId_ExpenseNumber")
-                        .HasFilter("[TenantId] IS NOT NULL");
-
-                    b.HasIndex("TenantId", "BranchId", "ExpenseDate")
-                        .HasDatabaseName("IX_Expenses_TenantId_BranchId_ExpenseDate");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Expenses_TenantId");
 
                     b.ToTable("Expenses");
                 });
@@ -916,10 +756,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "CreatedAtUtc")
-                        .HasDatabaseName("IX_ImportBatches_TenantId_CreatedAtUtc");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_ImportBatches_TenantId");
 
                     b.ToTable("ImportBatches");
                 });
@@ -1036,7 +874,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("SupplierId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Items_TenantId");
 
                     b.HasIndex("UnitId");
 
@@ -1194,16 +1033,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("SupplierId");
 
-                    b.HasIndex("TenantId", "PONumber")
-                        .IsUnique()
-                        .HasDatabaseName("UX_PurchaseOrders_TenantId_PONumber")
-                        .HasFilter("[TenantId] IS NOT NULL");
-
-                    b.HasIndex("TenantId", "SupplierId")
-                        .HasDatabaseName("IX_PurchaseOrders_TenantId_SupplierId");
-
-                    b.HasIndex("TenantId", "Status", "PODate")
-                        .HasDatabaseName("IX_PurchaseOrders_TenantId_Status_PODate");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_PurchaseOrders_TenantId");
 
                     b.ToTable("PurchaseOrders");
                 });
@@ -1328,14 +1159,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.HasIndex("QuotationNo");
-
-                    b.HasIndex("TenantId", "QuotationNo")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Quotations_TenantId_QuotationNo")
-                        .HasFilter("[TenantId] IS NOT NULL");
-
-                    b.HasIndex("TenantId", "BranchId", "QuotationDate");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Quotations_TenantId");
 
                     b.ToTable("Quotations");
                 });
@@ -1383,79 +1208,6 @@ namespace HardwareManagementSystem.Migrations
                     b.ToTable("QuotationItems");
                 });
 
-            modelBuilder.Entity("HardwareManagementSystem.Models.RestoreRecord", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("BackupRecordId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("DatabaseName")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("DatabaseType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("RequestedByUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("RestoreMode")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("RestoreTargetDatabaseName")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("SourceBackupPath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime>("StartedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int?>("TenantId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BackupRecordId");
-
-                    b.HasIndex("StartedAtUtc")
-                        .HasDatabaseName("IX_RestoreRecords_StartedAtUtc");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("RestoreRecords");
-                });
-
             modelBuilder.Entity("HardwareManagementSystem.Models.RolePermission", b =>
                 {
                     b.Property<int>("Id")
@@ -1493,6 +1245,10 @@ namespace HardwareManagementSystem.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RoleName", "ModuleName")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RolePermissions_Role_Module");
 
                     b.ToTable("RolePermissions");
                 });
@@ -1614,15 +1370,13 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_SalesHeaders_TenantId");
 
                     b.HasIndex("TenantId", "SalesNumber")
                         .IsUnique()
                         .HasDatabaseName("UX_SalesHeaders_TenantId_SalesNumber")
                         .HasFilter("[TenantId] IS NOT NULL");
-
-                    b.HasIndex("TenantId", "BranchId", "SalesDate", "Status")
-                        .HasDatabaseName("IX_SalesHeaders_TenantId_BranchId_SalesDate_Status");
 
                     b.ToTable("SalesHeaders");
                 });
@@ -1710,11 +1464,6 @@ namespace HardwareManagementSystem.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("IX_SalesReturnHeaders_TenantId");
 
-                    b.HasIndex("TenantId", "ReturnNumber")
-                        .IsUnique()
-                        .HasDatabaseName("UX_SalesReturnHeaders_TenantId_ReturnNumber")
-                        .HasFilter("[TenantId] IS NOT NULL");
-
                     b.ToTable("SalesReturnHeaders");
                 });
 
@@ -1792,12 +1541,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("BranchId");
 
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "AdjustmentNumber")
-                        .IsUnique()
-                        .HasDatabaseName("UX_StockAdjustmentHeaders_TenantId_AdjustmentNumber")
-                        .HasFilter("[TenantId] IS NOT NULL");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_StockAdjustmentHeaders_TenantId");
 
                     b.ToTable("StockAdjustmentHeaders");
                 });
@@ -1930,15 +1675,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("SupplierId");
 
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "StockInNumber")
-                        .IsUnique()
-                        .HasDatabaseName("UX_StockInHeaders_TenantId_StockInNumber")
-                        .HasFilter("[TenantId] IS NOT NULL");
-
-                    b.HasIndex("TenantId", "DateReceived", "PaymentStatus")
-                        .HasDatabaseName("IX_StockInHeaders_TenantId_DateReceived_PaymentStatus");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_StockInHeaders_TenantId");
 
                     b.ToTable("StockInHeaders");
                 });
@@ -2030,7 +1768,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Suppliers_TenantId");
 
                     b.ToTable("Suppliers");
                 });
@@ -2080,8 +1819,7 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("StockInHeaderId");
 
-                    b.HasIndex("SupplierId", "PaymentDate")
-                        .HasDatabaseName("IX_SupplierPayments_SupplierId_PaymentDate");
+                    b.HasIndex("SupplierId");
 
                     b.ToTable("SupplierPayments");
                 });
@@ -2187,6 +1925,9 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasIndex("SupplierId");
 
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_SupplierReturnHeaders_TenantId");
+
                     b.HasIndex("TenantId", "ReturnNumber")
                         .IsUnique()
                         .HasDatabaseName("UX_SupplierReturnHeaders_TenantId_ReturnNumber")
@@ -2277,119 +2018,7 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("IX_SystemSettings_TenantId");
-
                     b.ToTable("SystemSettings");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.Tenant", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("ConnectionString")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("DataMigrated")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("DataMigratedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("DatabaseMode")
-                        .HasColumnType("int");
-
-                    b.Property<string>("DatabaseName")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<DateTime?>("DatabaseProvisionedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("DatabaseServer")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<DateTime?>("ExpirationDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDirectlyProvisioned")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("LastDatabaseMigration")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<int>("MaxBranches")
-                        .HasColumnType("int");
-
-                    b.Property<int>("MaxProducts")
-                        .HasColumnType("int");
-
-                    b.Property<int>("MaxUsers")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("OwnerName")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<bool>("RoutingEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("SubscriptionPlanId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.HasIndex("SubscriptionPlanId");
-
-                    b.ToTable("Tenants");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.Unit", b =>
@@ -2432,7 +2061,8 @@ namespace HardwareManagementSystem.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_Units_TenantId");
 
                     b.ToTable("Units");
                 });
@@ -2463,193 +2093,23 @@ namespace HardwareManagementSystem.Migrations
                     b.ToTable("UserBranches");
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("NormalizedName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedName")
-                        .IsUnique()
-                        .HasDatabaseName("RoleNameIndex")
-                        .HasFilter("[NormalizedName] IS NOT NULL");
-
-                    b.ToTable("AspNetRoles", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ClaimType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ClaimValue")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("RoleId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoleId");
-
-                    b.ToTable("AspNetRoleClaims", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ClaimType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ClaimValue")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("AspNetUserClaims", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                {
-                    b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("ProviderKey")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("ProviderDisplayName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("LoginProvider", "ProviderKey");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("AspNetUserLogins", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("RoleId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("UserId", "RoleId");
-
-                    b.HasIndex("RoleId");
-
-                    b.ToTable("AspNetUserRoles", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Name")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Value")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("UserId", "LoginProvider", "Name");
-
-                    b.ToTable("AspNetUserTokens", (string)null);
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.ApplicationUser", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.BackupRecord", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.Branch", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Tenant");
-                });
-
             modelBuilder.Entity("HardwareManagementSystem.Models.BranchProductStock", b =>
                 {
                     b.HasOne("HardwareManagementSystem.Models.Branch", "Branch")
                         .WithMany()
                         .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("HardwareManagementSystem.Models.Item", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Branch");
 
                     b.Navigation("Product");
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.BranchTransfer", b =>
@@ -2660,11 +2120,6 @@ namespace HardwareManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("HardwareManagementSystem.Models.Branch", "ToBranch")
                         .WithMany()
                         .HasForeignKey("ToBranchId")
@@ -2672,8 +2127,6 @@ namespace HardwareManagementSystem.Migrations
                         .IsRequired();
 
                     b.Navigation("FromBranch");
-
-                    b.Navigation("Tenant");
 
                     b.Navigation("ToBranch");
                 });
@@ -2695,26 +2148,6 @@ namespace HardwareManagementSystem.Migrations
                     b.Navigation("BranchTransfer");
 
                     b.Navigation("Product");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.Category", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.Customer", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.CustomerLedger", b =>
@@ -2745,7 +2178,7 @@ namespace HardwareManagementSystem.Migrations
                     b.HasOne("HardwareManagementSystem.Models.Unit", "Unit")
                         .WithMany()
                         .HasForeignKey("UnitId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("DamagedGoodsHeader");
@@ -2759,17 +2192,9 @@ namespace HardwareManagementSystem.Migrations
                 {
                     b.HasOne("HardwareManagementSystem.Models.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("BranchId");
 
                     b.Navigation("Branch");
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.DeliveryReceipt", b =>
@@ -2789,18 +2214,11 @@ namespace HardwareManagementSystem.Migrations
                         .HasForeignKey("SalesHeaderId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
 
                     b.Navigation("Customer");
 
                     b.Navigation("SalesHeader");
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.DeliveryReceiptItem", b =>
@@ -2828,24 +2246,7 @@ namespace HardwareManagementSystem.Migrations
                         .HasForeignKey("BranchId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.ImportBatch", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.ImportBatchRow", b =>
@@ -2877,11 +2278,6 @@ namespace HardwareManagementSystem.Migrations
                         .WithMany()
                         .HasForeignKey("SupplierId");
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("HardwareManagementSystem.Models.Unit", "Unit")
                         .WithMany()
                         .HasForeignKey("UnitId")
@@ -2893,8 +2289,6 @@ namespace HardwareManagementSystem.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Supplier");
-
-                    b.Navigation("Tenant");
 
                     b.Navigation("Unit");
                 });
@@ -2931,16 +2325,9 @@ namespace HardwareManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
 
                     b.Navigation("Supplier");
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.PurchaseOrderItem", b =>
@@ -2986,18 +2373,11 @@ namespace HardwareManagementSystem.Migrations
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
 
                     b.Navigation("ConvertedToSale");
 
                     b.Navigation("Customer");
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.QuotationItem", b =>
@@ -3016,23 +2396,6 @@ namespace HardwareManagementSystem.Migrations
                     b.Navigation("Item");
 
                     b.Navigation("Quotation");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.RestoreRecord", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.BackupRecord", "BackupRecord")
-                        .WithMany()
-                        .HasForeignKey("BackupRecordId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("BackupRecord");
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.SalesDetail", b =>
@@ -3065,16 +2428,9 @@ namespace HardwareManagementSystem.Migrations
                         .WithMany()
                         .HasForeignKey("CustomerId");
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
 
                     b.Navigation("Customer");
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.SalesReturnDetail", b =>
@@ -3112,14 +2468,7 @@ namespace HardwareManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("SalesHeader");
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.StockAdjustmentDetail", b =>
@@ -3148,14 +2497,7 @@ namespace HardwareManagementSystem.Migrations
                         .HasForeignKey("BranchId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.StockInDetail", b =>
@@ -3202,28 +2544,11 @@ namespace HardwareManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
 
                     b.Navigation("PurchaseOrder");
 
                     b.Navigation("Supplier");
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.Supplier", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.SupplierPayment", b =>
@@ -3262,7 +2587,7 @@ namespace HardwareManagementSystem.Migrations
                     b.HasOne("HardwareManagementSystem.Models.Unit", "Unit")
                         .WithMany()
                         .HasForeignKey("UnitId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Item");
@@ -3276,8 +2601,7 @@ namespace HardwareManagementSystem.Migrations
                 {
                     b.HasOne("HardwareManagementSystem.Models.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .HasForeignKey("BranchId");
 
                     b.HasOne("HardwareManagementSystem.Models.DamagedGoodsHeader", "LinkedDamagedGoods")
                         .WithMany()
@@ -3287,50 +2611,14 @@ namespace HardwareManagementSystem.Migrations
                     b.HasOne("HardwareManagementSystem.Models.Supplier", "Supplier")
                         .WithMany()
                         .HasForeignKey("SupplierId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId");
 
                     b.Navigation("Branch");
 
                     b.Navigation("LinkedDamagedGoods");
 
                     b.Navigation("Supplier");
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.SystemSetting", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.Tenant", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.SubscriptionPlan", "SubscriptionPlan")
-                        .WithMany()
-                        .HasForeignKey("SubscriptionPlanId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("SubscriptionPlan");
-                });
-
-            modelBuilder.Entity("HardwareManagementSystem.Models.Unit", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.UserBranch", b =>
@@ -3342,57 +2630,6 @@ namespace HardwareManagementSystem.Migrations
                         .IsRequired();
 
                     b.Navigation("Branch");
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
-                {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("HardwareManagementSystem.Models.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                {
-                    b.HasOne("HardwareManagementSystem.Models.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("HardwareManagementSystem.Models.BranchTransfer", b =>

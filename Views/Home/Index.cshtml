@@ -17,6 +17,12 @@
     int pendingPOCount           = ViewBag.PendingPOCount           ?? 0;
     int sentPOCount              = ViewBag.SentPOCount              ?? 0;
     int partiallyReceivedPOCount = ViewBag.PartiallyReceivedPOCount ?? 0;
+    int todaysReceiptsCount      = ViewBag.TodaysReceiptsCount      ?? 0;
+    int pendingDeliveriesCount   = ViewBag.PendingDeliveriesCount   ?? 0;
+    int completedPOsTodayCount   = ViewBag.CompletedPOsTodayCount   ?? 0;
+    int supplierPayablesDueCount = ViewBag.SupplierPayablesDueCount  ?? 0;
+    var pendingDeliveries = ViewBag.PendingDeliveries as List<HardwareManagementSystem.ViewModels.PendingDeliveryVm>
+        ?? new List<HardwareManagementSystem.ViewModels.PendingDeliveryVm>();
     int criticalStockCount       = ViewBag.CriticalStockCount       ?? 0;
     int reorderStockCount        = ViewBag.ReorderStockCount        ?? 0;
     int overdueARCount           = ViewBag.OverdueARCount           ?? 0;
@@ -57,7 +63,7 @@
                 </h2>
                 <div class="hb-section-subtitle">
                     Plan: <strong>@subUsage.PlanName</strong>
-                    &nbsp;·&nbsp;
+                    &nbsp;ï¿½&nbsp;
                     Status:&nbsp;
                     @if (subUsage.Status.ToString() == "Active")
                     {
@@ -74,7 +80,7 @@
                     @if (subUsage.ExpirationDate.HasValue)
                     {
                         <span class="ms-2 text-muted small">
-                            &nbsp;·&nbsp; Expires: @subUsage.ExpirationDate.Value.ToString("MMM dd, yyyy")
+                            &nbsp;ï¿½&nbsp; Expires: @subUsage.ExpirationDate.Value.ToString("MMM dd, yyyy")
                         </span>
                     }
                 </div>
@@ -201,7 +207,7 @@
                 </div>
                 <div class="kpi-label">Receivables</div>
                 <div class="kpi-value @(totalReceivables > 0 ? "text-warning" : "")">@(ViewBag.CurrencySymbol)@totalReceivables.ToString("N2")</div>
-                <div class="kpi-trend">Outstanding customer balances · View ?</div>
+                <div class="kpi-trend">Outstanding customer balances ï¿½ View ?</div>
             </div>
         </a>
     </div>
@@ -214,7 +220,7 @@
                 </div>
                 <div class="kpi-label">Payables</div>
                 <div class="kpi-value @(totalPayables > 0 ? "text-danger" : "")">@(ViewBag.CurrencySymbol)@totalPayables.ToString("N2")</div>
-                <div class="kpi-trend">Unpaid supplier balance due · View ?</div>
+                <div class="kpi-trend">Unpaid supplier balance due ï¿½ View ?</div>
             </div>
         </a>
     </div>
@@ -227,7 +233,7 @@
                 </div>
                 <div class="kpi-label">Overdue Receivables</div>
                 <div class="kpi-value @(overdueARCount > 0 ? "text-warning" : "")">@overdueARCount Cust.</div>
-                <div class="kpi-trend">30+ days unpaid · AR Aging ?</div>
+                <div class="kpi-trend">30+ days unpaid ï¿½ AR Aging ?</div>
             </div>
         </a>
     </div>
@@ -240,7 +246,7 @@
                 </div>
                 <div class="kpi-label">Overdue Payables</div>
                 <div class="kpi-value @(overdueAPAmount > 0 ? "text-danger" : "")">@(ViewBag.CurrencySymbol)@overdueAPAmount.ToString("N2")</div>
-                <div class="kpi-trend">30+ days unpaid · AP Aging ?</div>
+                <div class="kpi-trend">30+ days unpaid ï¿½ AP Aging ?</div>
             </div>
         </a>
     </div>
@@ -269,7 +275,7 @@
                 </div>
                 <div class="kpi-label">Draft POs</div>
                 <div class="kpi-value">@pendingPOCount</div>
-                <div class="kpi-trend">Awaiting review &amp; send · View ?</div>
+                <div class="kpi-trend">Awaiting review &amp; send ï¿½ View ?</div>
             </div>
         </a>
     </div>
@@ -282,7 +288,7 @@
                 </div>
                 <div class="kpi-label">Sent POs</div>
                 <div class="kpi-value">@sentPOCount</div>
-                <div class="kpi-trend">Awaiting delivery · View ?</div>
+                <div class="kpi-trend">Awaiting delivery ï¿½ View ?</div>
             </div>
         </a>
     </div>
@@ -295,7 +301,7 @@
                 </div>
                 <div class="kpi-label">Partially Received</div>
                 <div class="kpi-value">@partiallyReceivedPOCount</div>
-                <div class="kpi-trend">Incomplete delivery · View ?</div>
+                <div class="kpi-trend">Incomplete delivery ï¿½ View ?</div>
             </div>
         </a>
     </div>
@@ -314,6 +320,133 @@
     </div>
 
 </div>
+
+<!-- Warehouse / Receiving KPI Row (RC1.8.1) -->
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <a asp-controller="Receiving" asp-action="Index" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:rgba(37,99,235,.12);color:#2563eb;">
+                    <i class="bi bi-box-seam"></i>
+                </div>
+                <div class="kpi-label">Today's Receipts</div>
+                <div class="kpi-value">@todaysReceiptsCount</div>
+                <div class="kpi-trend">Deliveries received today</div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <a asp-controller="PurchaseOrders" asp-action="Index" asp-route-statusFilter="Sent" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">
+                    <i class="bi bi-truck"></i>
+                </div>
+                <div class="kpi-label">Pending Deliveries</div>
+                <div class="kpi-value">@pendingDeliveriesCount</div>
+                <div class="kpi-trend">Sent or partially received POs</div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <a asp-controller="PurchaseOrders" asp-action="Index" asp-route-statusFilter="PartiallyReceived" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:rgba(245,158,11,.12);color:#d97706;">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+                <div class="kpi-label">Partially Received POs</div>
+                <div class="kpi-value">@partiallyReceivedPOCount</div>
+                <div class="kpi-trend">Incomplete deliveries</div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <a asp-controller="PurchaseOrders" asp-action="Index" asp-route-statusFilter="Received" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:rgba(34,197,94,.12);color:#16a34a;">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="kpi-label">Completed POs Today</div>
+                <div class="kpi-value">@completedPOsTodayCount</div>
+                <div class="kpi-trend">Fully received today</div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <a asp-controller="Reports" asp-action="SupplierPayables" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+                <div class="kpi-label">Supplier Payables Due</div>
+                <div class="kpi-value">@supplierPayablesDueCount</div>
+                <div class="kpi-trend">Unpaid receipt invoices</div>
+            </div>
+        </a>
+    </div>
+
+</div>
+
+@if (pendingDeliveries.Any())
+{
+    <div class="hb-card mb-4">
+        <div class="hb-card-header">
+            <div>
+                <h2 class="hb-section-title">
+                    <i class="bi bi-truck me-2"></i>Pending Deliveries
+                </h2>
+                <div class="hb-section-subtitle">Purchase orders awaiting supplier delivery</div>
+            </div>
+            <a asp-controller="PurchaseOrders" asp-action="Index" asp-route-statusFilter="Sent"
+               class="btn btn-outline-primary btn-sm">View All POs</a>
+        </div>
+        <div class="hb-card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>PO Number</th>
+                            <th>Supplier</th>
+                            <th>Remaining</th>
+                            <th>Status</th>
+                            <th width="100">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var po in pendingDeliveries)
+                        {
+                            <tr>
+                                <td>
+                                    <a asp-controller="PurchaseOrders" asp-action="Details" asp-route-id="@po.PurchaseOrderId">
+                                        <strong>@po.PONumber</strong>
+                                    </a>
+                                    <div class="small text-muted">@po.PODate.ToString("MMM dd, yyyy")</div>
+                                </td>
+                                <td>@po.SupplierName</td>
+                                <td>
+                                    <span class="badge badge-soft-warning">
+                                        @po.RemainingQty.ToString("0.###") @po.UnitLabel
+                                    </span>
+                                </td>
+                                <td><span class="badge badge-soft-secondary">@po.Status</span></td>
+                                <td>
+                                    <a asp-controller="PurchaseOrders" asp-action="Receive" asp-route-id="@po.PurchaseOrderId"
+                                       class="btn btn-success btn-sm">
+                                        <i class="bi bi-truck me-1"></i>Receive
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
 
 <div class="row g-3 mb-4">
 
@@ -464,7 +597,7 @@
                         }
                         else
                         {
-                            <span>All branches · items below reorder level</span>
+                            <span>All branches ï¿½ items below reorder level</span>
                         }
                     </div>
                 </div>
@@ -499,7 +632,7 @@
                                     <code>@item.ItemCode</code>
                                     @if (item.Category != null)
                                     {
-                                        <span class="ms-1">· @item.Category.CategoryName</span>
+                                        <span class="ms-1">ï¿½ @item.Category.CategoryName</span>
                                     }
                                 </div>
                             </div>

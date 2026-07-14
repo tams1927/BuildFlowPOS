@@ -314,6 +314,24 @@ if (args.Contains("--qa-direct-dedicated-tenant"))
     return;
 }
 
+if (args.Contains("--qa-receiving"))
+{
+    await HardwareManagementSystem.Tools.ReceivingQaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-receiving-ux"))
+{
+    await HardwareManagementSystem.Tools.ReceivingUxQaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-po-clickthrough"))
+{
+    await HardwareManagementSystem.Tools.PoWorkflowClickthroughQaRunner.RunAsync(app);
+    return;
+}
+
 // ============================================
 // STARTUP SCHEMA DRIFT CHECK
 // ============================================

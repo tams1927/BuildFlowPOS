@@ -1,10 +1,13 @@
 @model HardwareManagementSystem.Models.PurchaseOrder
 @using HardwareManagementSystem.Models
+@using HardwareManagementSystem.ViewModels
 
 @{
     ViewData["Title"] = $"PO — {Model.PONumber}";
     var settings = ViewBag.Settings as SystemSetting;
     var currency = settings?.CurrencySymbol ?? "₱";
+    var progress = ViewBag.ReceivingProgress as PoReceivingProgressVm;
+    var receivingHistory = ViewBag.ReceivingHistory as List<PoReceiptHistoryVm> ?? new List<PoReceiptHistoryVm>();
 
     var statusBadge = Model.Status switch
     {
@@ -61,8 +64,51 @@
             }
             @if (Model.CanBeReceived)
             {
+                @if (progress != null && (Model.Status == "Sent" || Model.Status == "PartiallyReceived"))
+                {
+                    <div class="w-100 mb-3 p-3 rounded border bg-body-secondary">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-semibold text-muted text-uppercase">Receiving Progress</span>
+                            @if (progress.IsFullyReceived)
+                            {
+                                <span class="badge badge-soft-success">Fully Received</span>
+                            }
+                            else if (progress.IsPartial)
+                            {
+                                <span class="badge badge-soft-warning">Partial Delivery</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-soft-primary">Awaiting Delivery</span>
+                            }
+                        </div>
+                        <div class="row g-3 text-center mb-2">
+                            <div class="col-4">
+                                <div class="small text-muted">Ordered</div>
+                                <div class="fw-bold fs-5">@progress.Ordered.ToString("0.###")</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="small text-muted">Received</div>
+                                <div class="fw-bold fs-5 text-success">@progress.Received.ToString("0.###")</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="small text-muted">Remaining</div>
+                                <div class="fw-bold fs-5 text-warning">@progress.Remaining.ToString("0.###")</div>
+                            </div>
+                        </div>
+                        <div class="small text-muted mb-1">@progress.UnitLabel · @progress.PercentComplete% complete</div>
+                        <div class="progress" style="height:10px;">
+                            <div class="progress-bar bg-@progress.ProgressColor"
+                                 role="progressbar"
+                                 style="width:@progress.PercentComplete%"
+                                 aria-valuenow="@progress.PercentComplete"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                }
                 <a asp-action="Receive" asp-route-id="@Model.Id" class="btn btn-success btn-sm">
-                    <i class="bi bi-box-seam me-1"></i>Receive Stocks
+                    <i class="bi bi-truck me-1"></i>Receive Delivery
                 </a>
             }
             @if (Model.CanBeCancelled)
@@ -124,6 +170,43 @@
             </div>
 
         </div>
+
+        @if (progress != null && Model.Status is "PartiallyReceived" or "Received")
+        {
+            <div class="mb-4 p-3 rounded border">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fw-semibold mb-0"><i class="bi bi-graph-up me-2"></i>PO Progress</h5>
+                    @if (progress.IsFullyReceived)
+                    {
+                        <span class="badge badge-soft-success">Fully Received</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-soft-warning">Partial Delivery — Remaining @progress.Remaining.ToString("0.###") @progress.UnitLabel</span>
+                    }
+                </div>
+                <div class="row g-3 text-center mb-2">
+                    <div class="col-md-4">
+                        <div class="small text-muted">Ordered</div>
+                        <div class="fw-bold fs-4">@progress.Ordered.ToString("0.###") @progress.UnitLabel</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="small text-muted">Received</div>
+                        <div class="fw-bold fs-4 text-success">@progress.Received.ToString("0.###") @progress.UnitLabel</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="small text-muted">Remaining</div>
+                        <div class="fw-bold fs-4 text-warning">@progress.Remaining.ToString("0.###") @progress.UnitLabel</div>
+                    </div>
+                </div>
+                <div class="progress" style="height:12px;">
+                    <div class="progress-bar bg-@progress.ProgressColor"
+                         role="progressbar"
+                         style="width:@progress.PercentComplete%"></div>
+                </div>
+                <div class="small text-muted mt-1 text-end">@progress.PercentComplete% received</div>
+            </div>
+        }
 
         <h5 class="fw-semibold mb-3"><i class="bi bi-list-ul me-2"></i>Ordered Items</h5>
 
@@ -189,6 +272,70 @@
                 </tfoot>
             </table>
         </div>
+
+        <h5 class="fw-semibold mb-3 mt-4"><i class="bi bi-clock-history me-2"></i>Receiving History</h5>
+
+        @if (!receivingHistory.Any())
+        {
+            <div class="text-center py-4 text-muted border rounded">
+                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                No deliveries have been received yet.
+            </div>
+        }
+        else
+        {
+            @foreach (var receipt in receivingHistory)
+            {
+                <div class="border rounded mb-3 overflow-hidden">
+                    <div class="bg-body-secondary px-3 py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <strong>
+                                <a asp-controller="Receiving" asp-action="Details" asp-route-id="@receipt.StockInHeaderId">
+                                    @receipt.ReceiptNumber
+                                </a>
+                            </strong>
+                            <span class="text-muted small ms-2">@receipt.DateReceived.ToString("MMM dd, yyyy hh:mm tt")</span>
+                        </div>
+                        <span class="fw-semibold">@currency@receipt.TotalCost.ToString("N2")</span>
+                    </div>
+                    <div class="px-3 py-2">
+                        <div class="row g-2 small">
+                            <div class="col-md-3">
+                                <span class="text-muted">Received By</span><br />
+                                <strong>@(receipt.ReceivedBy ?? "—")</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <span class="text-muted">Supplier Invoice</span><br />
+                                <strong>@(receipt.SupplierInvoice ?? "—")</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <span class="text-muted">Accepted</span><br />
+                                <strong class="text-success">@receipt.AcceptedQty.ToString("0.###") @receipt.UnitLabel</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <span class="text-muted">Damaged</span><br />
+                                <strong class="@(receipt.DamagedQty > 0 ? "text-danger" : "")">@receipt.DamagedQty.ToString("0.###") @receipt.UnitLabel</strong>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(receipt.Reference))
+                            {
+                                <div class="col-12">
+                                    <span class="text-muted">Reference</span><br />
+                                    <span>@receipt.Reference</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (progress != null && progress.Remaining > 0)
+            {
+                <div class="alert alert-warning border-0 small mb-0">
+                    <i class="bi bi-hourglass-split me-1"></i>
+                    <strong>Remaining:</strong> @progress.Remaining.ToString("0.###") @progress.UnitLabel
+                </div>
+            }
+        }
 
     </div>
 </div>

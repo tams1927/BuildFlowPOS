@@ -1,0 +1,451 @@
+@model HardwareManagementSystem.Models.StockInHeader
+
+@using HardwareManagementSystem.Models
+
+@using HardwareManagementSystem.ViewModels
+
+
+
+@{
+
+    ViewData["Title"] = $"Receipt — {Model.StockInNumber}";
+
+    var currencySymbol = ViewBag.CurrencySymbol as string ?? "\u20B1";
+
+    var payments = ViewBag.Payments as List<SupplierPayment> ?? new List<SupplierPayment>();
+
+    var detailLines = ViewBag.DetailLines as List<ReceivingDetailLineVm> ?? new List<ReceivingDetailLineVm>();
+
+    var damagedHeaders = ViewBag.DamagedHeaders as List<DamagedGoodsHeader> ?? new List<DamagedGoodsHeader>();
+
+    var isPartial = ViewBag.IsPartialDelivery as bool? ?? false;
+
+    var isFullyReceived = ViewBag.IsFullyReceived as bool? ?? false;
+
+    var poRemaining = ViewBag.PoRemaining as decimal?;
+
+    var poUnitLabel = ViewBag.PoUnitLabel as string ?? "units";
+
+}
+
+
+
+<div class="hb-card mb-4">
+
+    <div class="hb-card-header">
+
+        <div>
+
+            <h2 class="hb-section-title">
+
+                <i class="bi bi-box-seam me-2"></i>@Model.StockInNumber
+
+            </h2>
+
+            <div class="hb-section-subtitle d-flex align-items-center gap-2 flex-wrap">
+
+                <span>Received @Model.DateReceived.ToString("MMM dd, yyyy hh:mm tt")</span>
+
+                @if (isFullyReceived)
+
+                {
+
+                    <span class="badge badge-soft-success">Fully Received</span>
+
+                }
+
+                else if (isPartial && poRemaining.HasValue)
+
+                {
+
+                    <span class="badge badge-soft-warning">Partial Delivery — Remaining @poRemaining.Value.ToString("0.###") @poUnitLabel</span>
+
+                }
+
+                else if (Model.PurchaseOrderId == null)
+
+                {
+
+                    <span class="badge badge-soft-secondary">Manual Receipt</span>
+
+                }
+
+            </div>
+
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+
+            <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+
+                <i class="bi bi-arrow-left me-1"></i>Back
+
+            </a>
+
+            @if (Model.PurchaseOrderId.HasValue)
+
+            {
+
+                <a asp-controller="PurchaseOrders" asp-action="Details" asp-route-id="@Model.PurchaseOrderId"
+
+                   class="btn btn-outline-primary btn-sm">
+
+                    <i class="bi bi-file-earmark-text me-1"></i>View PO
+
+                </a>
+
+            }
+
+            @if (Model.BalanceDue > 0)
+
+            {
+
+                <a asp-controller="SupplierPayments" asp-action="Pay" asp-route-id="@Model.Id"
+
+                   class="btn btn-success btn-sm">
+
+                    <i class="bi bi-cash-stack me-1"></i>Pay Supplier
+
+                </a>
+
+            }
+
+        </div>
+
+    </div>
+
+
+
+    <div class="hb-card-body">
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-md-4 col-lg-3">
+
+                <div class="small text-muted">Purchase Order</div>
+
+                <div class="fw-semibold">
+
+                    @if (Model.PurchaseOrder != null)
+
+                    {
+
+                        <a asp-controller="PurchaseOrders" asp-action="Details" asp-route-id="@Model.PurchaseOrderId">@Model.PurchaseOrder.PONumber</a>
+
+                    }
+
+                    else
+
+                    {
+
+                        <span>Manual receipt</span>
+
+                    }
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4 col-lg-3">
+
+                <div class="small text-muted">Supplier</div>
+
+                <div class="fw-semibold">@(Model.Supplier?.SupplierName ?? "-")</div>
+
+            </div>
+
+            <div class="col-md-4 col-lg-3">
+
+                <div class="small text-muted">Branch</div>
+
+                <div class="fw-semibold">@(Model.Branch?.Name ?? "-")</div>
+
+            </div>
+
+            <div class="col-md-4 col-lg-3">
+
+                <div class="small text-muted">Received By</div>
+
+                <div class="fw-semibold">@(Model.ReceivedBy ?? "-")</div>
+
+            </div>
+
+            <div class="col-md-4 col-lg-3">
+
+                <div class="small text-muted">Invoice Number</div>
+
+                <div class="fw-semibold">@(Model.InvoiceNumber ?? "-")</div>
+
+            </div>
+
+            <div class="col-md-4 col-lg-3">
+
+                <div class="small text-muted">Delivery Reference</div>
+
+                <div class="fw-semibold">@(Model.InvoiceNumber ?? Model.Remarks ?? "-")</div>
+
+            </div>
+
+            <div class="col-md-4 col-lg-3">
+
+                <div class="small text-muted">Date Received</div>
+
+                <div class="fw-semibold">@Model.DateReceived.ToString("MMM dd, yyyy")</div>
+
+            </div>
+
+            <div class="col-md-4 col-lg-3">
+
+                <div class="small text-muted">Payment Status</div>
+
+                <div class="fw-semibold">@Model.PaymentStatus</div>
+
+            </div>
+
+        </div>
+
+
+
+        @if (!string.IsNullOrWhiteSpace(Model.Remarks))
+
+        {
+
+            <div class="alert alert-light border small mb-4">
+
+                <span class="text-muted">Remarks:</span> @Model.Remarks
+
+            </div>
+
+        }
+
+
+
+        <h5 class="fw-semibold mb-3"><i class="bi bi-list-check me-2"></i>Items Received</h5>
+
+
+
+        <div class="table-responsive mb-4">
+
+            <table class="table align-middle">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Product</th>
+
+                        <th class="text-end">Ordered</th>
+
+                        <th class="text-end">Accepted</th>
+
+                        <th class="text-end">Damaged</th>
+
+                        <th class="text-end">Rejected</th>
+
+                        <th>Unit</th>
+
+                        <th class="text-end">Cost</th>
+
+                        <th class="text-end">Total</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    @foreach (var line in detailLines)
+
+                    {
+
+                        <tr>
+
+                            <td>
+
+                                <strong>@line.ItemName</strong>
+
+                                @if (!string.IsNullOrWhiteSpace(line.ItemCode))
+
+                                {
+
+                                    <div class="small text-muted">@line.ItemCode</div>
+
+                                }
+
+                            </td>
+
+                            <td class="text-end">@(line.OrderedQty > 0 ? line.OrderedQty.ToString("0.###") : "-")</td>
+
+                            <td class="text-end text-success fw-semibold">@line.AcceptedQty.ToString("0.###")</td>
+
+                            <td class="text-end @(line.DamagedQty > 0 ? "text-danger" : "")">@line.DamagedQty.ToString("0.###")</td>
+
+                            <td class="text-end @(line.RejectedQty > 0 ? "text-danger" : "")">@line.RejectedQty.ToString("0.###")</td>
+
+                            <td>@line.UnitLabel</td>
+
+                            <td class="text-end">@currencySymbol @line.CostPerUnit.ToString("N2")</td>
+
+                            <td class="text-end fw-semibold">@currencySymbol @line.LineTotal.ToString("N2")</td>
+
+                        </tr>
+
+                    }
+
+                </tbody>
+
+                <tfoot>
+
+                    <tr>
+
+                        <th colspan="7" class="text-end">Grand Total</th>
+
+                        <th class="text-end">@currencySymbol @Model.TotalCost.ToString("N2")</th>
+
+                    </tr>
+
+                </tfoot>
+
+            </table>
+
+        </div>
+
+
+
+        @if (damagedHeaders.Any())
+
+        {
+
+            <h5 class="fw-semibold mb-3"><i class="bi bi-exclamation-triangle me-2"></i>Linked Damaged Goods</h5>
+
+            <div class="mb-4">
+
+                @foreach (var dmg in damagedHeaders)
+
+                {
+
+                    <a asp-controller="DamagedGoods" asp-action="Details" asp-route-id="@dmg.Id"
+
+                       class="badge badge-soft-danger me-2 mb-2 text-decoration-none">
+
+                        @dmg.DamageNumber
+
+                    </a>
+
+                }
+
+            </div>
+
+        }
+
+
+
+        <div class="row g-3">
+
+            <div class="col-md-4">
+
+                <div class="kpi-card">
+
+                    <div class="kpi-label">Amount Paid</div>
+
+                    <div class="kpi-value">@currencySymbol @Model.AmountPaid.ToString("N2")</div>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="kpi-card">
+
+                    <div class="kpi-label">Balance Due</div>
+
+                    <div class="kpi-value">@currencySymbol @Model.BalanceDue.ToString("N2")</div>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="kpi-card">
+
+                    <div class="kpi-label">Payment Status</div>
+
+                    <div class="kpi-value" style="font-size:1.1rem">@Model.PaymentStatus</div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        @if (payments.Any())
+
+        {
+
+            <h5 class="mt-4 mb-3">Payment History</h5>
+
+            <div class="table-responsive">
+
+                <table class="table table-sm">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Date</th>
+
+                            <th>Amount</th>
+
+                            <th>Method</th>
+
+                            <th>Reference</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        @foreach (var p in payments)
+
+                        {
+
+                            <tr>
+
+                                <td>@p.PaymentDate.ToString("MMM dd, yyyy")</td>
+
+                                <td>@currencySymbol @p.AmountPaid.ToString("N2")</td>
+
+                                <td>@p.PaymentMethod</td>
+
+                                <td>@(p.ReferenceNumber ?? "-")</td>
+
+                            </tr>
+
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        }
+
+
+
+        <div class="small text-muted mt-4">
+
+            Record created @Model.CreatedAt.ToString("MMM dd, yyyy hh:mm tt")
+
+        </div>
+
+    </div>
+
+</div>
+
+

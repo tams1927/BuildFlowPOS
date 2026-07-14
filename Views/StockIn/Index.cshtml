@@ -2,7 +2,7 @@
 @using HardwareManagementSystem.ViewModels
 
 @{
-    ViewData["Title"] = "Stock In";
+    ViewData["Title"] = "Manual Stock In";
 
     var suppliers = ViewBag.Suppliers as List<HardwareManagementSystem.Models.Supplier>;
     var items = ViewBag.Items as List<HardwareManagementSystem.Models.Item>;
@@ -72,11 +72,11 @@
 
         <div>
             <h2 class="hb-section-title">
-                Stock In Management
+                Manual Stock In
             </h2>
 
             <div class="hb-section-subtitle">
-                Receive inventory deliveries and update item stocks
+                Use for beginning inventory or supplier receipts without a Purchase Order. For normal PO deliveries, use <a asp-controller="Receiving" asp-action="Index">Receiving</a>.
             </div>
         </div>
 
@@ -92,7 +92,7 @@
                     data-bs-target="#addStockInModal">
 
                 <i class="bi bi-plus-circle me-1"></i>
-                New Stock In
+                New Manual Stock In
 
             </button>
 
@@ -243,7 +243,7 @@
                     <h5 class="modal-title fw-bold"
                         id="addStockInModalLabel">
 
-                        New Stock In
+                        New Manual Stock In
 
                     </h5>
 

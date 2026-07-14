@@ -1,0 +1,159 @@
+@model HardwareManagementSystem.ViewModels.PagedResult<HardwareManagementSystem.Models.StockInHeader>
+@using HardwareManagementSystem.ViewModels
+
+@{
+    ViewData["Title"] = "Receiving";
+    var suppliers = ViewBag.Suppliers as List<HardwareManagementSystem.Models.Supplier>;
+    var branches = ViewBag.Branches as List<HardwareManagementSystem.Models.Branch>;
+    var supplierFilter = ViewBag.SupplierFilter as string;
+    var branchFilter = ViewBag.BranchFilter as string;
+    var statusFilter = ViewBag.StatusFilter as string;
+    var sourceFilter = ViewBag.SourceFilter as string;
+    var currencySymbol = ViewBag.CurrencySymbol as string ?? "\u20B1";
+}
+
+<div class="hb-card mb-4">
+    <div class="hb-card-header">
+        <div>
+            <h2 class="hb-section-title">Supplier Receiving</h2>
+            <div class="hb-section-subtitle">
+                Delivery receipts from purchase orders and supplier invoices
+            </div>
+        </div>
+    </div>
+
+    <div class="hb-card-body">
+        <form method="get" asp-controller="Receiving" asp-action="Index">
+            <div class="row g-3 mb-4">
+                <div class="col-lg-3">
+                    <label class="form-label fw-semibold">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="searchTerm" class="form-control border-start-0"
+                               value="@Model.SearchTerm" placeholder="PO, receipt, supplier, invoice, branch, received by..." />
+                    </div>
+                </div>
+                <div class="col-lg-2">
+                    <label class="form-label fw-semibold">Supplier</label>
+                    <select name="supplierFilter" class="form-select">
+                        <option value="all">All Suppliers</option>
+                        @if (suppliers != null)
+                        {
+                            foreach (var s in suppliers)
+                            {
+                                <option value="@s.Id" selected="@(supplierFilter == s.Id.ToString())">@s.SupplierName</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-lg-2">
+                    <label class="form-label fw-semibold">Branch</label>
+                    <select name="branchFilter" class="form-select">
+                        <option value="all">All Branches</option>
+                        @if (branches != null)
+                        {
+                            foreach (var b in branches)
+                            {
+                                <option value="@b.Id" selected="@(branchFilter == b.Id.ToString())">@b.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-lg-2">
+                    <label class="form-label fw-semibold">Payment</label>
+                    <select name="statusFilter" class="form-select">
+                        <option value="all">All Status</option>
+                        <option value="Unpaid" selected="@(statusFilter == "Unpaid")">Unpaid</option>
+                        <option value="Partial" selected="@(statusFilter == "Partial")">Partial</option>
+                        <option value="Paid" selected="@(statusFilter == "Paid")">Paid</option>
+                    </select>
+                </div>
+                <div class="col-lg-2">
+                    <label class="form-label fw-semibold">Source</label>
+                    <select name="sourceFilter" class="form-select">
+                        <option value="all">All Receipts</option>
+                        <option value="po" selected="@(sourceFilter == "po")">From PO</option>
+                        <option value="manual" selected="@(sourceFilter == "manual")">Manual Only</option>
+                    </select>
+                </div>
+                <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                <input type="hidden" name="pageNumber" value="1" />
+                <div class="col-lg-1 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" type="submit" data-no-disable="true">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Receipt No.</th>
+                        <th>Date</th>
+                        <th>PO No.</th>
+                        <th>Supplier</th>
+                        <th>Branch</th>
+                        <th>Invoice / Ref</th>
+                        <th>Total</th>
+                        <th>Payment</th>
+                        <th>Received By</th>
+                        <th width="80">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var r in Model.Items)
+                        {
+                            <tr>
+                                <td><strong>@r.StockInNumber</strong></td>
+                                <td>@r.DateReceived.ToString("MMM dd, yyyy")</td>
+                                <td>
+                                    @if (r.PurchaseOrder != null)
+                                    {
+                                        <a asp-controller="PurchaseOrders" asp-action="Details" asp-route-id="@r.PurchaseOrderId">@r.PurchaseOrder.PONumber</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Manual</span>
+                                    }
+                                </td>
+                                <td>@(r.Supplier?.SupplierName ?? "-")</td>
+                                <td>@(r.Branch?.Name ?? "-")</td>
+                                <td>@(r.InvoiceNumber ?? "-")</td>
+                                <td>@currencySymbol @r.TotalCost.ToString("N2")</td>
+                                <td><span class="badge badge-soft-secondary">@r.PaymentStatus</span></td>
+                                <td>@(r.ReceivedBy ?? "-")</td>
+                                <td>
+                                    <a asp-action="Details" asp-route-id="@r.Id" class="btn btn-sm btn-outline-primary" title="View">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="10" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No receiving records found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @await Html.PartialAsync("_Pagination", PaginationMeta.From(Model, "Receiving", "Index", new Dictionary<string, string?>
+        {
+            ["searchTerm"] = Model.SearchTerm,
+            ["supplierFilter"] = supplierFilter,
+            ["branchFilter"] = branchFilter,
+            ["statusFilter"] = statusFilter,
+            ["sourceFilter"] = sourceFilter
+        }))
+    </div>
+</div>

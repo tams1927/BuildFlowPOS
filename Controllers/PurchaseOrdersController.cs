@@ -6,6 +6,7 @@ using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace HardwareManagementSystem.Controllers
 {
@@ -13,26 +14,32 @@ namespace HardwareManagementSystem.Controllers
     [PermissionAuthorize("PurchaseOrders", "View")]
     public class PurchaseOrdersController : OperationalDbController
     {
+        private readonly ApplicationDbContext _platformDb;
         private readonly AuditService _auditService;
         private readonly BranchService _branchService;
         private readonly ITenantContext _tenantContext;
         private readonly TenantGuard _tenantGuard;
         private readonly ItemUnitConversionService _conversionService;
+        private readonly ILogger<PurchaseOrdersController> _logger;
 
         public PurchaseOrdersController(
             ITenantOperationalContextProvider ctxProvider,
+            ApplicationDbContext platformDb,
             AuditService auditService,
             BranchService branchService,
             ITenantContext tenantContext,
             TenantGuard tenantGuard,
-            ItemUnitConversionService conversionService)
+            ItemUnitConversionService conversionService,
+            ILogger<PurchaseOrdersController> logger)
             : base(ctxProvider)
         {
+            _platformDb = platformDb;
             _auditService = auditService;
             _branchService = branchService;
             _tenantContext = tenantContext;
             _tenantGuard = tenantGuard;
             _conversionService = conversionService;
+            _logger = logger;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -122,10 +129,11 @@ namespace HardwareManagementSystem.Controllers
                 .AsNoTracking()
                 .Include(p => p.Supplier)
                 .Include(p => p.Branch)
-                .Include(p => p.Tenant)
                 .Include(p => p.Items)
                     .ThenInclude(i => i.Item)
                         .ThenInclude(i => i!.Unit)
+                .Include(p => p.Items)
+                    .ThenInclude(i => i.OrderedUnit)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (po == null) return NotFound();
@@ -138,8 +146,97 @@ namespace HardwareManagementSystem.Controllers
                 ?? new SystemSetting();
 
             ViewBag.Settings = settings;
+            ViewBag.ReceivingProgress = BuildReceivingProgress(po);
+            ViewBag.ReceivingHistory = await LoadReceivingHistoryAsync(id, po);
 
             return View(po);
+        }
+
+        private static PoReceivingProgressVm BuildReceivingProgress(PurchaseOrder po)
+        {
+            var totalOrdered = po.Items.Sum(i => i.OrderedQuantity > 0 ? i.OrderedQuantity : i.Quantity);
+            var totalReceived = po.Items.Sum(i =>
+                i.ConversionQuantity > 0 ? i.QuantityReceived / i.ConversionQuantity : i.QuantityReceived);
+            var totalRemaining = Math.Max(0, totalOrdered - totalReceived);
+            var pct = totalOrdered > 0
+                ? (int)Math.Round(Math.Min(100, totalReceived / totalOrdered * 100))
+                : 0;
+
+            var unitLabel = po.Items.Count == 1
+                ? po.Items.First().OrderedUnit?.ShortName
+                  ?? po.Items.First().Item?.Unit?.ShortName
+                  ?? "units"
+                : "units";
+
+            var color = po.Status switch
+            {
+                "Received" => "success",
+                "PartiallyReceived" => "warning",
+                "Sent" => "primary",
+                _ => "secondary"
+            };
+
+            return new PoReceivingProgressVm
+            {
+                Ordered = totalOrdered,
+                Received = totalReceived,
+                Remaining = totalRemaining,
+                PercentComplete = pct,
+                UnitLabel = unitLabel,
+                ProgressColor = color,
+                IsFullyReceived = po.Status == "Received",
+                IsPartial = po.Status == "PartiallyReceived"
+            };
+        }
+
+        private async Task<List<PoReceiptHistoryVm>> LoadReceivingHistoryAsync(int poId, PurchaseOrder po)
+        {
+            var receipts = await _context.StockInHeaders
+                .AsNoTracking()
+                .Include(h => h.StockInDetails)
+                .Where(h => h.PurchaseOrderId == poId)
+                .OrderByDescending(h => h.DateReceived)
+                .ThenByDescending(h => h.Id)
+                .ToListAsync();
+
+            if (!receipts.Any()) return new List<PoReceiptHistoryVm>();
+
+            var stockInNumbers = receipts.Select(r => r.StockInNumber).ToList();
+            var damagedHeaders = await _context.DamagedGoodsHeaders
+                .AsNoTracking()
+                .Include(h => h.Details)
+                .Where(h => h.Remarks != null &&
+                            stockInNumbers.Any(sn => h.Remarks!.Contains(sn)))
+                .ToListAsync();
+
+            var unitLabel = po.Items.Count == 1
+                ? po.Items.First().OrderedUnit?.ShortName
+                  ?? po.Items.First().Item?.Unit?.ShortName
+                  ?? "units"
+                : "units";
+
+            return receipts.Select(r =>
+            {
+                var accepted = r.StockInDetails.Sum(d => d.ReceivedQuantity);
+                var damaged = damagedHeaders
+                    .Where(dh => dh.Remarks != null && dh.Remarks.Contains(r.StockInNumber))
+                    .SelectMany(dh => dh.Details)
+                    .Sum(d => d.Quantity);
+
+                return new PoReceiptHistoryVm
+                {
+                    StockInHeaderId = r.Id,
+                    ReceiptNumber = r.StockInNumber,
+                    DateReceived = r.DateReceived,
+                    ReceivedBy = r.ReceivedBy,
+                    SupplierInvoice = r.InvoiceNumber,
+                    AcceptedQty = accepted,
+                    DamagedQty = damaged,
+                    UnitLabel = unitLabel,
+                    Reference = r.Remarks,
+                    TotalCost = r.TotalCost
+                };
+            }).ToList();
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -487,6 +584,8 @@ namespace HardwareManagementSystem.Controllers
                 .Include(p => p.Items)
                     .ThenInclude(i => i.Item)
                         .ThenInclude(i => i!.Unit)
+                .Include(p => p.Items)
+                    .ThenInclude(i => i.OrderedUnit)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (po == null) return NotFound();
@@ -511,12 +610,17 @@ namespace HardwareManagementSystem.Controllers
         public async Task<IActionResult> Receive(
             int id,
             int[] poItemIds,
-            decimal[] receivedQtys)
+            decimal[] receivedQtys,
+            decimal[]? damagedQtys,
+            string? invoiceNumber,
+            string? remarks)
         {
             var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+            damagedQtys ??= Array.Empty<decimal>();
 
             var po = await _context.PurchaseOrders
                 .Include(p => p.Supplier)
+                .Include(p => p.Branch)
                 .Include(p => p.Items)
                     .ThenInclude(i => i.Item)
                 .FirstOrDefaultAsync(p => p.Id == id);
@@ -530,120 +634,219 @@ namespace HardwareManagementSystem.Controllers
                 return RedirectToAction(nameof(Details), new { id });
             }
 
-            // Validate at least one quantity > 0
-            var hasAnyQty = receivedQtys.Any(q => q > 0);
+            var hasAnyQty = receivedQtys.Any(q => q > 0) || damagedQtys.Any(q => q > 0);
             if (!hasAnyQty)
             {
-                TempData["ErrorMessage"] = "Please enter at least one received quantity.";
+                TempData["ErrorMessage"] = "Please enter at least one accepted or damaged quantity.";
                 return RedirectToAction(nameof(Receive), new { id });
             }
 
-            // Build stock-in header from the PO
+            for (int i = 0; i < poItemIds.Length; i++)
+            {
+                var poItem = po.Items.FirstOrDefault(pi => pi.Id == poItemIds[i]);
+                if (poItem == null) continue;
+
+                var accepted = i < receivedQtys.Length ? receivedQtys[i] : 0;
+                var damaged = i < damagedQtys.Length ? damagedQtys[i] : 0;
+                if (accepted <= 0 && damaged <= 0) continue;
+
+                var remaining = poItem.QuantityRemaining;
+                if (accepted + damaged > remaining + 0.0001m)
+                {
+                    TempData["ErrorMessage"] =
+                        $"Over-receipt blocked for {poItem.Item?.ItemName ?? "item"}: " +
+                        $"accepted ({accepted:0.###}) + damaged ({damaged:0.###}) exceeds remaining ({remaining:0.###}).";
+                    return RedirectToAction(nameof(Receive), new { id });
+                }
+            }
+
             var stockInNumber = await GenerateStockInNumberAsync(tenantId);
+            var receivedBy = User.Identity?.Name ?? User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Unknown";
 
             var stockInHeader = new StockInHeader
             {
-                TenantId      = tenantId,
-                BranchId      = po.BranchId,
-                SupplierId    = po.SupplierId,
-                StockInNumber = stockInNumber,
-                DateReceived  = DateTime.Now,
-                Remarks       = $"Received from PO: {po.PONumber}",
-                TotalCost     = 0,
-                AmountPaid    = 0,
-                BalanceDue    = 0,
-                PaymentStatus = "Unpaid",
-                CreatedAt     = DateTime.Now
+                TenantId         = tenantId,
+                BranchId         = po.BranchId,
+                SupplierId       = po.SupplierId,
+                PurchaseOrderId  = po.Id,
+                StockInNumber    = stockInNumber,
+                DateReceived     = DateTime.Now,
+                InvoiceNumber    = string.IsNullOrWhiteSpace(invoiceNumber) ? null : invoiceNumber.Trim(),
+                Remarks          = string.IsNullOrWhiteSpace(remarks)
+                    ? $"Received from PO: {po.PONumber}"
+                    : $"{remarks.Trim()} (PO: {po.PONumber})",
+                ReceivedBy       = receivedBy,
+                TotalCost        = 0,
+                AmountPaid       = 0,
+                BalanceDue       = 0,
+                PaymentStatus    = "Unpaid",
+                CreatedAt        = DateTime.Now
             };
 
             decimal totalCost = 0;
 
-            for (int i = 0; i < poItemIds.Length; i++)
+            using var tx = await _context.Database.BeginTransactionAsync();
+            try
             {
-                if (i >= receivedQtys.Length || receivedQtys[i] <= 0) continue;
-
-                var poItem = po.Items.FirstOrDefault(pi => pi.Id == poItemIds[i]);
-                if (poItem == null) continue;
-
-                var factor = poItem.ConversionQuantity > 0 ? poItem.ConversionQuantity : 1m;
-                var orderedRemaining = poItem.Quantity - (poItem.QuantityReceived / factor);
-                var receiveNow = Math.Min(receivedQtys[i], orderedRemaining);
-                if (receiveNow <= 0) continue;
-
-                var receiveBase = receiveNow * factor;
-                poItem.QuantityReceived += receiveBase;
-
-                var costPerOrdered = poItem.CostPerOrderedUnit > 0
-                    ? poItem.CostPerOrderedUnit
-                    : poItem.UnitCost * factor;
-                var costPerBase = poItem.CostPerBaseUnit > 0
-                    ? poItem.CostPerBaseUnit
-                    : (factor > 0 ? costPerOrdered / factor : costPerOrdered);
-                var lineCost = receiveNow * costPerOrdered;
-                totalCost += lineCost;
-
-                var orderedUnitId = poItem.OrderedUnitId ?? (poItem.Item != null ? _conversionService.GetBaseUnitId(poItem.Item) : 0);
-
-                // Update item stock (base unit)
-                var item = poItem.Item;
-                if (item != null)
+                for (int i = 0; i < poItemIds.Length; i++)
                 {
-                    if (po.BranchId.HasValue)
-                        await _branchService.AddStockAsync(po.BranchId.Value, item.Id, receiveBase);
-                    else
-                        item.CurrentStock += receiveBase;
+                    var accepted = i < receivedQtys.Length ? receivedQtys[i] : 0;
+                    var damaged  = i < damagedQtys.Length ? damagedQtys[i] : 0;
+                    if (accepted <= 0 && damaged <= 0) continue;
 
-                    if (costPerBase > 0 && item.CostPrice != costPerBase)
-                        item.CostPrice = costPerBase;
+                    var poItem = po.Items.FirstOrDefault(pi => pi.Id == poItemIds[i]);
+                    if (poItem == null) continue;
+
+                    var factor = poItem.ConversionQuantity > 0 ? poItem.ConversionQuantity : 1m;
+                    var orderedUnitId = poItem.OrderedUnitId ?? (poItem.Item != null ? _conversionService.GetBaseUnitId(poItem.Item) : 0);
+
+                    if (accepted > 0)
+                    {
+                        var receiveBase = accepted * factor;
+                        poItem.QuantityReceived += receiveBase;
+
+                        var costPerOrdered = poItem.CostPerOrderedUnit > 0
+                            ? poItem.CostPerOrderedUnit
+                            : poItem.UnitCost * factor;
+                        var costPerBase = poItem.CostPerBaseUnit > 0
+                            ? poItem.CostPerBaseUnit
+                            : (factor > 0 ? costPerOrdered / factor : costPerOrdered);
+                        var lineCost = accepted * costPerOrdered;
+                        totalCost += lineCost;
+
+                        var item = poItem.Item;
+                        if (item != null)
+                        {
+                            if (po.BranchId.HasValue)
+                                await _branchService.AddStockAsync(po.BranchId.Value, item.Id, receiveBase);
+                            else
+                                item.CurrentStock += receiveBase;
+
+                            if (costPerBase > 0)
+                                item.CostPrice = costPerBase;
+                        }
+
+                        stockInHeader.StockInDetails.Add(new StockInDetail
+                        {
+                            ItemId = poItem.ItemId,
+                            Quantity = receiveBase,
+                            ReceivedUnitId = orderedUnitId > 0 ? orderedUnitId : null,
+                            ReceivedQuantity = accepted,
+                            ConversionQuantity = factor,
+                            BaseQuantity = receiveBase,
+                            CostPerReceivedUnit = costPerOrdered,
+                            CostPerBaseUnit = costPerBase,
+                            UnitCost = costPerBase,
+                            TotalCost = lineCost
+                        });
+                    }
+
+                    if (damaged > 0)
+                    {
+                        // Count delivered-but-rejected qty against the PO (short qty stays open).
+                        var damageBase = damaged * factor;
+                        poItem.QuantityReceived += damageBase;
+
+                        var damageNumber = await GenerateDamageNumberAsync(tenantId);
+                        var damageHeader = new DamagedGoodsHeader
+                        {
+                            TenantId = tenantId,
+                            BranchId = po.BranchId,
+                            DamageNumber = damageNumber,
+                            DamageDate = DateTime.Now,
+                            Status = "Pending",
+                            Remarks = $"Rejected on delivery from PO {po.PONumber}. Stock-In: {stockInNumber}",
+                            CreatedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier),
+                            CreatedAtUtc = DateTime.UtcNow
+                        };
+                        damageHeader.Details.Add(new DamagedGoodsDetail
+                        {
+                            ItemId = poItem.ItemId,
+                            Quantity = damaged,
+                            UnitId = orderedUnitId > 0 ? orderedUnitId : poItem.Item?.UnitId ?? 0,
+                            ConversionQuantity = factor,
+                            BaseQuantity = damageBase,
+                            Reason = "Rejected on delivery",
+                            Notes = $"PO {po.PONumber} receipt rejection — not added to sellable inventory."
+                        });
+                        _context.DamagedGoodsHeaders.Add(damageHeader);
+
+                        await _auditService.LogAsync(User, "PurchaseOrders", "DELIVERY_DAMAGE_RECORDED",
+                            $"PO {po.PONumber}: {damaged:0.###} {poItem.Item?.ItemName} rejected on delivery (Damage {damageNumber}).",
+                            "DamagedGoodsHeader", damageNumber,
+                            HttpContext.Connection.RemoteIpAddress?.ToString());
+                    }
                 }
 
-                stockInHeader.StockInDetails.Add(new StockInDetail
+                if (!stockInHeader.StockInDetails.Any())
                 {
-                    ItemId = poItem.ItemId,
-                    Quantity = receiveBase,
-                    ReceivedUnitId = orderedUnitId > 0 ? orderedUnitId : null,
-                    ReceivedQuantity = receiveNow,
-                    ConversionQuantity = factor,
-                    BaseQuantity = receiveBase,
-                    CostPerReceivedUnit = costPerOrdered,
-                    CostPerBaseUnit = costPerBase,
-                    UnitCost = costPerBase,
-                    TotalCost = lineCost
-                });
-            }
+                    // Damaged-only receipt: update PO status but skip stock-in/payable header.
+                    bool allReceivedOnlyDamage = po.Items.All(pi =>
+                        pi.QuantityReceived >= (pi.BaseQuantity > 0 ? pi.BaseQuantity : pi.Quantity * (pi.ConversionQuantity > 0 ? pi.ConversionQuantity : 1m)));
+                    po.Status = allReceivedOnlyDamage ? "Received" : "PartiallyReceived";
+                    po.UpdatedAtUtc = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    TempData["SuccessMessage"] = $"Delivery rejection recorded for {po.PONumber}. No sellable inventory was added.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
 
-            if (!stockInHeader.StockInDetails.Any())
+                stockInHeader.TotalCost  = totalCost;
+                stockInHeader.BalanceDue = totalCost;
+                _context.StockInHeaders.Add(stockInHeader);
+
+                bool allReceived = po.Items.All(pi =>
+                    pi.QuantityReceived >= (pi.BaseQuantity > 0 ? pi.BaseQuantity : pi.Quantity * (pi.ConversionQuantity > 0 ? pi.ConversionQuantity : 1m)));
+                po.Status       = allReceived ? "Received" : "PartiallyReceived";
+                po.UpdatedAtUtc = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                var auditEvent = allReceived
+                    ? "PURCHASE_ORDER_FULLY_RECEIVED"
+                    : "PURCHASE_ORDER_PARTIALLY_RECEIVED";
+
+                await _auditService.LogAsync(
+                    User, "PurchaseOrders", auditEvent,
+                    $"PO {po.PONumber} received. Stock-In: {stockInNumber}" +
+                    (string.IsNullOrWhiteSpace(invoiceNumber) ? "" : $". Invoice: {invoiceNumber.Trim()}") +
+                    $". Status: {po.Status}. Total: {totalCost:N2}",
+                    "StockInHeader", stockInHeader.Id.ToString(),
+                    HttpContext.Connection.RemoteIpAddress?.ToString());
+
+                await _auditService.LogAsync(
+                    User, "PurchaseOrders", "PURCHASE_ORDER_RECEIPT_CREATED",
+                    $"Receipt {stockInNumber} created from PO {po.PONumber}" +
+                    (string.IsNullOrWhiteSpace(invoiceNumber) ? "" : $". Invoice: {invoiceNumber.Trim()}") +
+                    $".",
+                    "PurchaseOrder", po.Id.ToString(),
+                    HttpContext.Connection.RemoteIpAddress?.ToString());
+
+                TempData["SuccessMessage"] = allReceived
+                    ? $"Purchase Order {po.PONumber} fully received. Receipt {stockInNumber} created."
+                    : $"Partial delivery recorded for {po.PONumber}. Receipt {stockInNumber} created.";
+
+                return RedirectToAction("Details", "Receiving", new { id = stockInHeader.Id });
+            }
+            catch (Exception ex)
             {
-                TempData["ErrorMessage"] = "No valid quantities to receive.";
+                await tx.RollbackAsync();
+                _logger.LogError(ex, "PO receive failed for PO {PoId} ({PoNumber})", po.Id, po.PONumber);
+                TempData["ErrorMessage"] = "Receiving failed. No inventory or payable changes were saved.";
                 return RedirectToAction(nameof(Receive), new { id });
             }
+        }
 
-            stockInHeader.TotalCost  = totalCost;
-            stockInHeader.BalanceDue = totalCost;
+        private async Task<string> GenerateDamageNumberAsync(int? tenantId)
+        {
+            var prefix = $"DMG{DateTime.Now:yyyyMM}";
+            var query = _context.DamagedGoodsHeaders.Where(h => h.DamageNumber.StartsWith(prefix));
+            if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                query = query.Where(h => h.TenantId == tenantId || h.TenantId == null);
 
-            _context.StockInHeaders.Add(stockInHeader);
-
-            // Determine PO final status
-            bool allReceived = po.Items.All(pi =>
-                pi.QuantityReceived >= (pi.BaseQuantity > 0 ? pi.BaseQuantity : pi.Quantity));
-            po.Status       = allReceived ? "Received" : "PartiallyReceived";
-            po.UpdatedAtUtc = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
-            var auditEvent = allReceived ? "PURCHASE_ORDER_RECEIVED" : "PURCHASE_ORDER_PARTIAL_RECEIVED";
-
-            await _auditService.LogAsync(
-                User, "PurchaseOrders", auditEvent,
-                $"PO {po.PONumber} received. Stock-In: {stockInNumber}. Status: {po.Status}",
-                "PurchaseOrder", po.Id.ToString(),
-                HttpContext.Connection.RemoteIpAddress?.ToString());
-
-            TempData["SuccessMessage"] = allReceived
-                ? $"Purchase Order {po.PONumber} fully received. Stock-In {stockInNumber} created."
-                : $"Partial receipt recorded for {po.PONumber}. Stock-In {stockInNumber} created.";
-
-            return RedirectToAction(nameof(Details), new { id });
+            var count = await query.CountAsync();
+            return $"{prefix}-{(count + 1):D4}";
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -687,7 +890,6 @@ namespace HardwareManagementSystem.Controllers
                 .AsNoTracking()
                 .Include(p => p.Supplier)
                 .Include(p => p.Branch)
-                .Include(p => p.Tenant)
                 .Include(p => p.Items)
                     .ThenInclude(i => i.Item)
                         .ThenInclude(i => i!.Unit)
@@ -700,8 +902,10 @@ namespace HardwareManagementSystem.Controllers
                 .FirstOrDefaultAsync(s => s.TenantId == tenantId)
                 ?? new SystemSetting();
 
+            var printTenant = await ResolvePlatformTenantAsync(po.TenantId);
+
             ViewBag.PrintSettings   = settings;
-            ViewBag.PrintTenant     = po.Tenant;
+            ViewBag.PrintTenant     = printTenant;
             ViewBag.PrintBranch     = po.Branch;
             ViewBag.PrintDocTitle   = "PURCHASE ORDER";
             ViewBag.PrintDocNumber  = po.PONumber;
@@ -724,7 +928,6 @@ namespace HardwareManagementSystem.Controllers
                 .AsNoTracking()
                 .Include(p => p.Supplier)
                 .Include(p => p.Branch)
-                .Include(p => p.Tenant)
                 .Include(p => p.Items)
                     .ThenInclude(i => i.Item)
                         .ThenInclude(i => i!.Unit)
@@ -737,8 +940,9 @@ namespace HardwareManagementSystem.Controllers
                 .FirstOrDefaultAsync(s => s.TenantId == tenantId)
                 ?? new SystemSetting();
 
+            var printTenant = await ResolvePlatformTenantAsync(po.TenantId);
             var pdfService = HttpContext.RequestServices.GetRequiredService<Services.Pdf.DocumentPdfService>();
-            var bytes = pdfService.GeneratePurchaseOrderPdf(po, settings, po.Tenant, settings?.LogoPath);
+            var bytes = pdfService.GeneratePurchaseOrderPdf(po, settings, printTenant, settings?.LogoPath);
 
             return File(bytes, "application/pdf", $"PO-{po.PONumber}.pdf");
         }
@@ -746,6 +950,13 @@ namespace HardwareManagementSystem.Controllers
         // ─────────────────────────────────────────────────────────────
         // HELPERS
         // ─────────────────────────────────────────────────────────────
+
+        private async Task<Tenant?> ResolvePlatformTenantAsync(int? tenantId)
+        {
+            if (!tenantId.HasValue) return null;
+            return await _platformDb.Tenants.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == tenantId.Value);
+        }
 
         private async Task LoadDropdowns(int? tenantId)
         {

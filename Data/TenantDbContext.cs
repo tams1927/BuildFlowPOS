@@ -214,6 +214,9 @@ namespace HardwareManagementSystem.Data
             builder.Entity<StockInHeader>()
                 .HasOne(s => s.Branch).WithMany()
                 .HasForeignKey(s => s.BranchId).OnDelete(DeleteBehavior.NoAction).IsRequired(false);
+            builder.Entity<StockInHeader>()
+                .HasOne(s => s.PurchaseOrder).WithMany()
+                .HasForeignKey(s => s.PurchaseOrderId).OnDelete(DeleteBehavior.NoAction).IsRequired(false);
             builder.Entity<SalesHeader>()
                 .HasOne(s => s.Branch).WithMany()
                 .HasForeignKey(s => s.BranchId).OnDelete(DeleteBehavior.NoAction).IsRequired(false);
