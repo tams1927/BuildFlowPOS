@@ -257,7 +257,7 @@
             <form asp-controller="Units"
                   asp-action="Create"
                   method="post"
-                  class="confirm-submit">
+                  id="addUnitForm">
 
                 @Html.AntiForgeryToken()
 
@@ -266,19 +266,23 @@
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Unit Name</label>
                         <input type="text"
+                               id="addUnitName"
                                name="unitName"
                                class="form-control"
                                placeholder="Example: Kilogram"
                                required />
+                        <div id="addUnitNameError" class="text-danger small mt-1 d-none"></div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Short Name</label>
                         <input type="text"
+                               id="addUnitShortName"
                                name="shortName"
                                class="form-control"
                                placeholder="Example: kg"
                                required />
+                        <div id="addUnitShortNameError" class="text-danger small mt-1 d-none"></div>
                     </div>
 
                     <div class="mb-3">
@@ -335,6 +339,60 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const addUnitForm = document.getElementById('addUnitForm');
+    if (!addUnitForm) return;
+    const nameErr = document.getElementById('addUnitNameError');
+    const shortErr = document.getElementById('addUnitShortNameError');
+
+    function showUnitErrors(errors) {
+        nameErr.classList.add('d-none');
+        shortErr.classList.add('d-none');
+        document.getElementById('addUnitName').classList.remove('is-invalid');
+        document.getElementById('addUnitShortName').classList.remove('is-invalid');
+        if (errors?.unitName) {
+            nameErr.textContent = errors.unitName;
+            nameErr.classList.remove('d-none');
+            document.getElementById('addUnitName').classList.add('is-invalid');
+        }
+        if (errors?.shortName) {
+            shortErr.textContent = errors.shortName;
+            shortErr.classList.remove('d-none');
+            document.getElementById('addUnitShortName').classList.add('is-invalid');
+        }
+    }
+
+    addUnitForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        showUnitErrors({});
+        const nameVal = document.getElementById('addUnitName').value.trim();
+        const shortVal = document.getElementById('addUnitShortName').value.trim();
+        const checkUrl = '/Units/CheckDuplicate?unitName=' + encodeURIComponent(nameVal) + '&shortName=' + encodeURIComponent(shortVal);
+        const checkRes = await fetch(checkUrl, { headers: { 'Accept': 'application/json' } });
+        const checkData = await checkRes.json();
+        if (checkData.errors && Object.keys(checkData.errors).length > 0) {
+            showUnitErrors(checkData.errors);
+            return;
+        }
+        const formData = new FormData(addUnitForm);
+        const res = await fetch(addUnitForm.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: formData
+        });
+        let data = {};
+        try { data = await res.json(); } catch { showUnitErrors({ unitName: 'Could not save the unit. Please try again.' }); return; }
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addUnitModal'))?.hide();
+            window.location.reload();
+            return;
+        }
+        showUnitErrors(data.errors || {});
+    });
+})();
+</script>
 
 <div class="modal fade" id="editUnitModal" tabindex="-1" aria-labelledby="editUnitModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

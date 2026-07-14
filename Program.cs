@@ -60,6 +60,13 @@ builder.Services.AddScoped<TenantGuard>();
 
 builder.Services.AddScoped<TenantLimitGuard>();
 
+builder.Services.Configure<HardwareManagementSystem.Configuration.SaaSSettings>(
+    builder.Configuration.GetSection("SaaSSettings"));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IBusinessClock, BusinessClock>();
+builder.Services.AddScoped<ITenantSubscriptionAccessService, TenantSubscriptionAccessService>();
+builder.Services.AddScoped<ITenantSubscriptionCacheInvalidator, TenantSubscriptionCacheInvalidator>();
+
 builder.Services.AddScoped<TenantStatusFilter>();
 
 // ── Phase 5.0B: Database-per-tenant connection resolver layer ──────────────
@@ -357,15 +364,33 @@ if (args.Contains("--verify-admin-login"))
     return;
 }
 
+if (args.Contains("--set-dev-password"))
+{
+    await HardwareManagementSystem.Tools.SetDevUserPasswordRunner.RunAsync(app, args);
+    return;
+}
+
 if (args.Contains("--set-tenant-admin-password"))
 {
     await HardwareManagementSystem.Tools.SetTenantAdminPasswordRunner.RunAsync(app, args);
     return;
 }
 
+if (args.Contains("--qa-subscription-access"))
+{
+    await HardwareManagementSystem.Tools.SubscriptionAccessQaRunner.RunAsync(app, args);
+    return;
+}
+
 if (args.Contains("--qa-post-simulation-clean-state"))
 {
     await HardwareManagementSystem.Tools.PostSimulationCleanStateQaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-novice-db-counts"))
+{
+    await HardwareManagementSystem.Tools.NoviceGapDbRunner.RunAsync(app, args);
     return;
 }
 

@@ -12,63 +12,64 @@ using System.Security.Claims;
 namespace HardwareManagementSystem.Services
 {
     /// <summary>
-    /// Global action filter that signs out and redirects already-logged-in tenant users
-    /// if their tenant becomes Suspended or Expired mid-session.
-    ///
-    /// SuperAdmin (TenantId == null) is fully exempt.
-    /// Static files, /health, and the Account controller are exempt automatically
-    /// (static files never reach MVC action filters; /health is a minimal-API endpoint).
+    /// Global action filter enforcing tenant subscription access on every protected request.
+    /// SuperAdmin and Account controller are exempt.
     /// </summary>
     public class TenantStatusFilter : IAsyncActionFilter
     {
         private readonly ApplicationDbContext _db;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IMemoryCache _cache;
+        private readonly ITenantSubscriptionAccessService _subscriptionAccess;
 
         public TenantStatusFilter(
             ApplicationDbContext db,
             SignInManager<ApplicationUser> signInManager,
-            IMemoryCache cache)
+            IMemoryCache cache,
+            ITenantSubscriptionAccessService subscriptionAccess)
         {
             _db = db;
             _signInManager = signInManager;
             _cache = cache;
+            _subscriptionAccess = subscriptionAccess;
         }
 
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
             var user = context.HttpContext.User;
 
-            // Pass through: unauthenticated users
             if (user.Identity?.IsAuthenticated != true)
             {
                 await next();
                 return;
             }
 
-            // Pass through: SuperAdmin is a global platform user — never scoped to a tenant
             if (user.IsInRole("SuperAdmin"))
             {
                 await next();
                 return;
             }
 
-            // Pass through: Account controller (Login, Logout, Suspended, AccessDenied, etc.)
-            if (context.ActionDescriptor is ControllerActionDescriptor cad &&
-                cad.ControllerName.Equals("Account", StringComparison.OrdinalIgnoreCase))
+            if (context.ActionDescriptor is ControllerActionDescriptor cadAccount &&
+                cadAccount.ControllerName.Equals("Account", StringComparison.OrdinalIgnoreCase))
             {
-                await next();
-                return;
+                var publicActions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "Login", "Logout", "AccessDenied", "SubscriptionExpired", "Suspended"
+                };
+                if (publicActions.Contains(cadAccount.ActionName))
+                {
+                    await next();
+                    return;
+                }
             }
 
-            // Pass through: actions decorated with [AllowAnonymous]
             if (context.ActionDescriptor.EndpointMetadata.OfType<IAllowAnonymous>().Any())
             {
                 await next();
                 return;
             }
 
-            // ── Resolve user's tenant ────────────────────────────────────────────
             var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
             {
@@ -76,8 +77,7 @@ namespace HardwareManagementSystem.Services
                 return;
             }
 
-            // Cache the tenantId per userId so we avoid a DB hit on every request.
-            var tenantIdKey = $"tid_uid_{userId}";
+            var tenantIdKey = TenantSubscriptionCacheKeys.UserTenant(userId);
             if (!_cache.TryGetValue(tenantIdKey, out int? tenantId))
             {
                 tenantId = await _db.Users
@@ -89,50 +89,86 @@ namespace HardwareManagementSystem.Services
                 _cache.Set(tenantIdKey, tenantId, TimeSpan.FromMinutes(15));
             }
 
-            // No tenant → global user (Admin), pass through
             if (!tenantId.HasValue)
             {
                 await next();
                 return;
             }
 
-            // ── Check tenant status ───────────────────────────────────────────────
-            // Short 5-minute cache so suspension takes effect within a reasonable window
-            // without hammering the DB on every page load.
-            var blockedKey = $"tenant_blocked_{tenantId.Value}";
-            if (!_cache.TryGetValue(blockedKey, out bool isBlocked))
+            var accessKey = TenantSubscriptionCacheKeys.Access(tenantId.Value);
+            if (!_cache.TryGetValue(accessKey, out TenantSubscriptionAccessResult? access))
             {
                 var tenant = await _db.Tenants
                     .AsNoTracking()
                     .Where(t => t.Id == tenantId.Value)
-                    .Select(t => new { t.Status, t.ExpirationDate })
+                    .Select(t => new Tenant
+                    {
+                        Id = t.Id,
+                        Name = t.Name,
+                        IsActive = t.IsActive,
+                        Status = t.Status,
+                        ExpirationDate = t.ExpirationDate,
+                        SubscriptionPlanId = t.SubscriptionPlanId
+                    })
                     .FirstOrDefaultAsync();
 
-                if (tenant == null)
-                {
-                    isBlocked = false;
-                }
-                else
-                {
-                    bool dateExpired = tenant.ExpirationDate.HasValue
-                        && tenant.ExpirationDate.Value.Date < DateTime.UtcNow.Date;
+                access = tenant == null
+                    ? new TenantSubscriptionAccessResult
+                    {
+                        IsAllowed = true,
+                        ReasonCode = SubscriptionAccessReasonCode.Allowed
+                    }
+                    : _subscriptionAccess.Evaluate(tenant);
 
-                    isBlocked = tenant.Status == TenantStatus.Suspended
-                             || tenant.Status == TenantStatus.Expired
-                             || dateExpired;
-                }
-
-                _cache.Set(blockedKey, isBlocked, TimeSpan.FromMinutes(5));
+                _cache.Set(accessKey, access, TimeSpan.FromMinutes(2));
             }
 
-            if (isBlocked)
+            if (access!.IsAllowed)
             {
-                await _signInManager.SignOutAsync();
-                context.Result = new RedirectToActionResult("Suspended", "Account", null);
+                await next();
                 return;
             }
 
-            await next();
+            var tenantName = await _db.Tenants.AsNoTracking()
+                .Where(t => t.Id == tenantId.Value)
+                .Select(t => t.Name)
+                .FirstOrDefaultAsync() ?? "Your organization";
+
+            await DenyAccessAsync(context, access, tenantName);
         }
+
+        private async Task DenyAccessAsync(
+            ActionExecutingContext context,
+            TenantSubscriptionAccessResult access,
+            string tenantName)
+        {
+            await _signInManager.SignOutAsync();
+
+            context.HttpContext.Session.SetString("SubAccess_TenantName", tenantName);
+            context.HttpContext.Session.SetString("SubAccess_Status", access.EffectiveStatus.ToString());
+            context.HttpContext.Session.SetString("SubAccess_Message", access.Message);
+            if (access.ExpirationDate.HasValue)
+                context.HttpContext.Session.SetString("SubAccess_Expiration",
+                    access.ExpirationDate.Value.ToString("yyyy-MM-dd"));
+
+            if (IsApiOrAjaxRequest(context.HttpContext.Request))
+            {
+                context.Result = new JsonResult(new
+                {
+                    error = access.Message,
+                    code = access.ReasonCode.ToString(),
+                    status = access.EffectiveStatus.ToString(),
+                    requiresRenewal = access.RequiresRenewal
+                })
+                { StatusCode = StatusCodes.Status403Forbidden };
+                return;
+            }
+
+            context.Result = new RedirectToActionResult("SubscriptionExpired", "Account", null);
+        }
+
+        private static bool IsApiOrAjaxRequest(HttpRequest request) =>
+            request.Headers.XRequestedWith == "XMLHttpRequest"
+            || (request.Headers.Accept.ToString()?.Contains("application/json", StringComparison.OrdinalIgnoreCase) ?? false);
     }
 }

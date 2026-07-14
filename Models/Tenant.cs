@@ -140,7 +140,9 @@ namespace HardwareManagementSystem.Models
         public int EffectiveMaxUsers     => SubscriptionPlan != null && MaxUsers    == 0 ? SubscriptionPlan.MaxUsers     : MaxUsers;
         public int EffectiveMaxProducts  => SubscriptionPlan != null && MaxProducts == 0 ? SubscriptionPlan.MaxProducts  : MaxProducts;
 
-        public bool IsExpired => ExpirationDate.HasValue && ExpirationDate.Value.Date < DateTime.UtcNow.Date;
+        public bool IsExpired =>
+            ExpirationDate.HasValue &&
+            DateOnly.FromDateTime(ExpirationDate.Value.Date) < DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
         /// <summary>True when this tenant is configured for a dedicated database (Phase 5.0C+).</summary>
         public bool UsesDedicatedDatabase =>

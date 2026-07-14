@@ -250,7 +250,7 @@
             <form asp-controller="Suppliers"
                   asp-action="Create"
                   method="post"
-                  class="confirm-submit">
+                  id="addSupplierForm">
 
                 @Html.AntiForgeryToken()
 
@@ -260,10 +260,12 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Supplier Name</label>
                             <input type="text"
+                                   id="addSupplierName"
                                    name="supplierName"
                                    class="form-control"
                                    placeholder="Example: ABC Hardware Supply"
                                    required />
+                            <div id="addSupplierNameError" class="text-danger small mt-1 d-none"></div>
                         </div>
 
                         <div class="col-md-6">
@@ -284,10 +286,13 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Email</label>
-                            <input type="email"
+                            <input type="text"
+                                   id="addSupplierEmail"
                                    name="email"
                                    class="form-control"
-                                   placeholder="supplier@email.com" />
+                                   placeholder="supplier@email.com"
+                                   autocomplete="email" />
+                            <div id="addSupplierEmailError" class="text-danger small mt-1 d-none"></div>
                         </div>
 
                         <div class="col-12">
@@ -328,6 +333,61 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const addSupplierForm = document.getElementById('addSupplierForm');
+    if (!addSupplierForm) return;
+    const emailErr = document.getElementById('addSupplierEmailError');
+    const nameErr = document.getElementById('addSupplierNameError');
+
+    function showSupplierErrors(errors) {
+        emailErr.classList.add('d-none');
+        nameErr.classList.add('d-none');
+        document.getElementById('addSupplierEmail').classList.remove('is-invalid');
+        document.getElementById('addSupplierName').classList.remove('is-invalid');
+        if (errors?.email) {
+            emailErr.textContent = errors.email;
+            emailErr.classList.remove('d-none');
+            document.getElementById('addSupplierEmail').classList.add('is-invalid');
+        }
+        if (errors?.supplierName) {
+            nameErr.textContent = errors.supplierName;
+            nameErr.classList.remove('d-none');
+            document.getElementById('addSupplierName').classList.add('is-invalid');
+        }
+    }
+
+    function isValidOptionalEmail(value) {
+        if (!value || !value.trim()) return true;
+        return /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(value.trim());
+    }
+
+    addSupplierForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        showSupplierErrors({});
+        const emailVal = document.getElementById('addSupplierEmail').value;
+        if (!isValidOptionalEmail(emailVal)) {
+            showSupplierErrors({ email: 'Enter a valid email address or leave the field blank.' });
+            return;
+        }
+        const formData = new FormData(addSupplierForm);
+        const res = await fetch(addSupplierForm.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: formData
+        });
+        let data = {};
+        try { data = await res.json(); } catch { showSupplierErrors({ email: 'Could not save the supplier. Please try again.' }); return; }
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addSupplierModal'))?.hide();
+            window.location.reload();
+            return;
+        }
+        showSupplierErrors(data.errors || {});
+    });
+})();
+</script>
 
 <div class="modal fade" id="editSupplierModal" tabindex="-1" aria-labelledby="editSupplierModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">

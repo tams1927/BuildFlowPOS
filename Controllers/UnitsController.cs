@@ -6,6 +6,7 @@ using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 
 namespace HardwareManagementSystem.Controllers
 {
@@ -91,6 +92,35 @@ namespace HardwareManagementSystem.Controllers
             });
         }
 
+        [HttpGet]
+        public async Task<IActionResult> CheckDuplicate(string? unitName, string? shortName)
+        {
+            var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+            var errors = new Dictionary<string, string>();
+
+            if (!string.IsNullOrWhiteSpace(unitName))
+            {
+                var name = unitName.Trim();
+                var q = _context.Units.AsQueryable();
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                    q = q.Where(u => u.TenantId == tenantId || u.TenantId == null);
+                if (await q.AnyAsync(u => u.UnitName.ToLower() == name.ToLower()))
+                    errors["unitName"] = $"A unit named '{name}' already exists.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(shortName))
+            {
+                var code = shortName.Trim();
+                var q = _context.Units.AsQueryable();
+                if (!_tenantContext.IsGlobalUser && tenantId.HasValue)
+                    q = q.Where(u => u.TenantId == tenantId || u.TenantId == null);
+                if (await q.AnyAsync(u => u.ShortName.ToLower() == code.ToLower()))
+                    errors["shortName"] = $"The abbreviation '{code}' is already in use.";
+            }
+
+            return Json(new { errors });
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermissionAuthorize("Units", "Create")]
@@ -102,13 +132,21 @@ namespace HardwareManagementSystem.Controllers
             bool allowsDecimal)
         {
             var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+            var isAjax = IsAjaxRequest();
 
             if (string.IsNullOrWhiteSpace(unitName) ||
                 string.IsNullOrWhiteSpace(shortName))
             {
-                TempData["ErrorMessage"] =
-                    "Unit name and short name are required.";
+                var errors = new Dictionary<string, string>();
+                if (string.IsNullOrWhiteSpace(unitName))
+                    errors["unitName"] = "Unit name is required.";
+                if (string.IsNullOrWhiteSpace(shortName))
+                    errors["shortName"] = "Short name is required.";
 
+                if (isAjax)
+                    return Json(new { success = false, errors });
+
+                TempData["ErrorMessage"] = "Unit name and short name are required.";
                 return RedirectToAction(nameof(Index));
             }
 
@@ -124,14 +162,28 @@ namespace HardwareManagementSystem.Controllers
                     u.TenantId == null);
             }
 
-            var exists = await duplicateQuery.AnyAsync(u =>
-                u.UnitName == name ||
-                u.ShortName == shortCode);
+            var dupName = await duplicateQuery.AnyAsync(u =>
+                u.UnitName.ToLower() == name.ToLower());
+            var dupShort = await duplicateQuery.AnyAsync(u =>
+                u.ShortName.ToLower() == shortCode.ToLower());
 
-            if (exists)
+            if (dupName || dupShort)
             {
+                var errors = new Dictionary<string, string>();
+                if (dupName)
+                    errors["unitName"] = $"A unit named '{name}' already exists.";
+                if (dupShort)
+                    errors["shortName"] = $"The abbreviation '{shortCode}' is already in use.";
+
+                if (isAjax)
+                    return Json(new { success = false, errors });
+
                 TempData["ErrorMessage"] =
-                    "Unit name or short name already exists.";
+                    dupName && dupShort
+                        ? $"A unit named '{name}' already exists and the abbreviation '{shortCode}' is already in use."
+                        : dupName
+                            ? $"A unit named '{name}' already exists."
+                            : $"The abbreviation '{shortCode}' is already in use.";
 
                 return RedirectToAction(nameof(Index));
             }
@@ -162,10 +214,18 @@ namespace HardwareManagementSystem.Controllers
                 HttpContext.Connection.RemoteIpAddress?.ToString()
             );
 
+            if (isAjax)
+                return Json(new { success = true, message = "Unit added successfully." });
+
             TempData["SuccessMessage"] = "Unit added successfully.";
 
             return RedirectToAction(nameof(Index));
         }
+
+        private static bool IsAjaxRequest(HttpRequest request) =>
+            string.Equals(request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+
+        private bool IsAjaxRequest() => IsAjaxRequest(Request);
 
         [HttpPost]
         [ValidateAntiForgeryToken]

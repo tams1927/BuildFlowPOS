@@ -16,17 +16,20 @@ namespace HardwareManagementSystem.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly AuditService _auditService;
         private readonly ApplicationDbContext _db;
+        private readonly ITenantSubscriptionAccessService _subscriptionAccess;
 
         public AccountController(
             SignInManager<ApplicationUser> signInManager,
             UserManager<ApplicationUser> userManager,
             AuditService auditService,
-            ApplicationDbContext db)
+            ApplicationDbContext db,
+            ITenantSubscriptionAccessService subscriptionAccess)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _auditService = auditService;
             _db = db;
+            _subscriptionAccess = subscriptionAccess;
         }
 
         // ============================================
@@ -81,39 +84,37 @@ namespace HardwareManagementSystem.Controllers
                 return View(model);
             }
 
-            // ── Tenant suspension / expiry guard ────────────────────────────────
+            // ── Tenant subscription access guard ────────────────────────────────
             // SuperAdmin (TenantId == null) bypasses this check entirely.
             if (user.TenantId.HasValue)
             {
                 var tenant = await _db.Tenants
                     .AsNoTracking()
-                    .Select(t => new { t.Id, t.Status, t.ExpirationDate })
                     .FirstOrDefaultAsync(t => t.Id == user.TenantId.Value);
 
                 if (tenant != null)
                 {
-                    bool dateExpired = tenant.ExpirationDate.HasValue
-                        && tenant.ExpirationDate.Value.Date < DateTime.UtcNow.Date;
+                    var access = _subscriptionAccess.Evaluate(tenant);
 
-                    bool isBlocked = tenant.Status == TenantStatus.Suspended
-                                  || tenant.Status == TenantStatus.Expired
-                                  || dateExpired;
-
-                    if (isBlocked)
+                    if (!access.IsAllowed)
                     {
                         await _auditService.LogAsync(
                             User,
                             "Authentication",
                             "LOGIN_TENANT_BLOCKED",
-                            $"Login blocked for '{user.UserName}' — tenant status: {tenant.Status}.",
+                            $"Login blocked for '{user.UserName}' — {access.ReasonCode}.",
                             "Login",
                             user.Id,
                             HttpContext.Connection.RemoteIpAddress?.ToString());
 
-                        TempData["ErrorMessage"] =
-                            "Your tenant account is suspended or expired. Please contact support.";
+                        HttpContext.Session.SetString("SubAccess_TenantName", tenant.Name);
+                        HttpContext.Session.SetString("SubAccess_Status", access.EffectiveStatus.ToString());
+                        HttpContext.Session.SetString("SubAccess_Message", access.Message);
+                        if (access.ExpirationDate.HasValue)
+                            HttpContext.Session.SetString("SubAccess_Expiration",
+                                access.ExpirationDate.Value.ToString("yyyy-MM-dd"));
 
-                        return View(model);
+                        return RedirectToAction(nameof(SubscriptionExpired));
                     }
                 }
             }
@@ -308,8 +309,19 @@ namespace HardwareManagementSystem.Controllers
         // ============================================
 
         [AllowAnonymous]
-        public IActionResult Suspended()
+        public IActionResult Suspended() => RedirectToAction(nameof(SubscriptionExpired));
+
+        [AllowAnonymous]
+        public IActionResult SubscriptionExpired()
         {
+            ViewBag.TenantName = HttpContext.Session.GetString("SubAccess_TenantName") ?? "Your organization";
+            ViewBag.Status = HttpContext.Session.GetString("SubAccess_Status") ?? "Expired";
+            ViewBag.Message = HttpContext.Session.GetString("SubAccess_Message")
+                ?? "Your subscription is no longer active. Please contact your administrator.";
+            var exp = HttpContext.Session.GetString("SubAccess_Expiration");
+            ViewBag.ExpirationDisplay = exp != null && DateTime.TryParse(exp, out var d)
+                ? d.ToString("MMMM d, yyyy")
+                : null;
             return View();
         }
     }

@@ -7,6 +7,8 @@ using HardwareManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace HardwareManagementSystem.Controllers
 {
@@ -113,10 +115,23 @@ namespace HardwareManagementSystem.Controllers
             string? remarks)
         {
             var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
+            var isAjax = IsAjaxRequest();
 
             if (string.IsNullOrWhiteSpace(supplierName))
             {
+                if (isAjax)
+                    return Json(new { success = false, errors = new Dictionary<string, string> { ["supplierName"] = "Supplier name is required." } });
+
                 TempData["ErrorMessage"] = "Supplier name is required.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (!string.IsNullOrWhiteSpace(email) && !new EmailAddressAttribute().IsValid(email.Trim()))
+            {
+                if (isAjax)
+                    return Json(new { success = false, errors = new Dictionary<string, string> { ["email"] = "Enter a valid email address or leave the field blank." } });
+
+                TempData["ErrorMessage"] = "Enter a valid email address or leave the field blank.";
                 return RedirectToAction(nameof(Index));
             }
 
@@ -136,6 +151,9 @@ namespace HardwareManagementSystem.Controllers
 
             if (exists)
             {
+                if (isAjax)
+                    return Json(new { success = false, errors = new Dictionary<string, string> { ["supplierName"] = "Supplier already exists." } });
+
                 TempData["ErrorMessage"] = "Supplier already exists.";
                 return RedirectToAction(nameof(Index));
             }
@@ -167,10 +185,18 @@ namespace HardwareManagementSystem.Controllers
                 HttpContext.Connection.RemoteIpAddress?.ToString()
             );
 
+            if (isAjax)
+                return Json(new { success = true, message = "Supplier added successfully." });
+
             TempData["SuccessMessage"] = "Supplier added successfully.";
 
             return RedirectToAction(nameof(Index));
         }
+
+        private static bool IsAjaxRequest(HttpRequest request) =>
+            string.Equals(request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+
+        private bool IsAjaxRequest() => IsAjaxRequest(Request);
 
         [HttpPost]
         [ValidateAntiForgeryToken]

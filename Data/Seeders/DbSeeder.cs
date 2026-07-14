@@ -135,8 +135,18 @@ namespace HardwareManagementSystem.Data.Seeders
 
             var permissionsToAdd = new List<RolePermission>();
 
+            // Cashier and InventoryStaff use restricted pilot permissions only.
+            var pilotOnlyRoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Cashier",
+                "InventoryStaff"
+            };
+
             foreach (var role in requiredRoles)
             {
+                if (pilotOnlyRoles.Contains(role))
+                    continue;
+
                 foreach (var module in modules)
                 {
                     var key = role + "|" + module;
@@ -202,6 +212,58 @@ namespace HardwareManagementSystem.Data.Seeders
                 await context.RolePermissions.AddRangeAsync(permissionsToAdd);
                 await context.SaveChangesAsync();
             }
+
+            await RepairPilotRolePermissionsAsync(context, modules);
+        }
+
+        /// <summary>
+        /// Ensures Cashier and InventoryStaff permissions match pilot defaults,
+        /// correcting any full-access rows seeded before pilot restrictions.
+        /// </summary>
+        private static async Task RepairPilotRolePermissionsAsync(
+            ApplicationDbContext context,
+            List<string> modules)
+        {
+            var desired = BuildPilotRolePermissions(new List<string>(), modules);
+            if (!desired.Any())
+                return;
+
+            var roleNames = desired.Select(p => p.RoleName).Distinct().ToList();
+            var moduleNames = desired.Select(p => p.ModuleName).Distinct().ToList();
+
+            var existing = await context.RolePermissions
+                .Where(p => roleNames.Contains(p.RoleName) && moduleNames.Contains(p.ModuleName))
+                .ToListAsync();
+
+            foreach (var group in existing.GroupBy(p => p.RoleName + "|" + p.ModuleName).Where(g => g.Count() > 1))
+            {
+                foreach (var duplicate in group.Skip(1))
+                    context.RolePermissions.Remove(duplicate);
+            }
+
+            var lookup = existing
+                .GroupBy(p => p.RoleName + "|" + p.ModuleName)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            foreach (var perm in desired)
+            {
+                var key = perm.RoleName + "|" + perm.ModuleName;
+                if (lookup.TryGetValue(key, out var row))
+                {
+                    row.CanView = perm.CanView;
+                    row.CanCreate = perm.CanCreate;
+                    row.CanEdit = perm.CanEdit;
+                    row.CanDelete = perm.CanDelete;
+                    row.CanPrint = perm.CanPrint;
+                    row.CanExport = perm.CanExport;
+                }
+                else
+                {
+                    context.RolePermissions.Add(perm);
+                }
+            }
+
+            await context.SaveChangesAsync();
         }
 
         /// <summary>Default permissions for pilot roles not covered by the admin seed loop.</summary>

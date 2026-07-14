@@ -57,6 +57,14 @@ namespace HardwareManagementSystem.Controllers
             var currentBranch = await _branchService.GetCurrentBranchAsync(User);
             ViewBag.CurrentBranch = currentBranch;
 
+            if (_tenantContext.CurrentTenantId.HasValue)
+            {
+                var tenantId = _tenantContext.CurrentTenantId.Value;
+                ViewBag.ShowSetupGuide = !await _context.Branches
+                    .AsNoTracking()
+                    .AnyAsync(b => b.TenantId == tenantId && b.IsActive);
+            }
+
             // ── Sales KPIs ────────────────────────────────────────────
             var salesQuery = _context.SalesHeaders
                 .AsNoTracking()

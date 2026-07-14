@@ -1,0 +1,21 @@
+{
+  "tenantId": 1,
+  "timestampUtc": "2026-07-14T21:01:22.9252709Z",
+  "database": "HardBuild_TCS_1",
+  "counts": {
+    "SalesHeaders": 1,
+    "SalesDetails": 1,
+    "CustomerLedgers": 1,
+    "SupplierPayments": 0,
+    "PurchaseOrders": 1,
+    "PurchaseOrderItems": 1,
+    "StockInHeaders": 1,
+    "StockInDetails": 1,
+    "StockAdjustmentHeaders": 1,
+    "StockAdjustmentDetails": 1,
+    "BranchProductStocks": 1,
+    "AuditTrails": 19,
+    "Units": 2,
+    "Suppliers": 1
+  }
+}

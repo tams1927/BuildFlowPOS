@@ -13,16 +13,16 @@
   "RetainedAdminId": "f1ab407e-0c54-4445-8459-6b2ffd733ad6",
   "BeforeCounts": {
     "Branches": 1,
-    "Items": 1,
+    "Items": 3,
     "Categories": 1,
-    "Units": 1,
-    "Customers": 0,
-    "Suppliers": 1,
-    "SalesHeaders": 0,
-    "PurchaseOrders": 1,
-    "StockInHeaders": 2,
+    "Units": 3,
+    "Customers": 3,
+    "Suppliers": 3,
+    "SalesHeaders": 1,
+    "PurchaseOrders": 3,
+    "StockInHeaders": 6,
     "SystemSettings": 1,
-    "AuditTrails": 4
+    "AuditTrails": 25
   },
   "AfterCounts": {
     "Branches": 0,

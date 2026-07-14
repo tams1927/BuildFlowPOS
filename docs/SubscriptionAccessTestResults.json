@@ -1,0 +1,81 @@
+{
+  "passed": 15,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "active_before_expiration",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "trial_before_expiration",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "trial_on_expiration_date",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "trial_day_after_expiration",
+      "pass": true,
+      "detail": "Your subscription expired on July 14, 2026. Please contact your administrator or renew your subscription to continue."
+    },
+    {
+      "name": "status_expired",
+      "pass": true,
+      "detail": "Your subscription expired on December 31, 2026. Please contact your administrator or renew your subscription to continue."
+    },
+    {
+      "name": "suspended",
+      "pass": true,
+      "detail": "Your tenant account is currently suspended. Please contact support."
+    },
+    {
+      "name": "disabled_tenant",
+      "pass": true,
+      "detail": "Your tenant account is disabled. Please contact support."
+    },
+    {
+      "name": "no_subscription",
+      "pass": true,
+      "detail": "No active subscription is assigned to this tenant."
+    },
+    {
+      "name": "manila_july15_utc_july14",
+      "pass": true,
+      "detail": "today=7/15/2026"
+    },
+    {
+      "name": "last_minute_expiration_day",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "month_end_expired",
+      "pass": true,
+      "detail": "Your subscription expired on January 31, 2026. Please contact your administrator or renew your subscription to continue."
+    },
+    {
+      "name": "year_end_inclusive",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "leap_year_expired",
+      "pass": true,
+      "detail": "Your subscription expired on February 29, 2024. Please contact your administrator or renew your subscription to continue."
+    },
+    {
+      "name": "active_with_plan_no_expiration",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tcs_july15_manila_blocked",
+      "pass": true,
+      "detail": "Your subscription expired on July 14, 2026. Please contact your administrator or renew your subscription to continue."
+    }
+  ]
+}

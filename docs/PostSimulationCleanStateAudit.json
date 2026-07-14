@@ -1,5 +1,5 @@
 {
-  "timestampUtc": "2026-07-14T17:47:45.2998082Z",
+  "timestampUtc": "2026-07-14T21:04:58.0578212Z",
   "tenantId": 1,
   "checks": [
     {
@@ -30,7 +30,7 @@
     {
       "name": "superadmin_login",
       "pass": true,
-      "detail": "SUPERADMIN_PASSWORD not set \u2014 existence only (skipped password check)"
+      "detail": "password check"
     },
     {
       "name": "adminTCS_exists",
@@ -115,7 +115,7 @@
     {
       "name": "other_tenants_unchanged",
       "pass": true,
-      "detail": "2 other tenant(s) present"
+      "detail": "3 other tenant(s) present"
     },
     {
       "name": "prod_gate",

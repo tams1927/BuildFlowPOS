@@ -29,6 +29,9 @@ namespace HardwareManagementSystem.Controllers
         private readonly ITenantSchemaMigrationService _schemaMigrationService;
         private readonly ILogger<TenantsController> _logger;
         private readonly TenantDatabaseSettings _dbSettings;
+        private readonly ITenantSubscriptionAccessService _subscriptionAccess;
+        private readonly ITenantSubscriptionCacheInvalidator _subscriptionCache;
+        private readonly IBusinessClock _businessClock;
 
         public TenantsController(
             ApplicationDbContext context,
@@ -41,7 +44,10 @@ namespace HardwareManagementSystem.Controllers
             ITenantDataMigrationService dataMigrationService,
             ITenantSchemaMigrationService schemaMigrationService,
             ILogger<TenantsController> logger,
-            IOptions<TenantDatabaseSettings> dbSettings)
+            IOptions<TenantDatabaseSettings> dbSettings,
+            ITenantSubscriptionAccessService subscriptionAccess,
+            ITenantSubscriptionCacheInvalidator subscriptionCache,
+            IBusinessClock businessClock)
         {
             _context    = context;
             _auditService = auditService;
@@ -54,6 +60,9 @@ namespace HardwareManagementSystem.Controllers
             _schemaMigrationService = schemaMigrationService;
             _logger = logger;
             _dbSettings = dbSettings.Value;
+            _subscriptionAccess = subscriptionAccess;
+            _subscriptionCache = subscriptionCache;
+            _businessClock = businessClock;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -86,9 +95,10 @@ namespace HardwareManagementSystem.Controllers
 
             if (tenant == null) return NotFound();
 
-            // Usage summary
+            // Usage summary + subscription access (centralized)
             var usage = await _limitGuard.GetUsageAsync(id);
             ViewBag.Usage = usage;
+            ViewBag.SubscriptionAccess = _subscriptionAccess.Evaluate(tenant);
 
             // Tenant users (exclude SuperAdmin)
             var tenantUsers = await _userManager.Users
@@ -460,6 +470,8 @@ namespace HardwareManagementSystem.Controllers
 
             await _context.SaveChangesAsync();
 
+            _subscriptionCache.InvalidateTenant(id);
+
             await _auditService.LogAsync(User, "Tenants", "Edit",
                 $"Tenant updated: {existing.Name} ({existing.Code})");
 
@@ -482,6 +494,7 @@ namespace HardwareManagementSystem.Controllers
             tenant.IsActive     = false;
             tenant.UpdatedAtUtc = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+            _subscriptionCache.InvalidateTenant(id);
 
             await _auditService.LogAsync(User, "Tenants", "TENANT_SUSPENDED",
                 $"Tenant suspended: {tenant.Name} ({tenant.Code})",
@@ -502,6 +515,7 @@ namespace HardwareManagementSystem.Controllers
             tenant.IsActive     = true;
             tenant.UpdatedAtUtc = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+            _subscriptionCache.InvalidateTenant(id);
 
             await _auditService.LogAsync(User, "Tenants", "TENANT_REACTIVATED",
                 $"Tenant reactivated: {tenant.Name} ({tenant.Code})",
@@ -509,6 +523,98 @@ namespace HardwareManagementSystem.Controllers
 
             TempData["SuccessMessage"] = $"Tenant '{tenant.Name}' has been reactivated.";
             return RedirectToAction(nameof(Index));
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // EXTEND / RENEW SUBSCRIPTION
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ExtendSubscription(
+            int id,
+            int? extendDays,
+            int? extendMonths,
+            DateTime? newExpirationDate,
+            bool reactivateTrial = false)
+        {
+            var tenant = await _context.Tenants.FindAsync(id);
+            if (tenant == null) return NotFound();
+
+            var businessToday = _businessClock.BusinessToday;
+            var oldExpiration = tenant.ExpirationDate;
+            var oldStatus = tenant.Status;
+
+            if (extendDays.HasValue && extendDays.Value <= 0)
+            {
+                TempData["ErrorMessage"] = "Extension days must be greater than zero.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            if (extendMonths.HasValue && extendMonths.Value <= 0)
+            {
+                TempData["ErrorMessage"] = "Extension months must be greater than zero.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
+            DateTime computed;
+            if (newExpirationDate.HasValue)
+            {
+                var picked = DateOnly.FromDateTime(newExpirationDate.Value.Date);
+                if (picked <= businessToday)
+                {
+                    TempData["ErrorMessage"] = "New expiration must be after the current business date.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+                computed = picked.ToDateTime(TimeOnly.MinValue);
+            }
+            else if (extendDays.HasValue && extendDays.Value > 0)
+            {
+                var baseDate = ExtensionBaseDate(tenant.ExpirationDate, businessToday);
+                computed = baseDate.AddDays(extendDays.Value);
+            }
+            else if (extendMonths.HasValue && extendMonths.Value > 0)
+            {
+                var baseDate = ExtensionBaseDate(tenant.ExpirationDate, businessToday);
+                computed = baseDate.AddMonths(extendMonths.Value);
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Provide extension days, months, or a new expiration date.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
+            tenant.ExpirationDate = computed;
+            if (tenant.Status is TenantStatus.Expired or TenantStatus.Suspended || reactivateTrial)
+                tenant.Status = reactivateTrial ? TenantStatus.Trial : TenantStatus.Active;
+            tenant.IsActive = true;
+            tenant.UpdatedAtUtc = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            _subscriptionCache.InvalidateTenant(id);
+
+            await _auditService.LogAsync(User, "Tenants", "SUBSCRIPTION_EXTENDED",
+                $"Subscription extended for {tenant.Name} ({tenant.Code}): " +
+                $"status {oldStatus} → {tenant.Status}, " +
+                $"expiration {(oldExpiration?.ToString("yyyy-MM-dd") ?? "none")} → {computed:yyyy-MM-dd}",
+                "Tenant", tenant.Id.ToString());
+
+            TempData["SuccessMessage"] =
+                $"Subscription extended to {computed:MMMM d, yyyy}. Tenant access is restored on next login.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        /// <summary>
+        /// Active: extend from existing expiration. Expired: extend from current business date.
+        /// </summary>
+        private static DateTime ExtensionBaseDate(DateTime? currentExpiration, DateOnly businessToday)
+        {
+            if (!currentExpiration.HasValue)
+                return businessToday.ToDateTime(TimeOnly.MinValue);
+
+            var cur = DateOnly.FromDateTime(currentExpiration.Value.Date);
+            var access = cur >= businessToday;
+            var baseDate = access ? cur : businessToday;
+            return baseDate.ToDateTime(TimeOnly.MinValue);
         }
 
         // ─────────────────────────────────────────────────────────────

@@ -23,15 +23,18 @@ namespace HardwareManagementSystem.Services
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ITenantOperationalContextProvider _operationalContextProvider;
+        private readonly ITenantSubscriptionAccessService _subscriptionAccess;
 
         public TenantLimitGuard(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            ITenantOperationalContextProvider operationalContextProvider)
+            ITenantOperationalContextProvider operationalContextProvider,
+            ITenantSubscriptionAccessService subscriptionAccess)
         {
             _context = context;
             _userManager = userManager;
             _operationalContextProvider = operationalContextProvider;
+            _subscriptionAccess = subscriptionAccess;
         }
 
         public record LimitCheckResult(bool Allowed, string Message, int Current, int Max);
@@ -112,6 +115,7 @@ namespace HardwareManagementSystem.Services
                 return new TenantUsageSummary();
 
             var opDb = await _operationalContextProvider.GetContextAsync(tenantId);
+            var access = _subscriptionAccess.Evaluate(tenant);
 
             return new TenantUsageSummary
             {
@@ -119,6 +123,10 @@ namespace HardwareManagementSystem.Services
                 TenantName   = tenant.Name,
                 PlanName     = tenant.SubscriptionPlan?.Name ?? "Custom",
                 Status       = tenant.Status,
+                EffectiveStatus = access.EffectiveStatus,
+                IsAccessAllowed = access.IsAllowed,
+                AccessMessage = access.Message,
+                RequiresRenewal = access.RequiresRenewal,
                 ExpirationDate = tenant.ExpirationDate,
                 Branches     = await opDb.Branches.CountAsync(b => b.TenantId == tenantId && b.IsActive),
                 MaxBranches  = tenant.EffectiveMaxBranches,
@@ -136,6 +144,11 @@ namespace HardwareManagementSystem.Services
         public string TenantName { get; set; } = string.Empty;
         public string PlanName { get; set; } = string.Empty;
         public TenantStatus Status { get; set; }
+        /// <summary>Status after applying expiration date rules (may differ from stored Status).</summary>
+        public TenantStatus EffectiveStatus { get; set; }
+        public bool IsAccessAllowed { get; set; } = true;
+        public bool RequiresRenewal { get; set; }
+        public string AccessMessage { get; set; } = string.Empty;
         public DateTime? ExpirationDate { get; set; }
         public int Branches  { get; set; }
         public int MaxBranches { get; set; }

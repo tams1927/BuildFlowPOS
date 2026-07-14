@@ -45,6 +45,19 @@
     var subUsage = ViewBag.SubscriptionUsage as HardwareManagementSystem.Services.TenantUsageSummary;
 }
 
+@if (ViewBag.ShowSetupGuide == true)
+{
+    <div class="alert alert-warning border-0 rounded-3 py-3 px-4 mb-4">
+        <div class="d-flex align-items-start gap-3">
+            <i class="bi bi-compass fs-4"></i>
+            <div>
+                <strong>Your store is not set up yet.</strong>
+                <p class="mb-0 small">Start with <a asp-controller="Settings" asp-action="Index">Settings</a>, then create a <a asp-controller="Branches" asp-action="Index">branch</a>, units, categories, suppliers, and products before using POS or purchase orders.</p>
+            </div>
+        </div>
+    </div>
+}
+
 @if (currentBranch != null)
 {
     <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-4 d-flex align-items-center gap-2 small">
@@ -63,25 +76,37 @@
                 </h2>
                 <div class="hb-section-subtitle">
                     Plan: <strong>@subUsage.PlanName</strong>
-                    &nbsp;�&nbsp;
-                    Status:&nbsp;
-                    @if (subUsage.Status.ToString() == "Active")
+                    <span class="text-muted mx-1">|</span>
+                    Status:
+                    @{
+                        var effStatus = subUsage.EffectiveStatus;
+                    }
+                    @if (effStatus == HardwareManagementSystem.Models.TenantStatus.Active)
                     {
                         <span class="badge badge-soft-success">Active</span>
                     }
-                    else if (subUsage.Status.ToString() == "Suspended")
+                    else if (effStatus == HardwareManagementSystem.Models.TenantStatus.Trial)
+                    {
+                        <span class="badge badge-soft-info">Trial</span>
+                    }
+                    else if (effStatus == HardwareManagementSystem.Models.TenantStatus.Suspended)
                     {
                         <span class="badge badge-soft-warning">Suspended</span>
                     }
                     else
                     {
-                        <span class="badge badge-soft-danger">@subUsage.Status</span>
+                        <span class="badge badge-soft-danger">Expired</span>
                     }
                     @if (subUsage.ExpirationDate.HasValue)
                     {
                         <span class="ms-2 text-muted small">
-                            &nbsp;�&nbsp; Expires: @subUsage.ExpirationDate.Value.ToString("MMM dd, yyyy")
+                            <span class="text-muted mx-1">|</span>
+                            Expires: @subUsage.ExpirationDate.Value.ToString("MMM dd, yyyy")
                         </span>
+                    }
+                    @if (!subUsage.IsAccessAllowed)
+                    {
+                        <span class="ms-2 badge bg-danger">Renewal required</span>
                     }
                 </div>
             </div>

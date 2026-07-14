@@ -5,6 +5,7 @@
 @{
     ViewData["Title"] = "Tenant Details";
     var usage = ViewBag.Usage as TenantUsageSummary ?? new TenantUsageSummary();
+    var subAccess = ViewBag.SubscriptionAccess as TenantSubscriptionAccessResult;
     var users = ViewBag.Users as List<TenantUserVm> ?? new List<TenantUserVm>();
     int pendingMigrations = ViewBag.PendingMigrations is int pm ? pm : 0;
 }
@@ -51,6 +52,15 @@
         </a>
     </div>
 </div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
 
 <!-- ?? Tenant Info + Usage ???????????????????????????????????? -->
 <div class="row g-3 mb-4">
@@ -102,7 +112,10 @@
                     <div class="col-md-6">
                         <div class="text-muted small">Status</div>
                         <div>
-                            @switch (Model.Status)
+                            @{
+                                var eff = subAccess?.EffectiveStatus ?? Model.Status;
+                            }
+                            @switch (eff)
                             {
                                 case TenantStatus.Active:
                                     <span class="badge badge-soft-success">Active</span>
@@ -117,6 +130,10 @@
                                     <span class="badge badge-soft-warning">Expired</span>
                                     break;
                             }
+                            @if (subAccess != null && !subAccess.IsAllowed)
+                            {
+                                <span class="badge badge-soft-danger ms-1">Access denied</span>
+                            }
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -124,9 +141,12 @@
                         <div>
                             @if (Model.ExpirationDate.HasValue)
                             {
-                                <span class="@(Model.IsExpired ? "text-danger fw-semibold" : "")">
+                                <span class="@(subAccess != null && !subAccess.IsAllowed && subAccess.ReasonCode == SubscriptionAccessReasonCode.DateExpired ? "text-danger fw-semibold" : "")">
                                     @Model.ExpirationDate.Value.ToString("MMM dd, yyyy")
-                                    @if (Model.IsExpired) { <span class="badge badge-soft-danger ms-1">Expired</span> }
+                                    @if (subAccess != null && !subAccess.IsAllowed && subAccess.ReasonCode == SubscriptionAccessReasonCode.DateExpired)
+                                    {
+                                        <span class="badge badge-soft-danger ms-1">Expired</span>
+                                    }
                                 </span>
                             }
                             else
@@ -193,6 +213,52 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Extend / renew subscription -->
+<div class="card mb-4">
+    <div class="card-header fw-semibold">
+        <i class="bi bi-calendar-plus me-2"></i>Extend or Renew Subscription
+    </div>
+    <div class="card-body">
+        @if (subAccess != null)
+        {
+            <p class="small text-muted mb-3">
+                Effective access: <strong>@subAccess.EffectiveStatus</strong>
+                @if (subAccess.ExpirationDate.HasValue)
+                {
+                    <span> — expires @subAccess.ExpirationDate.Value.ToString("MMM dd, yyyy")</span>
+                }
+            </p>
+        }
+        <form asp-action="ExtendSubscription" asp-route-id="@Model.Id" method="post" class="row g-3 align-items-end">
+            @Html.AntiForgeryToken()
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Extend by days</label>
+                <input type="number" name="extendDays" class="form-control" min="0" placeholder="e.g. 30" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Extend by months</label>
+                <input type="number" name="extendMonths" class="form-control" min="0" placeholder="e.g. 1" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Or set expiration date</label>
+                <input type="date" name="newExpirationDate" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="reactivateTrial" value="true" id="reactivateTrial" />
+                    <label class="form-check-label small" for="reactivateTrial">Reactivate as Trial</label>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-arrow-repeat me-1"></i> Apply Extension
+                </button>
+            </div>
+        </form>
+        <p class="small text-muted mt-2 mb-0">
+            Expired tenants extend from today's business date. Active tenants extend from the current expiration date.
+        </p>
     </div>
 </div>
 
