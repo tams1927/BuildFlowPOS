@@ -6,19 +6,31 @@ using Microsoft.EntityFrameworkCore;
 namespace HardwareManagementSystem.Tools
 {
     /// <summary>
-    /// Dev-only: verify tenant admin password from TENANT_ADMIN_PASSWORD env.
+    /// Dev-only: verify user password from environment (never CLI args).
     ///   set TENANT_ADMIN_PASSWORD=&lt;secret&gt;
     ///   dotnet run -- --verify-admin-login --user=adminTCS
+    ///   set SUPERADMIN_PASSWORD=&lt;secret&gt;
+    ///   dotnet run -- --verify-admin-login --user=superadmin
     /// </summary>
     public static class VerifyAdminLoginRunner
     {
         public static async Task RunAsync(WebApplication app, string[] args)
         {
             var user = GetArg(args, "--user");
-            var pass = Environment.GetEnvironmentVariable("TENANT_ADMIN_PASSWORD");
-            if (user == null || string.IsNullOrWhiteSpace(pass))
+            if (user == null)
             {
-                Console.WriteLine("Usage: set TENANT_ADMIN_PASSWORD then --verify-admin-login --user=NAME");
+                Console.WriteLine("Usage: set TENANT_ADMIN_PASSWORD or SUPERADMIN_PASSWORD then --verify-admin-login --user=NAME");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            var envKey = user.Equals("superadmin", StringComparison.OrdinalIgnoreCase)
+                ? "SUPERADMIN_PASSWORD"
+                : "TENANT_ADMIN_PASSWORD";
+            var pass = Environment.GetEnvironmentVariable(envKey);
+            if (string.IsNullOrWhiteSpace(pass))
+            {
+                Console.WriteLine($"Usage: set {envKey} then --verify-admin-login --user={user}");
                 Environment.ExitCode = 1;
                 return;
             }
