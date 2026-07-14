@@ -1,0 +1,121 @@
+[
+  {
+    "key": "superadmin_login",
+    "url": "/Account/Login",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "adminTCS_login",
+    "url": "/Account/Login",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "tenant_home",
+    "url": "/Home/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "settings",
+    "url": "/Settings/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "branches",
+    "url": "/Branches/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "units",
+    "url": "/Units/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "categories",
+    "url": "/Categories/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "suppliers",
+    "url": "/Suppliers/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "customers",
+    "url": "/Customers/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "products",
+    "url": "/Products/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "purchaseorders",
+    "url": "/PurchaseOrders/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "receiving",
+    "url": "/Receiving/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "inventory",
+    "url": "/Inventory/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "pos",
+    "url": "/POS/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "reports",
+    "url": "/Reports/Index",
+    "status": 200,
+    "ok": true,
+    "note": ""
+  },
+  {
+    "key": "sim_cashier_absent",
+    "url": "/Account/Login",
+    "status": 200,
+    "ok": true,
+    "note": "final=https://localhost:7232/"
+  },
+  {
+    "key": "tenant_saas_blocked",
+    "url": "/Tenants/Index",
+    "status": 200,
+    "ok": true,
+    "note": "https://localhost:7232/Account/AccessDenied?ReturnUrl=%2FTenants%2FIndex"
+  }
+]

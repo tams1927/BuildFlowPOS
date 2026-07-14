@@ -72,6 +72,7 @@ builder.Services.AddScoped<ITenantDatabaseProvisioningService, TenantDatabasePro
 builder.Services.AddScoped<ITenantDataMigrationService, TenantDataMigrationService>();
 builder.Services.AddScoped<ITenantSchemaMigrationService, TenantSchemaMigrationService>();
 builder.Services.AddScoped<ITenantOperationalContextProvider, TenantOperationalContextProvider>();
+builder.Services.AddScoped<HardwareManagementSystem.Data.Seeders.TenantOperationalResetService>();
 
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 builder.Services.Configure<TenantDatabaseSettings>(builder.Configuration.GetSection("TenantDatabaseSettings"));
@@ -341,6 +342,30 @@ if (args.Contains("--qa-tenant-runtime-audit"))
 if (args.Contains("--qa-pdf-layout"))
 {
     await HardwareManagementSystem.Tools.PdfLayoutQaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--tenant-reset"))
+{
+    await HardwareManagementSystem.Tools.TenantCleanResetRunner.RunAsync(app, args);
+    return;
+}
+
+if (args.Contains("--verify-admin-login"))
+{
+    await HardwareManagementSystem.Tools.VerifyAdminLoginRunner.RunAsync(app, args);
+    return;
+}
+
+if (args.Contains("--set-tenant-admin-password"))
+{
+    await HardwareManagementSystem.Tools.SetTenantAdminPasswordRunner.RunAsync(app, args);
+    return;
+}
+
+if (args.Contains("--qa-post-simulation-clean-state"))
+{
+    await HardwareManagementSystem.Tools.PostSimulationCleanStateQaRunner.RunAsync(app);
     return;
 }
 

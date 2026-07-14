@@ -1,0 +1,173 @@
+{
+  "timestampUtc": "2026-07-14T17:47:45.2998082Z",
+  "tenantId": 1,
+  "checks": [
+    {
+      "name": "tenant_exists",
+      "pass": true,
+      "detail": "Tams Construction Supply (TCS)"
+    },
+    {
+      "name": "routing_active",
+      "pass": true,
+      "detail": "TargetDatabase=HardBuild_TCS_1"
+    },
+    {
+      "name": "target_database",
+      "pass": true,
+      "detail": "Expected HardBuild_TCS_1, got HardBuild_TCS_1"
+    },
+    {
+      "name": "platform_db_distinct",
+      "pass": true,
+      "detail": "Platform=BuildflowposDb, Tenant=HardBuild_TCS_1"
+    },
+    {
+      "name": "superadmin_exists",
+      "pass": true,
+      "detail": "a8da1a6e-50e0-4d60-8833-383806e76d0f"
+    },
+    {
+      "name": "superadmin_login",
+      "pass": true,
+      "detail": "SUPERADMIN_PASSWORD not set \u2014 existence only (skipped password check)"
+    },
+    {
+      "name": "adminTCS_exists",
+      "pass": true,
+      "detail": "f1ab407e-0c54-4445-8459-6b2ffd733ad6"
+    },
+    {
+      "name": "adminTCS_login",
+      "pass": true,
+      "detail": "password check"
+    },
+    {
+      "name": "sim_cashier_absent",
+      "pass": true,
+      "detail": "not found"
+    },
+    {
+      "name": "rows_Branches",
+      "pass": true,
+      "detail": "Branches=0"
+    },
+    {
+      "name": "rows_Units",
+      "pass": true,
+      "detail": "Units=0"
+    },
+    {
+      "name": "rows_Categories",
+      "pass": true,
+      "detail": "Categories=0"
+    },
+    {
+      "name": "rows_Suppliers",
+      "pass": true,
+      "detail": "Suppliers=0"
+    },
+    {
+      "name": "rows_Customers",
+      "pass": true,
+      "detail": "Customers=0"
+    },
+    {
+      "name": "rows_Items",
+      "pass": true,
+      "detail": "Items=0"
+    },
+    {
+      "name": "rows_PurchaseOrders",
+      "pass": true,
+      "detail": "PurchaseOrders=0"
+    },
+    {
+      "name": "rows_StockInHeaders",
+      "pass": true,
+      "detail": "StockInHeaders=0"
+    },
+    {
+      "name": "rows_BranchProductStocks",
+      "pass": true,
+      "detail": "BranchProductStocks=0"
+    },
+    {
+      "name": "rows_SalesHeaders",
+      "pass": true,
+      "detail": "SalesHeaders=0"
+    },
+    {
+      "name": "rows_Expenses",
+      "pass": true,
+      "detail": "Expenses=0"
+    },
+    {
+      "name": "rows_AuditTrails",
+      "pass": true,
+      "detail": "AuditTrails=0"
+    },
+    {
+      "name": "rows_SystemSettings",
+      "pass": true,
+      "detail": "SystemSettings=0"
+    },
+    {
+      "name": "other_tenants_unchanged",
+      "pass": true,
+      "detail": "2 other tenant(s) present"
+    },
+    {
+      "name": "prod_gate",
+      "pass": true,
+      "detail": "TenantCleanResetRunner \u002B TenantOperationalResetService reject non-Development"
+    },
+    {
+      "name": "invalid_tenant_rejected",
+      "pass": true,
+      "detail": "tenant 99999 not found"
+    },
+    {
+      "name": "preview_shows_tenant",
+      "pass": true,
+      "detail": "Tams Construction Supply"
+    },
+    {
+      "name": "preview_shows_db",
+      "pass": true,
+      "detail": "HardBuild_TCS_1"
+    },
+    {
+      "name": "preview_dry_run",
+      "pass": true,
+      "detail": "DryRun=true without --confirm"
+    },
+    {
+      "name": "retain_admin_listed",
+      "pass": true,
+      "detail": "adminTCS"
+    },
+    {
+      "name": "retain_admin_not_deleted",
+      "pass": true,
+      "detail": "adminTCS excluded"
+    }
+  ],
+  "rowCounts": {
+    "Branches": 0,
+    "Units": 0,
+    "Categories": 0,
+    "Suppliers": 0,
+    "Customers": 0,
+    "Items": 0,
+    "PurchaseOrders": 0,
+    "StockInHeaders": 0,
+    "BranchProductStocks": 0,
+    "SalesHeaders": 0,
+    "Expenses": 0,
+    "AuditTrails": 0,
+    "SystemSettings": 0
+  },
+  "passed": 30,
+  "failed": 0
+}

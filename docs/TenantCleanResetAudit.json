@@ -1,0 +1,41 @@
+{
+  "DryRun": false,
+  "Success": true,
+  "TenantId": 1,
+  "TenantCode": "TCS",
+  "TenantName": "Tams Construction Supply",
+  "RoutingEnabled": true,
+  "RoutingActive": true,
+  "DatabaseMode": "Dedicated",
+  "TargetDatabase": "HardBuild_TCS_1",
+  "MaskedConnection": "Server=.\\MSSQL_SYSDEV; Database=HardBuild_TCS_1; (credentials hidden)",
+  "RetainedAdminUsername": "adminTCS",
+  "RetainedAdminId": "f1ab407e-0c54-4445-8459-6b2ffd733ad6",
+  "BeforeCounts": {
+    "Branches": 1,
+    "Items": 1,
+    "Categories": 1,
+    "Units": 1,
+    "Customers": 0,
+    "Suppliers": 1,
+    "SalesHeaders": 0,
+    "PurchaseOrders": 1,
+    "StockInHeaders": 2,
+    "SystemSettings": 1,
+    "AuditTrails": 4
+  },
+  "AfterCounts": {
+    "Branches": 0,
+    "Items": 0,
+    "Categories": 0,
+    "Units": 0,
+    "Customers": 0,
+    "Suppliers": 0,
+    "SalesHeaders": 0,
+    "PurchaseOrders": 0,
+    "StockInHeaders": 0,
+    "SystemSettings": 0,
+    "AuditTrails": 0
+  },
+  "UsersToDelete": []
+}
