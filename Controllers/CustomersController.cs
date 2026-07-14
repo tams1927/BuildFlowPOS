@@ -14,6 +14,7 @@ namespace HardwareManagementSystem.Controllers
     [PermissionAuthorize("Customers", "View")]
     public class CustomersController : OperationalDbController
     {
+        private readonly ApplicationDbContext _platformDb;
         private readonly AuditService _auditService;
         private readonly ITenantContext _tenantContext;
         private readonly TenantGuard _tenantGuard;
@@ -21,12 +22,14 @@ namespace HardwareManagementSystem.Controllers
 
         public CustomersController(
             ITenantOperationalContextProvider ctxProvider,
+            ApplicationDbContext platformDb,
             AuditService auditService,
             ITenantContext tenantContext,
             TenantGuard tenantGuard,
             DocumentPdfService pdfService)
             : base(ctxProvider)
         {
+            _platformDb = platformDb;
             _auditService = auditService;
             _tenantContext = tenantContext;
             _tenantGuard = tenantGuard;
@@ -438,7 +441,6 @@ namespace HardwareManagementSystem.Controllers
             var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
 
             var customer = await _context.Customers.AsNoTracking()
-                .Include(c => c.Tenant)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (customer == null) return NotFound();
@@ -477,8 +479,16 @@ namespace HardwareManagementSystem.Controllers
                 TotalCredits     = transactions.Sum(t => t.CreditAmount)
             };
 
-            var bytes = _pdfService.GenerateCustomerSOAPdf(vm, settings, customer.Tenant, settings?.LogoPath);
+            var printTenant = await ResolvePlatformTenantAsync(customer.TenantId);
+            var bytes = _pdfService.GenerateCustomerSOAPdf(vm, settings, printTenant, settings?.LogoPath);
             return File(bytes, "application/pdf", $"SOA-{customer.CustomerName}-{from:yyyyMMdd}-{to:yyyyMMdd}.pdf");
+        }
+
+        private async Task<Tenant?> ResolvePlatformTenantAsync(int? tenantId)
+        {
+            if (!tenantId.HasValue) return null;
+            return await _platformDb.Tenants.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == tenantId.Value);
         }
     }
 }

@@ -332,6 +332,18 @@ if (args.Contains("--qa-po-clickthrough"))
     return;
 }
 
+if (args.Contains("--qa-tenant-runtime-audit"))
+{
+    await HardwareManagementSystem.Tools.TenantRuntimeAuditQaRunner.RunAsync(app);
+    return;
+}
+
+if (args.Contains("--qa-pdf-layout"))
+{
+    await HardwareManagementSystem.Tools.PdfLayoutQaRunner.RunAsync(app);
+    return;
+}
+
 // ============================================
 // STARTUP SCHEMA DRIFT CHECK
 // ============================================

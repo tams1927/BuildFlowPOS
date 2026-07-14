@@ -29,6 +29,10 @@ namespace HardwareManagementSystem.Services.Pdf
             return File.Exists(abs) ? abs : null;
         }
 
+        /// <summary>Bounds header logo inside a fixed column so FitHeight cannot expand past page width.</summary>
+        private static void ComposeHeaderLogo(RowDescriptor row, string logoPath) =>
+            row.ConstantItem(60).PaddingRight(10).Height(50).Image(logoPath).FitArea();
+
         // ── Quotation ──────────────────────────────────────────────────
 
         public byte[] GenerateQuotationPdf(
@@ -58,10 +62,7 @@ namespace HardwareManagementSystem.Services.Pdf
                         col.Item().Row(row =>
                         {
                             if (absLogoPath != null)
-                            {
-                                row.ConstantItem(60).PaddingRight(10)
-                                    .Image(absLogoPath).FitHeight();
-                            }
+                                ComposeHeaderLogo(row, absLogoPath);
 
                             row.RelativeItem(2).Column(left =>
                             {
@@ -276,10 +277,7 @@ namespace HardwareManagementSystem.Services.Pdf
                         col.Item().Row(row =>
                         {
                             if (absLogoPath != null)
-                            {
-                                row.ConstantItem(60).PaddingRight(10)
-                                    .Image(absLogoPath).FitHeight();
-                            }
+                                ComposeHeaderLogo(row, absLogoPath);
 
                             row.RelativeItem(2).Column(left =>
                             {
@@ -471,10 +469,7 @@ namespace HardwareManagementSystem.Services.Pdf
                         col.Item().Row(row =>
                         {
                             if (absLogoPath != null)
-                            {
-                                row.ConstantItem(60).PaddingRight(10)
-                                    .Image(absLogoPath).FitHeight();
-                            }
+                                ComposeHeaderLogo(row, absLogoPath);
 
                             row.RelativeItem(2).Column(left =>
                             {
@@ -740,10 +735,7 @@ namespace HardwareManagementSystem.Services.Pdf
                         col.Item().Row(row =>
                         {
                             if (absLogoPath != null)
-                            {
-                                row.ConstantItem(60).PaddingRight(10)
-                                    .Image(absLogoPath).FitHeight();
-                            }
+                                ComposeHeaderLogo(row, absLogoPath);
 
                             row.RelativeItem(2).Column(left =>
                             {
@@ -947,7 +939,7 @@ namespace HardwareManagementSystem.Services.Pdf
                         col.Item().Row(row =>
                         {
                             if (absLogo != null)
-                                row.ConstantItem(60).PaddingRight(10).Image(absLogo).FitHeight();
+                                ComposeHeaderLogo(row, absLogo);
 
                             row.RelativeItem(2).Column(left =>
                             {
@@ -1126,7 +1118,7 @@ namespace HardwareManagementSystem.Services.Pdf
                         col.Item().Row(row =>
                         {
                             if (absLogo != null)
-                                row.ConstantItem(60).PaddingRight(10).Image(absLogo).FitHeight();
+                                ComposeHeaderLogo(row, absLogo);
 
                             row.RelativeItem(2).Column(left =>
                             {
@@ -1231,9 +1223,9 @@ namespace HardwareManagementSystem.Services.Pdf
                             }
                         });
 
-                        col.Item().PaddingTop(8).Row(totRow =>
+                        col.Item().PaddingTop(8).AlignRight().Row(totRow =>
                         {
-                            totRow.RelativeItem(3);
+                            totRow.RelativeItem(3).Text("");
                             totRow.RelativeItem().Column(summary =>
                             {
                                 summary.Item().Row(r =>

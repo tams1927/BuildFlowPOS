@@ -14,6 +14,7 @@ namespace HardwareManagementSystem.Controllers
     [PermissionAuthorize("Suppliers", "View")]
     public class SuppliersController : OperationalDbController
     {
+        private readonly ApplicationDbContext _platformDb;
         private readonly AuditService _auditService;
         private readonly ITenantContext _tenantContext;
         private readonly TenantGuard _tenantGuard;
@@ -21,12 +22,14 @@ namespace HardwareManagementSystem.Controllers
 
         public SuppliersController(
             ITenantOperationalContextProvider ctxProvider,
+            ApplicationDbContext platformDb,
             AuditService auditService,
             ITenantContext tenantContext,
             TenantGuard tenantGuard,
             DocumentPdfService pdfService)
             : base(ctxProvider)
         {
+            _platformDb = platformDb;
             _auditService = auditService;
             _tenantContext = tenantContext;
             _tenantGuard = tenantGuard;
@@ -348,7 +351,6 @@ namespace HardwareManagementSystem.Controllers
             var tenantId = await _tenantGuard.GetEffectiveTenantIdAsync();
 
             var supplier = await _context.Suppliers.AsNoTracking()
-                .Include(s => s.Tenant)
                 .FirstOrDefaultAsync(s => s.Id == id);
 
             if (supplier == null) return NotFound();
@@ -363,7 +365,8 @@ namespace HardwareManagementSystem.Controllers
                 .FirstOrDefaultAsync(s => s.TenantId == tenantId)
                 ?? new SystemSetting();
 
-            var bytes = _pdfService.GenerateSupplierStatementPdf(vm, settings, supplier.Tenant, settings?.LogoPath);
+            var printTenant = await ResolvePlatformTenantAsync(supplier.TenantId);
+            var bytes = _pdfService.GenerateSupplierStatementPdf(vm, settings, printTenant, settings?.LogoPath);
             return File(bytes, "application/pdf", $"SupplierStatement-{supplier.SupplierName}-{from:yyyyMMdd}-{to:yyyyMMdd}.pdf");
         }
 
@@ -458,6 +461,13 @@ namespace HardwareManagementSystem.Controllers
                 TotalPurchases   = lines.Sum(l => l.Debit),
                 TotalPayments    = lines.Sum(l => l.Credit)
             };
+        }
+
+        private async Task<Tenant?> ResolvePlatformTenantAsync(int? tenantId)
+        {
+            if (!tenantId.HasValue) return null;
+            return await _platformDb.Tenants.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == tenantId.Value);
         }
     }
 }
